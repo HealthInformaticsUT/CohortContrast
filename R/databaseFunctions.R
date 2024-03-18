@@ -97,7 +97,6 @@ generateTables <- function(connection,
             stringsAsFactors = FALSE
           )
         )
-      # print(cohortsToCreate)
     }
     ############################################################################
     #
