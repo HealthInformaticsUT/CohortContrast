@@ -18,7 +18,8 @@ CohortContrast(
   prevalenceCutOff = 10,
   topDogs = FALSE,
   presenceFilter = 0.005,
-  removeOutliers = TRUE
+  removeOutliers = TRUE,
+  complementaryMappingTable = FALSE
 )
 }
 \arguments{
@@ -45,6 +46,8 @@ CohortContrast(
 \item{presenceFilter}{numeric > if set, removes all features represented less than the given percentage}
 
 \item{removeOutliers}{boolean > if true this removes outlier patients from the target cohort, might cause loss of features}
+
+\item{complementaryMappingTable}{Mappingtable for mapping concept_ids if present}
 
 \item{cdmDataSchema}{Schema which contains the OHDSI Common Data Model.}
 }

@@ -14,6 +14,7 @@
 #' @param topDogs numeric > if set, keeps this number of features in the analysis, top n prevalence difference
 #' @param presenceFilter numeric > if set, removes all features represented less than the given percentage
 #' @param removeOutliers boolean > if true this removes outlier patients from the target cohort, might cause loss of features
+#' @param complementaryMappingTable Mappingtable for mapping concept_ids if present
 #'
 #' @keywords internal
 CohortContrast <- function(connection,
@@ -29,7 +30,8 @@ CohortContrast <- function(connection,
                          prevalenceCutOff = 10,
                          topDogs = FALSE,
                          presenceFilter = 0.005,
-                         removeOutliers = TRUE) {
+                         removeOutliers = TRUE,
+                         complementaryMappingTable = FALSE) {
   # List of hard-coded objects
   targetCohortId = 2  # cohort 2 is always the target because of alphabetical reasons
   clustersCentersNo = 4 # PCA plot cluster number
@@ -52,11 +54,27 @@ CohortContrast <- function(connection,
     domainsIncluded = domainsIncluded
   )
 
+
+  ## Mapping
+
+  # TODO mapp patients
+  if(is.data.frame(complementaryMappingTable)){
+    printCustomMessage("Mapping according to predefined complementaryMappingTable...")
+    # Join the dataframes on CONCEPT_ID
+    data$data_patients <-
+      dplyr::select(dplyr::mutate(dplyr::left_join(data$data_patients, complementaryMappingTable, by = "CONCEPT_ID", suffix = c("", ".compl")),
+                                  # Choose the complementaryMappingTable CONCEPT_NAME if it's not NA; otherwise, use the original
+                                  CONCEPT_NAME = ifelse(is.na(CONCEPT_NAME.compl), CONCEPT_NAME, CONCEPT_NAME.compl)),
+                    # Select and rename the columns to match the original concept_map structure
+                    COHORT_DEFINITION_ID, PERSON_ID, CONCEPT_ID, CONCEPT_NAME,PREVALENCE, HERITAGE)
+    # Ensuring that the updated_concept_map contains unique CONCEPT_ID entries
+
+     }
+
   printCustomMessage("Starting running analysis on data...")
   data_features = data$data_features
   data_patients = data$data_patients
   data_initial = data$data_initial
-
 
 
   ###########################################
@@ -81,12 +99,12 @@ CohortContrast <- function(connection,
     )
 
   # Separate the data for each cohort for easier analysis
-  cohort_1 <- dplyr::filter(agg_data, COHORT_DEFINITION_ID == 1)
-  cohort_2 <- dplyr::filter(agg_data, COHORT_DEFINITION_ID == 2)
+  cohort_1 <- dplyr::filter(agg_data, COHORT_DEFINITION_ID != targetCohortId)
+  cohort_2 <- dplyr::filter(agg_data, COHORT_DEFINITION_ID == targetCohortId)
 
   # Count of patients in each cohort
-  sample_1_n = nrow(dplyr::filter(data_initial, COHORT_DEFINITION_ID == 1))
-  sample_2_n = nrow(dplyr::filter(data_initial, COHORT_DEFINITION_ID == 2))
+  sample_1_n = nrow(dplyr::filter(data_initial, COHORT_DEFINITION_ID != targetCohortId))
+  sample_2_n = nrow(dplyr::filter(data_initial, COHORT_DEFINITION_ID == targetCohortId))
   # Prepare a data frame to hold the results
   significant_concepts <-
     data.frame(CONCEPT_ID = integer(), P_VALUE = double())
@@ -174,8 +192,22 @@ CohortContrast <- function(connection,
     CONCEPT_NAME,
     PREVALENCE
   )
-  #TODO we should also save the concept id's for cohorts #TODO:
-  resultList$selectedFeatureIds = features
+  # # TODO mapp patients
+  # if(is.data.frame(complementaryMappingTable)){
+  #   # Join the dataframes on CONCEPT_ID
+  #   patients <-
+  #     dplyr::select(dplyr::mutate(dplyr::left_join(patients, complementaryMappingTable, by = "CONCEPT_ID", suffix = c("", ".compl")),
+  #                                 # Choose the complementaryMappingTable CONCEPT_NAME if it's not NA; otherwise, use the original
+  #                                 CONCEPT_NAME = ifelse(is.na(CONCEPT_NAME.compl), CONCEPT_NAME, CONCEPT_NAME.compl)),
+  #                   # Select and rename the columns to match the original concept_map structure
+  #                   PERSON_ID, CONCEPT_NAME, PREVALENCE)
+  #   # Ensuring that the updated_concept_map contains unique CONCEPT_ID entries
+  # } else {
+  #   patients <-
+  #     dplyr::select(patients, PERSON_ID, CONCEPT_NAME, PREVALENCE)
+  # }
+  resultList$selectedFeatureIds = features$CONCEPT_ID
+  resultList$selectedFeatures = features
   # Väike vaheküsimus, siin me kaotame pooled asmaatikutest, kas siis umbes pooltele tehakse vöga sarnast ravi ja pooltele midagi muud sama populatsiooniga sarnast?
   patients <-dplyr::summarise(dplyr::group_by(patients, PERSON_ID, CONCEPT_NAME),
     PREVALENCE = mean(PREVALENCE))
@@ -258,8 +290,8 @@ CohortContrast <- function(connection,
 
   # export selected features
 
-  resultList$selectedFeatures = colnames(filtered_data)
-  colnames(data$data_patient) = c(
+  resultList$selectedFeatureNames = colnames(filtered_data)
+  colnames(data$data_patients) = c(
     "COHORT_DEFINITION_ID",
     "PERSON_ID",
     "CONCEPT_ID",
@@ -267,10 +299,12 @@ CohortContrast <- function(connection,
     "PREVALENCE",
     "HERITAGE"
   )
+
   data_selected_patients = dplyr::select(
     dplyr::filter(
-      data$data_patient,
-      CONCEPT_NAME %in% resultList$selectedFeatures
+      data$data_patients,
+      CONCEPT_NAME %in% resultList$selectedFeatureNames,
+      COHORT_DEFINITION_ID == targetCohortId
     ),
     CONCEPT_ID,
     CONCEPT_NAME,
@@ -283,11 +317,11 @@ CohortContrast <- function(connection,
     dplyr::filter(
       data_initial,
       COHORT_DEFINITION_ID == targetCohortId,
-      ,
       SUBJECT_ID %in% unique(data_selected_patients$PERSON_ID)
     ),
     COHORT_DEFINITION_ID = 0
   )
+
   printCustomMessage("Creating a dataset for eligible patients only (Cohort2Trajectory input) ...")
   # Creating state cohorts / eligible patients dataset
   # Split the data by heritage
@@ -300,7 +334,6 @@ CohortContrast <- function(connection,
     # Get unique person_ids and concept_ids for the current heritage
     unique_person_ids <- unique(split_data[[heritage]]$PERSON_ID)
     unique_concept_ids <- unique(split_data[[heritage]]$CONCEPT_ID)
-
     # Construct SQL query
     sql_query <-
       sprintf(
@@ -323,6 +356,19 @@ CohortContrast <- function(connection,
     # Ensure concept_map is created correctly
     concept_map <-
       unique(data_selected_patients[c("CONCEPT_ID", "CONCEPT_NAME")])
+
+    if(is.data.frame(complementaryMappingTable)){
+      # Join the dataframes on CONCEPT_ID
+      concept_map <-
+        dplyr::select(dplyr::mutate(dplyr::left_join(concept_map, complementaryMappingTable, by = "CONCEPT_ID", suffix = c("", ".compl")),
+        # Choose the complementaryMappingTable CONCEPT_NAME if it's not NA; otherwise, use the original
+          CONCEPT_NAME = ifelse(is.na(CONCEPT_NAME.compl), CONCEPT_NAME, CONCEPT_NAME.compl)),
+        # Select and rename the columns to match the original concept_map structure
+        CONCEPT_ID, CONCEPT_NAME)
+
+      # Ensuring that the updated_concept_map contains unique CONCEPT_ID entries
+      # concept_map <- unique(concept_map)
+    }
     concept_map[[concept_string]] <-
       as.character(concept_map[['CONCEPT_ID']]) # Ensure consistent data type
     colnames(concept_map) <- c(concept_string, "CONCEPT_NAME")
@@ -363,10 +409,10 @@ CohortContrast <- function(connection,
       first_column_ending_with_datetime <-
         NULL # or any other appropriate action
     }
-
     query_result_mapped$START_DATE = query_result_mapped[[first_column_ending_with_datetime]]
     query_result_mapped$CONCEPT_ID = query_result_mapped[["CONCEPT_NAME"]]
     query_result_mapped = dplyr::select(query_result_mapped, CONCEPT_ID, PERSON_ID, START_DATE)
+    query_result_mapped = dplyr::filter(query_result_mapped, PERSON_ID %in% unique_person_ids)
 
     printCustomMessage(paste("Quering eligible ", heritage, " data finished.", sep = ""))
     return(query_result_mapped)
@@ -374,7 +420,6 @@ CohortContrast <- function(connection,
 
   data_states <- do.call(rbind, results_list)
   data_states$END_DATE = data_states$START_DATE
-
   # Assuming you want to combine all results into a single data fram
   colnames(data_states) <-
     c("COHORT_DEFINITION_ID",
@@ -383,6 +428,7 @@ CohortContrast <- function(connection,
       "COHORT_END_DATE")
 
   resultList$trajectoryData = rbind(data_target, data_states)
+#  resultList$trajectoryData = dplyr::filter(resultList$trajectoryData, SUBJECT_ID %in% unique_person_ids)
   resultList$trajectoryData$COHORT_DEFINITION_ID = trimws(resultList$trajectoryData$COHORT_DEFINITION_ID)
   # Scaling
   filtered_data_scaled <-
@@ -451,7 +497,6 @@ CohortContrast <- function(connection,
   #
   ################################################################################
 
-  # TODO: save a list object to path
   filePath = paste(pathToResults,
                    "/tmp/datasets/",
                    studyName,
