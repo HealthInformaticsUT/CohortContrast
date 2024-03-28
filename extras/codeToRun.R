@@ -1,5 +1,5 @@
 studyName <- "TempStudy" # TODO
-pathToResults <- getwd()   # TODO
+pathToResults <- getwd()   # TODO should be a path to the directory containing the inst directory
 ################################################################################
 #
 # Initiate the database connection

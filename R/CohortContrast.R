@@ -32,6 +32,9 @@ CohortContrast <- function(connection,
                          presenceFilter = 0.005,
                          removeOutliers = TRUE,
                          complementaryMappingTable = FALSE) {
+
+  printCustomMessage("Creating mandatory subdirectories ...")
+  createMandatorySubDirs(pathToResults)
   # List of hard-coded objects
   targetCohortId = 2  # cohort 2 is always the target because of alphabetical reasons
   clustersCentersNo = 4 # PCA plot cluster number

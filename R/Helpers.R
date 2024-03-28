@@ -148,12 +148,7 @@ createMandatorySubDirs <- function(pathToResults) {
 
   dir.create(file.path(pathToResults, "inst"), showWarnings = FALSE)
   dir.create(file.path(paste(pathToResults, '/inst', sep = ""), 'JSON'), showWarnings = FALSE)
-  dir.create(file.path(paste(pathToResults, '/inst', sep = ""), 'SQL'), showWarnings = FALSE)
-  dir.create(file.path(paste(pathToResults, '/inst', sep = ""), 'Settings'), showWarnings = FALSE)
-  file.copy(
-    paste(getwd(), '/inst/Settings/trajectorySettings.csv', sep = ""),
-    paste(pathToResults, '/inst/Settings', sep = "")
-  )
+  dir.create(file.path(paste(pathToResults, '/inst', sep = ""), 'CSV'), showWarnings = FALSE)
 }
 
 
