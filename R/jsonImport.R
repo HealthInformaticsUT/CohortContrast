@@ -122,17 +122,22 @@ loadJsons <- function(studyName, pathToResults) {
     printCustomMessage("There should be a maximum of one CSV file reported under CSV repository!")
   }
   else if (length(csvFiles) == 1) {
-  insertedCSV <- readr::read_csv(csvFiles)
-  colnames(insertedCSV) <- c("cohort_definition_id", "subject_id", "cohort_start_date", "cohort_end_date")
+    insertedCSV <- readr::read_csv(csvFiles)
+    colnames(insertedCSV) <-
+      c("cohort_definition_id",
+        "subject_id",
+        "cohort_start_date",
+        "cohort_end_date")
 
-  # Find the minimum value of cohort_definition_id
-  min_value <- min(insertedCSV$cohort_definition_id)
+    # Find the minimum value of cohort_definition_id
+    min_value <- min(insertedCSV$cohort_definition_id)
 
-  # Create a new column or modify an existing one with mapped values
-  insertedCSV$cohort_definition_id <- ifelse(insertedCSV$cohort_definition_id == min_value, 1, 2)
+    # Create a new column or modify an existing one with mapped values
+    insertedCSV$cohort_definition_id <-
+      ifelse(insertedCSV$cohort_definition_id == min_value, 1, 2)
 
 
-  printCustomMessage("CSV file successfully imported from inst repository!")
+    printCustomMessage("CSV file successfully imported from inst repository!")
   }
 
   env$stateNamesJSON <- stateNamesJSON

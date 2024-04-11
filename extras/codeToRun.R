@@ -1,3 +1,5 @@
+devtools::install_github("HealthInformaticsUT/CohortContrast") # Run for installing the HEAD
+
 studyName <- "TempStudy" # TODO
 pathToResults <- getwd()   # TODO should be a path to the directory containing the inst directory
 ################################################################################
@@ -56,19 +58,45 @@ data = CohortContrast(
   cdmTmpSchema,
   pathToResults,
   studyName,
-  domainsIncluded = c("Drug", "Condition", "Measurement", "Observation", "Procedure"),
-  generateTables = FALSE,
+  domainsIncluded =   c("Drug", "Condition"),
+  generateTables = TRUE,
   readFromCSV = FALSE,
-  prevalenceCutOff = 1,
-  topDogs = 20,
-  presenceFilter = FALSE,
-  removeOutliers = FALSE,
+  prevalenceCutOff = 1.2,
+  topDogs = 100, # Number of features to export
+  presenceFilter = 0.05, # 0-1, percentage of people who must have the chosen feature present
+  removeOutliers = FALSE, # Remove people who have outlier-like feature values according to PCA
+  complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
+  nudgeTarget = FALSE, # nudge target cohort start date (days)
+  nudgeControl = FALSE,# nudge control cohort start date (days)
+  runPCA = TRUE,
+  runPCAClusters = 4
+)
+
+data$resultList$pcaPlot1
+data$resultList$heatmapPlot1
+data$resultList$selectedFeatureNames
+
+# # You can also use a complementary mapping table to map some concept ids to same name
+# # You can use vectors for that
+# complementaryMappingTable = createComplementaryMappingTable(conceptIds = c(1,2,3), conceptNames = c("Drug1", "Drug2", "Drug1"))
+
+
+# Heatmap 2
+heatmapResults <- createHeatmap(
+  data = data,
+  cohortDefinitionId = 2,
+  prevalenceRatioThreshold = 5, # Example threshold
+  prevalenceThreshold = 0.05, # Example threshold
+  cdmSchema = cdmSchema,
+  connection = connection,
   complementaryMappingTable = FALSE
 )
 
-data$pcaPlot1
-data$heatmapPlot1
-data$selectedFeatureNames
+# Extracting the heatmap plot and other results
+heatmapPlot <- heatmapResults$heatmapPlot
+targetMatrix <- heatmapResults$targetMatrix
+personData <- heatmapResults$personData
+
 
 ############################
 #   CCCC   2222   TTTTTTTT
@@ -82,11 +110,11 @@ data$selectedFeatureNames
 #
 # library(Cohort2Trajectory)
 #
-# stateCohortLabels = setdiff(unique(data$trajectoryData$COHORT_DEFINITION_ID), c("0"))
+# stateCohortLabels = setdiff(unique(data$resultList$trajectoryData$COHORT_DEFINITION_ID), c("0"))
 # stateCohortLabels = as.vector(Cohort2Trajectory::sanitize_filenames(stateCohortLabels))
 # allowedStatesList = Cohort2Trajectory::createStateList(stateCohortLabels) # Creates a list allowing all transitions from each state
 #
-# data = Cohort2Trajectory::Cohort2Trajectory(
+# dataC2T = Cohort2Trajectory::Cohort2Trajectory(
 #   studyName = paste(studyName, "CohortContrast", sep = "_"),
 #   runSavedStudy = F,
 #   stateCohortPriorityOrder = stateCohortLabels,
@@ -112,7 +140,7 @@ data$selectedFeatureNames
 #   pathToResults = pathToResults,
 #   useCDM = FALSE,
 #   pathToData = NULL,
-#   trajectoryDataObject = data$trajectoryData,
+#   trajectoryDataObject = data$resultList$trajectoryData,
 #   allowedStatesList = allowedStatesList,
 #   oocFix = "None",
 #   mergeStates = FALSE,
@@ -138,4 +166,4 @@ data$selectedFeatureNames
 #
 ################################################################################
 
-DatabaseConnector::disconnect(connection)
+#DatabaseConnector::disconnect(connection)
