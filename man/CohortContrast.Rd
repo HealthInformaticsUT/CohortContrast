@@ -19,7 +19,11 @@ CohortContrast(
   topDogs = FALSE,
   presenceFilter = 0.005,
   removeOutliers = TRUE,
-  complementaryMappingTable = FALSE
+  nudgeControl = FALSE,
+  nudgeTarget = FALSE,
+  complementaryMappingTable = FALSE,
+  runPCA = FALSE,
+  runPCAClusters = 4
 )
 }
 \arguments{
@@ -46,6 +50,10 @@ CohortContrast(
 \item{presenceFilter}{numeric > if set, removes all features represented less than the given percentage}
 
 \item{removeOutliers}{boolean > if true this removes outlier patients from the target cohort, might cause loss of features}
+
+\item{nudgeControl}{number of days you would like to nudge the control cohort start day}
+
+\item{nudgeTarget}{number of days you would like to nudge the target cohort start day}
 
 \item{complementaryMappingTable}{Mappingtable for mapping concept_ids if present}
 

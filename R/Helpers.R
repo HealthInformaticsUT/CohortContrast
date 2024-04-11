@@ -26,7 +26,6 @@ loadRenderTranslateSql <- function(sql,
   else {
     parameterizedSql <- sql
   }
-
   renderedSql <-
     SqlRender::render(sql = parameterizedSql, warnOnMissingParameters = warnOnMissingParameters, ...)
   renderedSql <-
@@ -156,7 +155,7 @@ createMandatorySubDirs <- function(pathToResults) {
 scale_to_1_0 <- function(x) {
   # Normalize to 0-1
   #x_norm <- (x - min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
-  x_norm<- log10(x+1)
+  x_norm <- log10(x + 1)
   # Scale to -1 to 0
   return(x_norm)
 }
@@ -176,3 +175,51 @@ printCustomMessage <- function(message) {
   cat("Timestamp: ", timestamp, "\n")
   cat("\n") # Print a new line
 }
+
+
+customSQLRender <- function(sql, dbms) {
+  if (dbms == 'sqlite' && startsWith(sql, "SELECT * INTO")) {
+    # Pattern to match "schemaName.tableName"
+    pattern <-
+      "SELECT \\* INTO\\s+([a-zA-Z0-9_@]+)\\.([a-zA-Z0-9_]+)\\s+FROM"
+
+
+    # Replacement template for SQLite
+    replacementTemplate <- "CREATE TABLE \\1.\\2 AS SELECT * FROM"
+
+    # Use gsub to replace based on the captured groups in the pattern
+    sql <- gsub(pattern, replacementTemplate, sql, perl = TRUE)
+  }
+  return(sql)
+}
+
+createComplementaryMappingTable <-
+  function(conceptIds, conceptNames) {
+    # Check if vectors are of the same length
+    if (length(conceptIds) != length(conceptNames)) {
+      print("Error: Vectors 'conceptIds' and 'conceptNames' must be of the same length.")
+      return(NULL)
+    }
+
+    # Check if concept names are all strings
+    if (!all(sapply(conceptNames, is.character))) {
+      print("Error: All 'conceptNames' must be strings.")
+      return(NULL)
+    }
+
+    # Check if all concept IDs are unique
+    if (length(unique(conceptIds)) != length(conceptIds)) {
+      print("Error: All 'conceptIds' must be unique.")
+      return(NULL)
+    }
+
+    # Create the dataframe
+    complementaryMappingTable <-
+      data.frame(
+        CONCEPT_ID = conceptIds,
+        CONCEPT_NAME = conceptNames,
+        stringsAsFactors = FALSE
+      )
+
+    return(complementaryMappingTable)
+  }

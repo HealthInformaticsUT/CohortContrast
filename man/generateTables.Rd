@@ -15,7 +15,9 @@ generateTables(
   generateTables = TRUE,
   domainsIncluded = c("Drug", "Condition", "Measurement", "Observation", "Procedure"),
   domainLimit = 1000,
-  readFromCSV = FALSE
+  readFromCSV = FALSE,
+  nudgeTarget = FALSE,
+  nudgeControl = FALSE
 )
 }
 \arguments{
@@ -40,6 +42,10 @@ generateTables(
 \item{domainLimit}{nr of instances allowed from a domain}
 
 \item{readFromCSV}{boolean > if TRUE file from ./inst/CSV will be used as cohort data, otherwise JSONs will be used.}
+
+\item{nudgeTarget}{number of days you would like to nudge the target cohort start day}
+
+\item{nudgeControl}{number of days you would like to nudge the control cohort start day}
 }
 \description{
 Create relations of cohorts (target and control) to the database
