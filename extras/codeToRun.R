@@ -58,7 +58,7 @@ data = CohortContrast(
   cdmTmpSchema,
   pathToResults,
   studyName,
-  domainsIncluded =   c("Drug", "Condition"),
+  domainsIncluded =   c("Drug", "Condition", "Measurement", "Observation", "Procedure"),
   generateTables = TRUE,
   readFromCSV = FALSE,
   prevalenceCutOff = 1.2,

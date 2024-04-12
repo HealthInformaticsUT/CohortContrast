@@ -28,4 +28,6 @@ Remotes:
     OHDSI/DatabaseConnector,
     OHDSI/SqlRender,
     OHDSI/Eunomia
+LinkingTo:
+    Rcpp
 Config/testthat/edition: 3
