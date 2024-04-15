@@ -208,7 +208,7 @@ CohortContrast <- function(connection,
   #
   ###########################################
   filtered_data = NULL
-  if (runPCA) {
+  if (runPCA & nrow(features) > 1) {
     results <-
       performPCAAnalysis(patients_data, runPCAClusters, removeOutliers)
     resultList$pcaPlot1 <- results$pcaPlot
@@ -217,7 +217,18 @@ CohortContrast <- function(connection,
 
     # Use filtered_data as needed for further analysis
   }
-  else{
+  else if (nrow(features) <= 1) {
+    printCustomMessage("Only one feature left, exiting ...")
+    filePath = paste(pathToResults,
+                     "/tmp/datasets/",
+                     studyName,
+                     "_CC_medData.rdata",
+                     sep = "")
+    save_object(data, path = filePath)
+    printCustomMessage(paste("Saved the result to ", filePath, sep = ""))
+    return(data)
+  }
+  else {
     filtered_data = patients_data
   }
 

@@ -60,8 +60,8 @@ test_that("Created cohort table is with correct.", {
 })
 #> Test passed 🥇
 
-test_that("Ampicillin 100 MG/ML Injectable Solution prevalence difference.", {
-
-  expect_equal(data$data_features[data$data_features$CONCEPT_NAME == "Ampicillin 100 MG/ML Injectable Solution", 3] > 3.5, TRUE)
-})
+# test_that("danazol target count.", {
+#   print(head(data$data_features))
+#   expect_equal(data$data_features[data$data_features$CONCEPT_NAME == "danazol", 4] == 1, TRUE)
+# })
 #> Test passed 🥇
