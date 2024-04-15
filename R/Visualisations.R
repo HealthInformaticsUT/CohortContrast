@@ -165,7 +165,7 @@ createTargetMatrixForHeatmap <- function(data,
       dplyr::ungroup(dplyr::summarize(
         dplyr::group_by(
           dplyr::left_join(
-            dplyr::select(data$data_features,-CONCEPT_ID, concept_mapping, by = "CONCEPT_NAME"),
+            dplyr::select(data$data_features,-CONCEPT_ID), concept_mapping, by = "CONCEPT_NAME"),
             CONCEPT_ID,
             CONCEPT_NAME
           ),
@@ -173,7 +173,7 @@ createTargetMatrixForHeatmap <- function(data,
           TARGET_SUBJECT_COUNT = sum(TARGET_SUBJECT_COUNT),
           CONTROL_SUBJECT_COUNT = sum(CONTROL_SUBJECT_COUNT)
         )
-      ))
+      )
 
     # Ensuring that the updated_concept_map contains unique CONCEPT_ID entries
 
