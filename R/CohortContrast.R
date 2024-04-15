@@ -93,7 +93,29 @@ CohortContrast <- function(connection,
         HERITAGE
       )
     # Ensuring that the updated_concept_map contains unique CONCEPT_ID entries
-
+    data$data_features <-
+      dplyr::select(
+        dplyr::mutate(
+          dplyr::left_join(
+            data$data_features,
+            complementaryMappingTable,
+            by = "CONCEPT_ID",
+            suffix = c("", ".compl")
+          ),
+          # Choose the complementaryMappingTable CONCEPT_NAME if it's not NA; otherwise, use the original
+          CONCEPT_NAME = ifelse(
+            is.na(CONCEPT_NAME.compl),
+            CONCEPT_NAME,
+            CONCEPT_NAME.compl
+          )
+        ),
+        # Select and rename the columns to match the original concept_map structure
+        CONCEPT_ID,
+        CONCEPT_NAME,
+        PREVALENCE_DIFFERENCE_RATIO,
+        TARGET_SUBJECT_COUNT,
+        CONTROL_SUBJECT_COUNT
+      )
   }
 
   printCustomMessage("Starting running analysis on data...")
