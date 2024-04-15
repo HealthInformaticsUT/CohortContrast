@@ -65,119 +65,119 @@ createTargetMatrixForHeatmap <- function(data,
                                          complementaryMappingTable = FALSE) {
   # Load necessary libraries for database connection and heatmap drawing
   # Assume library(pheatmap) and DBI or similar for database interaction are loaded elsewhere
-  if (is.data.frame(complementaryMappingTable)) {
-    # Join the dataframes on CONCEPT_ID
-    data$data_patients <-
-      dplyr::select(
-        dplyr::mutate(
-          dplyr::left_join(
-            data$data_patients,
-            complementaryMappingTable,
-            by = "CONCEPT_ID",
-            suffix = c("", ".compl")
-          ),
-          # Choose the complementaryMappingTable CONCEPT_NAME if it's not NA; otherwise, use the original
-          CONCEPT_NAME = ifelse(
-            is.na(CONCEPT_NAME.compl),
-            CONCEPT_NAME,
-            CONCEPT_NAME.compl
-          )
-        ),
-        # Select and rename the columns to match the original concept_map structure
-        COHORT_DEFINITION_ID,
-        PERSON_ID,
-        CONCEPT_ID,
-        CONCEPT_NAME,
-        PREVALENCE,
-        HERITAGE
-      )
-
-    concept_mapping <-
-      dplyr::ungroup(dplyr::summarize(
-        dplyr::group_by(data$data_patients, CONCEPT_NAME, HERITAGE),
-        CONCEPT_ID = CONCEPT_ID[which.max(PREVALENCE)]
-      ))
-
-    # Identify duplicates in CONCEPT_NAME
-    duplicates <-
-      concept_mapping$CONCEPT_NAME[duplicated(concept_mapping$CONCEPT_NAME)]
-
-    # Update CONCEPT_NAME for duplicates
-    concept_mapping <-
-      dplyr::select(dplyr::mutate(
-        concept_mapping,
-        CONCEPT_NAME = ifelse(
-          CONCEPT_NAME %in% duplicates,
-          paste(CONCEPT_NAME, HERITAGE, sep = " "),
-          CONCEPT_NAME
-        )
-      ),
-      -HERITAGE)
-
-    # Merge the concept mapping with the original data
-    data$data_patients <-
-      dplyr::left_join(dplyr::select(data$data_patients,-CONCEPT_ID),
-                       concept_mapping,
-                       by = "CONCEPT_NAME")
-
-    # Group by PERSON_ID, COHORT_DEFINITION_ID, and CONCEPT_ID
-    # Summarize PREVALENCE and HERITAGE
-    data$data_patients <-
-      dplyr::ungroup(dplyr::summarize(
-        dplyr::group_by(
-          data$data_patients,
-          PERSON_ID,
-          COHORT_DEFINITION_ID,
-          CONCEPT_ID,
-          CONCEPT_NAME
-        ),
-        PREVALENCE = sum(PREVALENCE),
-        HERITAGE = dplyr::first(HERITAGE)
-      ))
-
-
-    data$data_features <-
-      dplyr::select(
-        dplyr::mutate(
-          dplyr::left_join(
-            data$data_features,
-            complementaryMappingTable,
-            by = "CONCEPT_ID",
-            suffix = c("", ".compl")
-          ),
-          # Choose the complementaryMappingTable CONCEPT_NAME if it's not NA; otherwise, use the original
-          CONCEPT_NAME = ifelse(
-            is.na(CONCEPT_NAME.compl),
-            CONCEPT_NAME,
-            CONCEPT_NAME.compl
-          )
-        ),
-        # Select and rename the columns to match the original concept_map structure
-        CONCEPT_ID,
-        CONCEPT_NAME,
-        PREVALENCE_DIFFERENCE_RATIO,
-        TARGET_SUBJECT_COUNT,
-        CONTROL_SUBJECT_COUNT
-      )
-
-    # Use the same concept mapping for data$data_features
-    data$data_features <-
-      dplyr::ungroup(dplyr::summarize(
-        dplyr::group_by(
-          dplyr::left_join(
-            dplyr::select(data$data_features,-CONCEPT_ID), concept_mapping, by = "CONCEPT_NAME"),
-            CONCEPT_ID,
-            CONCEPT_NAME
-          ),
-          PREVALENCE_DIFFERENCE_RATIO = mean(PREVALENCE_DIFFERENCE_RATIO),
-          TARGET_SUBJECT_COUNT = sum(TARGET_SUBJECT_COUNT),
-          CONTROL_SUBJECT_COUNT = sum(CONTROL_SUBJECT_COUNT)
-        )
-      )
-
-    # Ensuring that the updated_concept_map contains unique CONCEPT_ID entries
-
-  }
+  # if (is.data.frame(complementaryMappingTable)) {
+  #   # Join the dataframes on CONCEPT_ID
+  #   data$data_patients <-
+  #     dplyr::select(
+  #       dplyr::mutate(
+  #         dplyr::left_join(
+  #           data$data_patients,
+  #           complementaryMappingTable,
+  #           by = "CONCEPT_ID",
+  #           suffix = c("", ".compl")
+  #         ),
+  #         # Choose the complementaryMappingTable CONCEPT_NAME if it's not NA; otherwise, use the original
+  #         CONCEPT_NAME = ifelse(
+  #           is.na(CONCEPT_NAME.compl),
+  #           CONCEPT_NAME,
+  #           CONCEPT_NAME.compl
+  #         )
+  #       ),
+  #       # Select and rename the columns to match the original concept_map structure
+  #       COHORT_DEFINITION_ID,
+  #       PERSON_ID,
+  #       CONCEPT_ID,
+  #       CONCEPT_NAME,
+  #       PREVALENCE,
+  #       HERITAGE
+  #     )
+  #
+  #   concept_mapping <-
+  #     dplyr::ungroup(dplyr::summarize(
+  #       dplyr::group_by(data$data_patients, CONCEPT_NAME, HERITAGE),
+  #       CONCEPT_ID = CONCEPT_ID[which.max(PREVALENCE)]
+  #     ))
+  #
+  #   # Identify duplicates in CONCEPT_NAME
+  #   duplicates <-
+  #     concept_mapping$CONCEPT_NAME[duplicated(concept_mapping$CONCEPT_NAME)]
+  #
+  #   # Update CONCEPT_NAME for duplicates
+  #   concept_mapping <-
+  #     dplyr::select(dplyr::mutate(
+  #       concept_mapping,
+  #       CONCEPT_NAME = ifelse(
+  #         CONCEPT_NAME %in% duplicates,
+  #         paste(CONCEPT_NAME, HERITAGE, sep = " "),
+  #         CONCEPT_NAME
+  #       )
+  #     ),
+  #     -HERITAGE)
+  #
+  #   # Merge the concept mapping with the original data
+  #   data$data_patients <-
+  #     dplyr::left_join(dplyr::select(data$data_patients,-CONCEPT_ID),
+  #                      concept_mapping,
+  #                      by = "CONCEPT_NAME")
+  #
+  #   # Group by PERSON_ID, COHORT_DEFINITION_ID, and CONCEPT_ID
+  #   # Summarize PREVALENCE and HERITAGE
+  #   data$data_patients <-
+  #     dplyr::ungroup(dplyr::summarize(
+  #       dplyr::group_by(
+  #         data$data_patients,
+  #         PERSON_ID,
+  #         COHORT_DEFINITION_ID,
+  #         CONCEPT_ID,
+  #         CONCEPT_NAME
+  #       ),
+  #       PREVALENCE = sum(PREVALENCE),
+  #       HERITAGE = dplyr::first(HERITAGE)
+  #     ))
+  #
+  #
+  #   data$data_features <-
+  #     dplyr::select(
+  #       dplyr::mutate(
+  #         dplyr::left_join(
+  #           data$data_features,
+  #           complementaryMappingTable,
+  #           by = "CONCEPT_ID",
+  #           suffix = c("", ".compl")
+  #         ),
+  #         # Choose the complementaryMappingTable CONCEPT_NAME if it's not NA; otherwise, use the original
+  #         CONCEPT_NAME = ifelse(
+  #           is.na(CONCEPT_NAME.compl),
+  #           CONCEPT_NAME,
+  #           CONCEPT_NAME.compl
+  #         )
+  #       ),
+  #       # Select and rename the columns to match the original concept_map structure
+  #       CONCEPT_ID,
+  #       CONCEPT_NAME,
+  #       PREVALENCE_DIFFERENCE_RATIO,
+  #       TARGET_SUBJECT_COUNT,
+  #       CONTROL_SUBJECT_COUNT
+  #     )
+  #
+  #   # Use the same concept mapping for data$data_features
+  #   data$data_features <-
+  #     dplyr::ungroup(dplyr::summarize(
+  #       dplyr::group_by(
+  #         dplyr::left_join(
+  #           dplyr::select(data$data_features,-CONCEPT_ID), concept_mapping, by = "CONCEPT_NAME"),
+  #           CONCEPT_ID,
+  #           CONCEPT_NAME
+  #         ),
+  #         PREVALENCE_DIFFERENCE_RATIO = mean(PREVALENCE_DIFFERENCE_RATIO),
+  #         TARGET_SUBJECT_COUNT = sum(TARGET_SUBJECT_COUNT),
+  #         CONTROL_SUBJECT_COUNT = sum(CONTROL_SUBJECT_COUNT)
+  #       )
+  #     )
+  #
+  #   # Ensuring that the updated_concept_map contains unique CONCEPT_ID entries
+  #
+  # }
   # Extracting and joining concepts
   concepts <- dplyr::filter(
     dplyr::inner_join(
@@ -202,7 +202,6 @@ createTargetMatrixForHeatmap <- function(data,
     concepts,
     by = c("CONCEPT_ID", "CONCEPT_NAME", "HERITAGE")
   )
-
   # Processing target dataframe
   # Step 2: Group by CONCEPT_ID, calculate NCONCEPTS and NPATIENTS
   target_df =  dplyr::filter(dplyr::ungroup(dplyr::mutate(
@@ -221,7 +220,6 @@ createTargetMatrixForHeatmap <- function(data,
     NCONCEPTS = dplyr::n()
   )),
   NCONCEPTS / NPATIENTS > presenceFilter)
-
   # Step 4: Create a summary for patients without concepts
   no_concept_summary <- dplyr::summarize(
     dplyr::group_by(target, PERSON_ID),
@@ -231,10 +229,8 @@ createTargetMatrixForHeatmap <- function(data,
     HERITAGE = "none",
     PREVALENCE_DIFFERENCE_RATIO = -1
   )
-
   # Step 5: Combine and pivot wider
   combined_data <- dplyr::bind_rows(target_df, no_concept_summary)
-
   # Now pivot wider without risk of creating duplicate columns
   wide_data <- tidyr::pivot_wider(
     combined_data,
@@ -249,21 +245,27 @@ createTargetMatrixForHeatmap <- function(data,
     names_prefix = "PID_",
     values_fill = 0
   )
-
   # Step 6: Filter out placeholder and convert CONCEPT_ID to character
   target_df <-
     dplyr::filter(wide_data, CONCEPT_ID != '999999999' &
                     CONCEPT_ID != '0')
+
+  target_df =  dplyr::distinct(dplyr::summarise(dplyr::group_by(target_df, CONCEPT_NAME, HERITAGE),
+                                             CONCEPT_ID = dplyr::first(CONCEPT_ID),
+                                             PREVALENCE_DIFFERENCE_RATIO = sum(PREVALENCE_DIFFERENCE_RATIO, na.rm = T),
+                                             across(starts_with("PID_"),
+                                                    function(x) ifelse(sum(x, na.rm = TRUE) > 0, 1, 0), # Use explicit function definition
+                                                    .names = "{.col}"),
+                                             .groups = 'drop'
+  ))
   target_df$CONCEPT_ID <- as.character(target_df$CONCEPT_ID)
 
   target_row_annotation = dplyr::select(tibble::column_to_rownames(as.data.frame(target_df), "CONCEPT_ID"),
                                         -starts_with("PID_"))
-
   target_matrix = as.matrix(dplyr::select(
     tibble::column_to_rownames(as.data.frame(target_df), "CONCEPT_ID"),
     starts_with("PID_")
   ))
-
 
   # Get person data
   # Render and translate the SQL query
@@ -279,7 +281,6 @@ createTargetMatrixForHeatmap <- function(data,
   # Prefix 'person_id' with "PID_"
   person_data$PERSON_ID <-
     stringr::str_c("PID_", person_data$PERSON_ID)
-
   # Convert 'gender_concept_id' to a factor with levels and labels
   person_data$GENDER <-
     factor(
@@ -292,7 +293,6 @@ createTargetMatrixForHeatmap <- function(data,
   # Assuming 'year_of_birth' does not need renaming and is directly used
   selected_person_data <-
     dplyr::select(person_data, PERSON_ID, GENDER, YEAR_OF_BIRTH)
-
   # Convert 'person_id' to row names
   person <-
     tibble::column_to_rownames(selected_person_data, var = "PERSON_ID")
