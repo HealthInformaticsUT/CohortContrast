@@ -132,7 +132,7 @@ createTargetMatrixForHeatmap <- function(data,
           CONCEPT_NAME
         ),
         PREVALENCE = sum(PREVALENCE),
-        HERITAGE = first(HERITAGE)
+        HERITAGE = dplyr::first(HERITAGE)
       ))
 
 
