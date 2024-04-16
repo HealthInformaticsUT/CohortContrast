@@ -15,7 +15,7 @@ To use CohortContrast, follow these steps to configure your environment and inpu
    **OR**
 
 2b. **Cohort CSV Configuration**:
-   - Populate `./inst/CSV/cohorts.csv` with patient IDs, cohort inclusion start dates, and end dates. Ensure that the target cohort has a smaller cohort ID in comparison to the control cohort (e.g., target = 1, control = 2).
+   - Populate `./inst/CSV/cohorts.csv` with patient IDs, cohort inclusion start dates, and end dates. Ensure that the control cohort has an id of 1 and the target cohort an id of 2.
 
 3. **Run the Study**: Execute the study by running the script located in `./extras/codeToRun.R`.
 
