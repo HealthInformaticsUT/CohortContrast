@@ -854,13 +854,26 @@ generateTables <- function(connection,
   data_initial <- DatabaseConnector::querySql(connection, sql)
 
 
+  printCustomMessage("Querying person data from database ...")
+  # Get person data
+  # Render and translate the SQL query
+  sql_query <- SqlRender::render(sql = "SELECT person_id, gender_concept_id, year_of_birth FROM @cdmSchema.person;",
+                                 cdmSchema = cdmSchema)
+  sql_query_translated <-
+    SqlRender::translate(sql = sql_query, targetDialect = dbms)
+
+  # Execute the SQL query
+  data_person <-
+    DatabaseConnector::querySql(connection, sql_query_translated)
+
   printCustomMessage("Data imported from the database!")
   # Setting names for each list element
   return(
     list(
       data_features = data_features,
       data_patients = data_patients,
-      data_initial = data_initial
+      data_initial = data_initial,
+      data_person = data_person
     )
   )
 }

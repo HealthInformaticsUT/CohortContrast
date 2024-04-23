@@ -20,7 +20,9 @@ body <- shinydashboard::dashboardBody(
       tabName = "dashboard",
       fluidRow(
         h1("Cohorts"),
-        shiny::dataTableOutput("cohorts")
+        selectInput("studyName", "Choose a study:", choices = NULL)
+        # selectInput("studyName", "Choose a study:",
+        #             choices = get_study_names(pathToResults))
       ),
       hr(),
       fluidRow(

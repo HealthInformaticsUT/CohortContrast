@@ -1,6 +1,6 @@
 devtools::install_github("HealthInformaticsUT/CohortContrast") # Run for installing the HEAD
 
-studyName <- "TempStudy" # TODO
+studyName <- "TestCohortContrast" # TODO
 pathToResults <- getwd()   # TODO should be a path to the directory containing the inst directory
 ################################################################################
 #
@@ -97,7 +97,20 @@ heatmapPlot <- heatmapResults$heatmapPlot
 targetMatrix <- heatmapResults$targetMatrix
 personData <- heatmapResults$personData
 
+# GUI
 
+runGUI(
+  conn = connection,
+  connectionDetails = connectionDetails,
+  pathToDriver = pathToDriver,
+  pathToResults = pathToResults,
+  dbms = dbms,
+  cdmSchema = cdmSchema,
+  cdmVocabSchema = cdmVocabSchema,
+  cdmTmpSchema = cdmTmpSchema,
+  cdmResultsSchema = cdmResultsSchema,
+  studyName = studyName
+)
 ############################
 #   CCCC   2222   TTTTTTTT
 #  CC  CC     22  T  TT. T

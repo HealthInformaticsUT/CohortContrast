@@ -223,3 +223,19 @@ createComplementaryMappingTable <-
 
     return(complementaryMappingTable)
   }
+
+
+get_study_names <- function(pathToResults) {
+  # List all files in the specified directory
+  tmpdir = paste(pathToResults,'/tmp/datasets/', sep = "" )
+  files <- list.files(tmpdir, full.names = TRUE, pattern = "_CC_medData\\.rdata$")
+
+  # Pattern to extract the study name from the filename
+  study_name_pattern <- "(?<=/)([^/]+)(?=_CC_medData\\.rdata$)"
+
+  # Extract study names from the filenames
+  study_names <- str_extract(files, study_name_pattern)
+
+  # Return the unique study names
+  return(unique(study_names))
+}
