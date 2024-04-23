@@ -267,16 +267,7 @@ createTargetMatrixForHeatmap <- function(data,
     starts_with("PID_")
   ))
 
-  # Get person data
-  # Render and translate the SQL query
-  sql_query <- SqlRender::render(sql = "SELECT person_id, gender_concept_id, year_of_birth FROM @cdmSchema.person;",
-                                 cdmSchema = cdmSchema)
-  sql_query_translated <-
-    SqlRender::translate(sql = sql_query, targetDialect = dbms)
-
-  # Execute the SQL query
-  person_data <-
-    DatabaseConnector::querySql(connection, sql_query_translated)
+  person_data <- data$data_person
 
   # Prefix 'person_id' with "PID_"
   person_data$PERSON_ID <-

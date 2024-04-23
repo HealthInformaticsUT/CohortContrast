@@ -38,7 +38,7 @@ CohortContrast <- function(connection,
                            complementaryMappingTable = FALSE,
                            runPCA = FALSE,
                            runPCAClusters = 4) {
-  printCustomMessage("Creating %>% mandatory subdirectories ...")
+  printCustomMessage("Creating mandatory subdirectories ...")
   createMandatorySubDirs(pathToResults)
   # List of hard-coded objects
   targetCohortId = 2  # cohort 2 is always the target because of alphabetical reasons
@@ -122,6 +122,7 @@ CohortContrast <- function(connection,
   data_features = data$data_features
   data_patients = data$data_patients
   data_initial = data$data_initial
+  data_person = data$data_person
 
 
   ###########################################

@@ -10,30 +10,65 @@ library(tidyverse)
 #
 ################################################################################
 
-server = function(input, output) {
+server = function(input, output, session) {
 
-  load(stringr::str_c(pathToResults, "/tmp/datasets/", studyName, "_CC_medData.rdata"))
-  cohort_table = data.frame(cohort_name = c(studyName, "Test"), number_subjects = c(nrow(dplyr::distinct(
-    dplyr::select(
-      dplyr::filter(object$data_patients,
-                    COHORT_DEFINITION_ID == 2),
-    PERSON_ID))),0))
-  output$cohorts = shiny::renderDataTable({
-      DT::formatStyle(DT::datatable(
-        cohort_table,
-        # colnames = c(Cohort = cohort_name, "#Persons" = number_subjects),
-        selection = list(mode = "single", target = "row")
-      ),
-        "number_subjects",
-        # background = styleColorBar(c(0, max(cohort_table$number_subjects)), "lightgreen")
-        background = DT::styleColorBar(c(0, 50000), "lightgreen")
-      )
+  #load(stringr::str_c(pathToResults, "/tmp/datasets/", input$studyName, "_CC_medData.rdata"))
+
+  # Reactive for loading data
+  # observeEvent(input$studyName,{
+  #   req(input$studyName)  # Ensure that studyName is selected
+  #   file_path <- stringr::str_c(pathToResults, "/tmp/datasets/", input$studyName, "_CC_medData.rdata")
+  #   if (file.exists(file_path)) {
+  #     load(file_path)
+  #     return(paste("Data loaded from", file_path))
+  #   } else {
+  #     return(paste("File not found:", file_path))
+  #   }
+  # })
+  study_info <- reactiveVal(list())
+
+  # Function to load data and update study_info
+  load_study_data <- function() {
+    names_and_rows <- list()
+    study_names <- get_study_names(pathToResults)
+    for (study_name in study_names) {
+      file_path <- str_c(pathToResults, "/tmp/datasets/", study_name, "_CC_medData.rdata")
+      if (file.exists(file_path)) {
+        load(file_path)  # Assuming data_features is loaded
+        rows <- nrow(dplyr::distinct(dplyr::select(dplyr::filter(object$data_patients, COHORT_DEFINITION_ID == 2), PERSON_ID)))  # Adjust this if the data frame has a different name
+        names_and_rows[[study_name]] <- rows
+      }
+    }
+    study_info(names_and_rows)
+  }
+
+  # Initialize data on app start
+  observe({
+    load_study_data()
   })
- ## TODO: Get person
+
+  # Update dropdown choices
+  observe({
+    choices <- sapply(names(study_info()), function(name) {
+      paste(name, "(", study_info()[[name]], "patients)")
+    })
+    updateSelectInput(session, "studyName", choices = as.vector(choices))
+  })
+
+  # Existing observeEvent for loading data based on selection
+  observeEvent(input$studyName, {
+    req(input$studyName)
+    file_path <- str_c(pathToResults, "/tmp/datasets/", input$studyName, "_CC_medData.rdata")
+    if (file.exists(file_path)) {
+      load(file_path)  # Assuming data_features is loaded
+      return(paste("Data loaded from", file_path))
+    } else {
+      return(paste("File not found:", file_path))
+    }
+  })
+
   target = reactive({
-    # if(is.null(input$cohorts_rows_selected)){
-    #   return(NULL)
-    # }
+
     format_results(pathToResults = pathToResults, studyName = studyName)
   })
 
