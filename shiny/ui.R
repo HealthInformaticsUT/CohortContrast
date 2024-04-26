@@ -61,6 +61,31 @@ body <- shinydashboard::dashboardBody(
           )
         )
       ),
+        shiny::hr(),
+        # Add Fluent UI toggles here
+        shiny::fluidRow(
+          shiny::column(
+            width = 4,
+            shiny::div(
+              shiny.fluent::Toggle.shinyInput("scaleTime", label = "Scale for time", value = FALSE, onText = "On", offText = "Off"),
+              shiny::textOutput("scaleTimeValue")
+            )
+          ),
+          shiny::column(
+            width = 4,
+            shiny::div(
+              shiny.fluent::Toggle.shinyInput("showMeasurements", label = "Show measurements", value = FALSE, onText = "On", offText = "Off"),
+              shiny::textOutput("showMeasurementsValue")
+            )
+          ),
+          shiny::column(
+            width = 4,
+            shiny::div(
+              shiny.fluent::Toggle.shinyInput("removeUntreated", label = "Remove untreated patients", value = FALSE, onText = "On", offText = "Off"),
+              shiny::textOutput("removeUntreatedValue")
+            )
+          )
+        ),
       hr(),
       tabsetPanel(
         tabPanel(
