@@ -12,19 +12,6 @@ library(tidyverse)
 
 server = function(input, output, session) {
 
-  #load(stringr::str_c(pathToResults, "/tmp/datasets/", input$studyName, "_CC_medData.rdata"))
-
-  # Reactive for loading data
-  # observeEvent(input$studyName,{
-  #   req(input$studyName)  # Ensure that studyName is selected
-  #   file_path <- stringr::str_c(pathToResults, "/tmp/datasets/", input$studyName, "_CC_medData.rdata")
-  #   if (file.exists(file_path)) {
-  #     load(file_path)
-  #     return(paste("Data loaded from", file_path))
-  #   } else {
-  #     return(paste("File not found:", file_path))
-  #   }
-  # })
   study_info <- reactiveVal(list())
 
   # Function to load data and update study_info
@@ -67,20 +54,62 @@ server = function(input, output, session) {
     }
   })
 
+  # Reactive to apply scaling if toggle is ON
   target = reactive({
-
-    format_results(pathToResults = pathToResults, studyName = studyName)
+    format_results(
+      pathToResults = pathToResults,
+      studyName = studyName,
+      autoScaleTime =  if (input$scaleTime)
+        TRUE
+      else
+        FALSE
+    )
   })
 
   target_filtered = reactive({
-    filter_target(target(), input$prevalence, input$prevalence_ratio, input$domain)
+    filter_target(
+      target(),
+      input$prevalence,
+      input$prevalence_ratio,
+      input$domain,
+      removeUntreated = if (input$removeUntreated)
+        TRUE
+      else
+        FALSE
+    )
   })
 
+  # output$prevalence <- renderPlot({
+  #   plot_prevalence(target_filtered())
+  # }, height = 950)  # Specify width and height in pixels
   output$prevalence <- renderPlot({
-    plot_prevalence(target_filtered())
-  }, height = 950)  # Specify width and height in pixels
+    # Attempt to plot and handle errors if they occur
+    tryCatch({
+      # Code that might throw an error
+      plot_prevalence(target_filtered())
+    }, error = function(e) {
+      # Error handling code
+      # Here you log the error if needed and return an alternative representation
+      print(e)  # Print the error message to the R console (optional)
+      plot_prevalence(NULL)    # Return NULL to ensure no plot output
+    })
+  }, height = 950)
+
+
+  # output$heatmap <- renderPlot({
+  #   plot_heatmap(target_filtered())
+  # }, height = 950)
 
   output$heatmap <- renderPlot({
-    plot_heatmap(target_filtered())
+    # Attempt to plot and handle errors if they occur
+    tryCatch({
+      # Code that might throw an error
+      plot_heatmap(target_filtered())
+    }, error = function(e) {
+      # Error handling code
+      # Here you log the error if needed and return an alternative representation
+      print(e)  # Print the error message to the R console (optional)
+      plot_prevalence(NULL)     # Return NULL to ensure no plot output
+    })
   }, height = 950)
 }

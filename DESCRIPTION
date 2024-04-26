@@ -28,7 +28,8 @@ Remotes:
     OHDSI/CohortGenerator,
     OHDSI/DatabaseConnector,
     OHDSI/SqlRender,
-    OHDSI/Eunomia
+    OHDSI/Eunomia,
+    Appsilon/shiny.fluent
 LinkingTo:
     Rcpp
 Config/testthat/edition: 3
