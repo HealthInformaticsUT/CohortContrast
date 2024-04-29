@@ -111,6 +111,7 @@ plot_prevalence = function(filtered_target){
                       hjust = 0.5, vjust = 0.5, size = 12, fontface = "bold", color = "black") +
              theme_void())
   }
+  nr_large_prevalences = sum(filtered_target$target_row_annotatio$PREVALENCE_DIFFERENCE_RATIO > 10)
   plotdata = filtered_target$target_row_annotation %>%
     rownames_to_column("CONCEPT_ID") %>%
     as_tibble() %>%
@@ -135,12 +136,12 @@ plot_prevalence = function(filtered_target){
     mutate(MALE_PROP_DIFF_ESTIMATE = purrr::map_dbl(MALE_PROP_DIFF, ~ .x$estimate[1])) %>%
     mutate(MALE_PROP_DIFF_LOW = purrr::map_dbl(MALE_PROP_DIFF, ~ .x$estimate[2] + .x$conf.int[1])) %>%
     mutate(MALE_PROP_DIFF_HIGH = purrr::map_dbl(MALE_PROP_DIFF, ~ .x$estimate[2] + .x$conf.int[2])) %>%
-    mutate(MALE_PROP_DIFF_SIGNIFICANT = map_lgl(MALE_PROP_DIFF, ~ .x$p.value < 0.05))
-
+    mutate(MALE_PROP_DIFF_SIGNIFICANT = map_lgl(MALE_PROP_DIFF, ~ .x$p.value < 0.05)) %>%
+    mutate(PREVALENCE_DIFFERENCE_RATIO = if_else(PREVALENCE_DIFFERENCE_RATIO > 10 & nr_large_prevalences < 5, 10, PREVALENCE_DIFFERENCE_RATIO))
   p1 = ggplot(plotdata, aes(x = PREVALENCE, y = CONCEPT_NAME, fill = PREVALENCE_DIFFERENCE_RATIO)) +
     geom_bar(stat = "identity") +
     facet_grid(HERITAGE ~ ., space = "free_y", scales = "free_y") +
-    scale_fill_viridis_c("Prevalence ratio \ncompared to background", limits = c(0, min(max(plotdata$PREVALENCE_DIFFERENCE_RATIO), 10))) + #,transform = "log10") +
+    scale_fill_viridis_c("Prevalence ratio \ncompared to background", limits = c(0, max(plotdata$PREVALENCE_DIFFERENCE_RATIO))) + #,transform = "log10") +
     scale_x_continuous(labels = scales::label_percent()) +
     ggtitle("Prevalence") +
     theme_bw() +
@@ -237,7 +238,9 @@ plot_heatmap = function(filtered_target){
     condition_occurrence = "orange",
     drug_exposure = "lightblue",
     measurement = "pink",
-    observation = "brown"
+    observation = "brown",
+    visit_occurrence ="darkgreen",
+    visit_detail = "lightgreen"
   )
 
   active_gender_colors <-  c(Male = "purple", Female = "pink", Other = "lightblue")
