@@ -560,6 +560,7 @@ performPrevalenceAnalysis <-
             c(sample_1_n, sample_2_n),
             conf.level = 0.95
           )
+        if (is.na(test_result$p.value)){next}
         if (test_result$p.value < alpha) {
           significant_concepts <-
             rbind(
