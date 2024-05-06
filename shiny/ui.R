@@ -8,7 +8,8 @@ header <- shinydashboard::dashboardHeader(
 sidebar <- shinydashboard::dashboardSidebar(
   shinydashboard::sidebarMenu(
     shinydashboard::menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")),
-    shinydashboard::menuItem("Settings", tabName = "settings", icon = icon("sliders"))
+    shinydashboard::menuItem("Settings", tabName = "settings", icon = icon("sliders")),
+    shinydashboard::menuItem("Overview", tabName = "overview", icon = icon("receipt"))
   )
 )
 
@@ -77,8 +78,8 @@ body <- shinydashboard::dashboardBody(
           shiny::column(
             width = 4,
             shiny::div(
-              shiny.fluent::Toggle.shinyInput("showMeasurements", label = "Show measurements", value = FALSE, onText = "On", offText = "Off"),
-              shiny::textOutput("showMeasurementsValue")
+              shiny.fluent::Toggle.shinyInput("applyInverseTarget", label = "Inverse target", value = FALSE, onText = "On", offText = "Off"),
+              shiny::textOutput("applyInverseTargetValue")
             )
           ),
           shiny::column(
@@ -106,6 +107,12 @@ body <- shinydashboard::dashboardBody(
       tabName = "settings",
       h3("Settings Panel"),
       p("Settings related content could be placed here.")
+    ),
+    # Settings tab
+    shinydashboard::tabItem(
+      tabName = "overview",
+      h3("Overview panel"),
+      p("What data, where data, why data?")
     )
   )
 )
