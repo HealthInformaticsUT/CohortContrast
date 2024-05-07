@@ -11,8 +11,8 @@ library(tidyverse)
 ################################################################################
 
 server = function(input, output, session) {
-
   study_info <- reactiveVal(list())
+  studyName <- reactiveVal(studyName)
 
   # Function to load data and update study_info
   load_study_data <- function() {
@@ -45,21 +45,28 @@ server = function(input, output, session) {
   # Existing observeEvent for loading data based on selection
   observeEvent(input$studyName, {
     req(input$studyName)
-    file_path <- str_c(pathToResults, "/tmp/datasets/", input$studyName, "_CC_medData.rdata")
+    split_name <- unlist(strsplit(input$studyName, " ", fixed = TRUE))
+    correct_study_name <- split_name[1]
+    file_path <- str_c(pathToResults, "/tmp/datasets/", correct_study_name, "_CC_medData.rdata")
+    studyName(correct_study_name)  # Update studyName reactive value
     if (file.exists(file_path)) {
-      load(file_path)  # Assuming data_features is loaded
-      return(paste("Data loaded from", file_path))
+      print("Data loaded")
     } else {
-      return(paste("File not found:", file_path))
+      print("File not found")
     }
   })
 
-  # Reactive to apply scaling if toggle is ON
+  # Reactive data transform
   target = reactive({
+    print(studyName())
     format_results(
       pathToResults = pathToResults,
-      studyName = studyName,
+      studyName = studyName(),
       autoScaleTime =  if (input$scaleTime)
+        TRUE
+      else
+        FALSE,
+      applyInverseTarget =  if (input$applyInverseTarget)
         TRUE
       else
         FALSE

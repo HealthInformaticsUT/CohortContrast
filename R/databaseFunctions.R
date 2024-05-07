@@ -37,6 +37,8 @@ generateTables <- function(connection,
     stateNamesJSON <- settings$stateNamesJSON
     insertedJSONs <- settings$insertedJSONs
     insertedCSV <- settings$insertedCSV
+    # Placeholder for inverse control
+    inverseControl = FALSE
 
     if (readFromCSV) {
       #################################
@@ -97,6 +99,7 @@ generateTables <- function(connection,
         createTable = TRUE,
         tempTable = FALSE
       )
+      if (length(unique(insertedCSV$COHORT)) == 1){inverseControl = TRUE}
 
 
       printCustomMessage(paste(
@@ -192,13 +195,38 @@ generateTables <- function(connection,
         )
         DatabaseConnector::executeSql(connection,
                                       sql)
-
         printCustomMessage("Nudging control cohort EXECUTED!")
-
       }
 
-    }
+      ## Check for the need of inverse control
+      sql <-
+        loadRenderTranslateSql(
+          dbms = dbms,
+          "SELECT * FROM @cdmTmpSchema.@studyTable;",
+          cdmTmpSchema = cdmTmpSchema,
+          studyTable = tolower(studyName)
+        )
+      data_initial <- DatabaseConnector::querySql(connection, sql)
+      if (length(unique(data_initial$COHORT_DEFINITION_ID)) == 1){inverseControl = TRUE}
 
+    }
+    if (inverseControl) {
+      printCustomMessage("Creating inverse self-controls as control cohort is missing!")
+      # Change target cohort to cohort_definition_id = 2
+      sql <- SqlRender::translate(
+        targetDialect = dbms,
+        sql = SqlRender::render(
+          sql = "UPDATE @cdmTmpSchema.@cohortTable SET cohort_definition_id = 2 WHERE cohort_definition_id = 1;",
+          cohortTable = studyName,
+          cdmTmpSchema = cdmTmpSchema
+        )
+      )
+      DatabaseConnector::executeSql(connection,
+                                    sql)
+
+    # Call the function to update cohort table
+    update_cohort_table(connection, cdmTmpSchema, studyName, cdmSchema)
+    }
     ####################################
     #  DDDDD    RRRRR    UU  UU  GGGGG
     #  DD   DD  RR  RRR  UU  UU GG
@@ -257,7 +285,7 @@ generateTables <- function(connection,
         targetDialect = dbms,
         sql = SqlRender::render(
           sql = customSQLRender(
-            "SELECT * INTO @cdmTmpSchema.cohortcontrast_drug_prevalence_differences FROM ( SELECT CASE WHEN a.drug_concept_id IS NOT NULL THEN a.drug_concept_id ELSE b.drug_concept_id END AS drug_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio, b.person_count as target_subject_count, a.person_count as control_subject_count FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_drug_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_drug_prevalence WHERE cohort_definition_id = 2) b ON a.drug_concept_id = b.drug_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
+            "SELECT * INTO @cdmTmpSchema.cohortcontrast_drug_prevalence_differences FROM ( SELECT CASE WHEN a.drug_concept_id IS NOT NULL THEN a.drug_concept_id ELSE b.drug_concept_id END AS drug_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio, b.person_count as target_subject_count, a.person_count as control_subject_count, b.prevalence as target_subject_prevalence, a.prevalence as control_subject_prevalence FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_drug_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_drug_prevalence WHERE cohort_definition_id = 2) b ON a.drug_concept_id = b.drug_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
             dbms
           ),
           cdmTmpSchema = cdmTmpSchema,
@@ -358,7 +386,7 @@ generateTables <- function(connection,
         targetDialect = dbms,
         sql = SqlRender::render(
           sql = customSQLRender(
-            "SELECT * INTO @cdmTmpSchema.cohortcontrast_condition_prevalence_differences FROM ( SELECT CASE WHEN a.condition_concept_id IS NOT NULL THEN a.condition_concept_id ELSE b.condition_concept_id END AS condition_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio,  b.person_count as target_subject_count, a.person_count as control_subject_count FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_condition_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_condition_prevalence WHERE cohort_definition_id = 2) b ON a.condition_concept_id = b.condition_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
+            "SELECT * INTO @cdmTmpSchema.cohortcontrast_condition_prevalence_differences FROM ( SELECT CASE WHEN a.condition_concept_id IS NOT NULL THEN a.condition_concept_id ELSE b.condition_concept_id END AS condition_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio,  b.person_count as target_subject_count, a.person_count as control_subject_count, b.prevalence as target_subject_prevalence, a.prevalence as control_subject_prevalence FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_condition_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_condition_prevalence WHERE cohort_definition_id = 2) b ON a.condition_concept_id = b.condition_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
             dbms
           ),
           cdmTmpSchema = cdmTmpSchema,
@@ -455,7 +483,7 @@ generateTables <- function(connection,
       sql1 <- SqlRender::translate(
         targetDialect = dbms,
         sql = SqlRender::render(
-          sql = "SELECT * INTO @cdmTmpSchema.cohortcontrast_measurement_prevalence_differences FROM ( SELECT CASE WHEN a.measurement_concept_id IS NOT NULL THEN a.measurement_concept_id ELSE b.measurement_concept_id END AS measurement_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio,  b.person_count as target_subject_count, a.person_count as control_subject_count FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_measurement_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_measurement_prevalence WHERE cohort_definition_id = 2) b ON a.measurement_concept_id = b.measurement_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
+          sql = "SELECT * INTO @cdmTmpSchema.cohortcontrast_measurement_prevalence_differences FROM ( SELECT CASE WHEN a.measurement_concept_id IS NOT NULL THEN a.measurement_concept_id ELSE b.measurement_concept_id END AS measurement_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio,  b.person_count as target_subject_count, a.person_count as control_subject_count, b.prevalence as target_subject_prevalence, a.prevalence as control_subject_prevalence FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_measurement_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_measurement_prevalence WHERE cohort_definition_id = 2) b ON a.measurement_concept_id = b.measurement_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
           cdmTmpSchema = cdmTmpSchema,
           domainLimit = domainLimit
         )
@@ -550,7 +578,7 @@ generateTables <- function(connection,
       sql1 <- SqlRender::translate(
         targetDialect = dbms,
         sql = SqlRender::render(
-          sql = "SELECT * INTO @cdmTmpSchema.cohortcontrast_procedure_prevalence_differences FROM ( SELECT CASE WHEN a.procedure_concept_id IS NOT NULL THEN a.procedure_concept_id ELSE b.procedure_concept_id END AS procedure_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio,  b.person_count as target_subject_count, a.person_count as control_subject_count FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_procedure_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_procedure_prevalence WHERE cohort_definition_id = 2) b ON a.procedure_concept_id = b.procedure_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
+          sql = "SELECT * INTO @cdmTmpSchema.cohortcontrast_procedure_prevalence_differences FROM ( SELECT CASE WHEN a.procedure_concept_id IS NOT NULL THEN a.procedure_concept_id ELSE b.procedure_concept_id END AS procedure_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio,  b.person_count as target_subject_count, a.person_count as control_subject_count, b.prevalence as target_subject_prevalence, a.prevalence as control_subject_prevalence FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_procedure_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_procedure_prevalence WHERE cohort_definition_id = 2) b ON a.procedure_concept_id = b.procedure_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
           cdmTmpSchema = cdmTmpSchema,
           domainLimit = domainLimit
         )
@@ -644,7 +672,7 @@ generateTables <- function(connection,
       sql1 <- SqlRender::translate(
         targetDialect = dbms,
         sql = SqlRender::render(
-          sql = "SELECT * INTO @cdmTmpSchema.cohortcontrast_observation_prevalence_differences FROM ( SELECT CASE WHEN a.observation_concept_id IS NOT NULL THEN a.observation_concept_id ELSE b.observation_concept_id END AS observation_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio,  b.person_count as target_subject_count, a.person_count as control_subject_count FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_observation_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_observation_prevalence WHERE cohort_definition_id = 2) b ON a.observation_concept_id = b.observation_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
+          sql = "SELECT * INTO @cdmTmpSchema.cohortcontrast_observation_prevalence_differences FROM ( SELECT CASE WHEN a.observation_concept_id IS NOT NULL THEN a.observation_concept_id ELSE b.observation_concept_id END AS observation_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio,  b.person_count as target_subject_count, a.person_count as control_subject_count, b.prevalence as target_subject_prevalence, a.prevalence as control_subject_prevalence FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_observation_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_observation_prevalence WHERE cohort_definition_id = 2) b ON a.observation_concept_id = b.observation_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
           cdmTmpSchema = cdmTmpSchema,
           domainLimit = domainLimit
         )
@@ -742,7 +770,7 @@ generateTables <- function(connection,
     sql1 <- SqlRender::translate(
       targetDialect = dbms,
       sql = SqlRender::render(
-        sql = "SELECT * INTO @cdmTmpSchema.cohortcontrast_visit_occurrence_prevalence_differences FROM ( SELECT CASE WHEN a.visit_concept_id IS NOT NULL THEN a.visit_concept_id ELSE b.visit_concept_id END AS visit_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio,  b.person_count as target_subject_count, a.person_count as control_subject_count FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_visit_occurrence_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_visit_occurrence_prevalence WHERE cohort_definition_id = 2) b ON a.visit_concept_id = b.visit_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
+        sql = "SELECT * INTO @cdmTmpSchema.cohortcontrast_visit_occurrence_prevalence_differences FROM ( SELECT CASE WHEN a.visit_concept_id IS NOT NULL THEN a.visit_concept_id ELSE b.visit_concept_id END AS visit_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio,  b.person_count as target_subject_count, a.person_count as control_subject_count, b.prevalence as target_subject_prevalence, a.prevalence as control_subject_prevalence FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_visit_occurrence_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_visit_occurrence_prevalence WHERE cohort_definition_id = 2) b ON a.visit_concept_id = b.visit_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
         cdmTmpSchema = cdmTmpSchema,
         domainLimit = domainLimit
       )
@@ -839,7 +867,7 @@ generateTables <- function(connection,
   sql1 <- SqlRender::translate(
     targetDialect = dbms,
     sql = SqlRender::render(
-      sql = "SELECT * INTO @cdmTmpSchema.cohortcontrast_visit_detail_prevalence_differences FROM ( SELECT CASE WHEN a.visit_detail_concept_id IS NOT NULL THEN a.visit_detail_concept_id ELSE b.visit_detail_concept_id END AS visit_detail_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio,  b.person_count as target_subject_count, a.person_count as control_subject_count FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_visit_detail_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_visit_detail_prevalence WHERE cohort_definition_id = 2) b ON a.visit_detail_concept_id = b.visit_detail_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
+      sql = "SELECT * INTO @cdmTmpSchema.cohortcontrast_visit_detail_prevalence_differences FROM ( SELECT CASE WHEN a.visit_detail_concept_id IS NOT NULL THEN a.visit_detail_concept_id ELSE b.visit_detail_concept_id END AS visit_detail_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio,  b.person_count as target_subject_count, a.person_count as control_subject_count, b.prevalence as target_subject_prevalence, a.prevalence as control_subject_prevalence FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_visit_detail_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_visit_detail_prevalence WHERE cohort_definition_id = 2) b ON a.visit_detail_concept_id = b.visit_detail_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
       cdmTmpSchema = cdmTmpSchema,
       domainLimit = domainLimit
     )
@@ -906,7 +934,7 @@ generateTables <- function(connection,
     sql1 <-
       paste(
         sql1,
-        "SELECT drug_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count FROM @cdmTmpSchema.cohortcontrast_drug_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON drug_concept_id = v.concept_id",
+        "SELECT drug_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count, target_subject_prevalence, control_subject_prevalence FROM @cdmTmpSchema.cohortcontrast_drug_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON drug_concept_id = v.concept_id",
         sep = ""
       )
 
@@ -929,7 +957,7 @@ generateTables <- function(connection,
     sql1 <-
       paste(
         sql1,
-        "SELECT measurement_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count FROM @cdmTmpSchema.cohortcontrast_measurement_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON measurement_concept_id = v.concept_id",
+        "SELECT measurement_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count, target_subject_prevalence, control_subject_prevalence FROM @cdmTmpSchema.cohortcontrast_measurement_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON measurement_concept_id = v.concept_id",
         sep = ""
       )
 
@@ -952,7 +980,7 @@ generateTables <- function(connection,
     sql1 <-
       paste(
         sql1,
-        "SELECT condition_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count FROM @cdmTmpSchema.cohortcontrast_condition_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON condition_concept_id = v.concept_id",
+        "SELECT condition_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count, target_subject_prevalence, control_subject_prevalence FROM @cdmTmpSchema.cohortcontrast_condition_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON condition_concept_id = v.concept_id",
         sep = ""
       )
 
@@ -975,7 +1003,7 @@ generateTables <- function(connection,
     sql1 <-
       paste(
         sql1,
-        "SELECT observation_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count FROM @cdmTmpSchema.cohortcontrast_observation_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON observation_concept_id = v.concept_id",
+        "SELECT observation_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count, target_subject_prevalence, control_subject_prevalence FROM @cdmTmpSchema.cohortcontrast_observation_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON observation_concept_id = v.concept_id",
         sep = ""
       )
 
@@ -998,7 +1026,7 @@ generateTables <- function(connection,
     sql1 <-
       paste(
         sql1,
-        "SELECT visit_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count FROM @cdmTmpSchema.cohortcontrast_visit_occurrence_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON visit_concept_id = v.concept_id",
+        "SELECT visit_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count, target_subject_prevalence, control_subject_prevalence FROM @cdmTmpSchema.cohortcontrast_visit_occurrence_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON visit_concept_id = v.concept_id",
         sep = ""
       )
 
@@ -1021,7 +1049,7 @@ generateTables <- function(connection,
     sql1 <-
       paste(
         sql1,
-        "SELECT visit_detail_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count FROM @cdmTmpSchema.cohortcontrast_visit_detail_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON visit_detail_concept_id = v.concept_id",
+        "SELECT visit_detail_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count, target_subject_prevalence, control_subject_prevalence FROM @cdmTmpSchema.cohortcontrast_visit_detail_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON visit_detail_concept_id = v.concept_id",
         sep = ""
       )
 
@@ -1044,7 +1072,7 @@ generateTables <- function(connection,
     sql1 <-
       paste(
         sql1,
-        "SELECT procedure_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count FROM @cdmTmpSchema.cohortcontrast_procedure_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON procedure_concept_id = v.concept_id",
+        "SELECT procedure_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count, target_subject_prevalence, control_subject_prevalence FROM @cdmTmpSchema.cohortcontrast_procedure_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON procedure_concept_id = v.concept_id",
         sep = ""
       )
 
