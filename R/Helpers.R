@@ -239,3 +239,73 @@ get_study_names <- function(pathToResults) {
   # Return the unique study names
   return(unique(study_names))
 }
+
+# Function to calculate inverse dates
+calculate_inverse_dates <- function(observation_period_start_date, observation_period_end_date, cohort_start_date, cohort_end_date) {
+  inverse_date_ranges <- list()
+
+  # Check if cohort dates fully overlap with observation dates
+  if (cohort_start_date <= observation_period_start_date & cohort_end_date >= observation_period_end_date) {
+    return(inverse_date_ranges)  # No date range to return
+  }
+
+  # Calculate inverse date ranges
+  if (cohort_start_date > observation_period_start_date) {
+    inverse_date_ranges[[length(inverse_date_ranges) + 1]] <- list(observation_period_start_date, cohort_start_date - 1)
+  }
+
+  if (cohort_end_date < observation_period_end_date) {
+    inverse_date_ranges[[length(inverse_date_ranges) + 1]] <- list(cohort_end_date + 1, observation_period_end_date)
+  }
+
+  return(inverse_date_ranges)
+}
+
+
+# Main function to update cohort table
+update_cohort_table <- function(connection, cdmTmpSchema, studyName, cdmSchema) {
+  # Query data from @cdmTmpSchema.@cohortTable where cohort_definition_id = 2
+  sql_select <- SqlRender::translate(
+    targetDialect = dbms,
+    sql = SqlRender::render(
+      sql = "SELECT c.subject_id, o.observation_period_start_date, o.observation_period_end_date, c.cohort_start_date, c.cohort_end_date
+             FROM @cdmTmpSchema.@cohortTable c
+             JOIN @cdmSchema.observation_period o ON c.subject_id = o.person_id
+             WHERE c.cohort_definition_id = 2;",
+      cdmTmpSchema = cdmTmpSchema,
+      cohortTable = studyName,
+      cdmSchema = cdmSchema
+    )
+  )
+
+  data <- DatabaseConnector::querySql(connection, sql_select)
+
+
+  # Iterate over each row, calculate inverse dates, and insert new rows
+  for (i in 1:nrow(data)) {
+    subject_id <- data[i, "SUBJECT_ID"]
+    observation_period_start_date <- data[i, "OBSERVATION_PERIOD_START_DATE"]
+    observation_period_end_date <- data[i, "OBSERVATION_PERIOD_END_DATE"]
+    cohort_start_date <- data[i, "COHORT_START_DATE"]
+    cohort_end_date <- data[i, "COHORT_END_DATE"]
+
+    inverse_date_ranges <- calculate_inverse_dates(observation_period_start_date, observation_period_end_date, cohort_start_date, cohort_end_date)
+    # Insert new rows with cohort_definition_id = 1
+    for (date_range in inverse_date_ranges) {
+      inverse_start_date <- date_range[[1]]
+      inverse_end_date <- date_range[[2]]
+
+      sql_insert <- SqlRender::translate(
+        targetDialect = dbms,
+        sql = SqlRender::render(
+          sql = paste0("INSERT INTO @cdmTmpSchema.@cohortTable (cohort_definition_id, subject_id, cohort_start_date, cohort_end_date) VALUES
+                        (1, ", subject_id, ", '", inverse_start_date, "', '", inverse_end_date, "');"),
+          cdmTmpSchema = cdmTmpSchema,
+          cohortTable = studyName
+        )
+      )
+
+      DatabaseConnector::executeSql(connection, sql_insert)
+    }
+  }
+}

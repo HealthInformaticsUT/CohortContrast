@@ -5,23 +5,63 @@ library(tidyr)
 ############################## Shiny functions
 
 # Functions for data loading and formatting ------------------------------------
-format_results = function(pathToResults, studyName, autoScaleTime){
-  load(stringr::str_c(pathToResults, "/tmp/datasets/", studyName, "_CC_medData.rdata"))
+format_results = function(pathToResults,
+                          studyName,
+                          autoScaleTime,
+                          applyInverseTarget) {
+  load(stringr::str_c(
+    pathToResults,
+    "/tmp/datasets/",
+    studyName,
+    "_CC_medData.rdata"
+  ))
+  if (applyInverseTarget) {
+    # Change data_patients
+    object$data_patients = object$data_patients %>% dplyr::mutate(COHORT_DEFINITION_ID = ifelse(COHORT_DEFINITION_ID == 1, 2, 1))
+    # Change data_patients
+    object$data_initial = object$data_initial %>% dplyr::mutate(COHORT_DEFINITION_ID = ifelse(COHORT_DEFINITION_ID == 1, 2, 1))
+    object$data_features = object$data_features %>% dplyr::mutate(TEMP = TARGET_SUBJECT_COUNT) %>%
+      dplyr::mutate(TARGET_SUBJECT_COUNT = CONTROL_SUBJECT_COUNT) %>%  dplyr::mutate(CONTROL_SUBJECT_COUNT = TEMP) %>%
+      dplyr::mutate(TEMP = TARGET_SUBJECT_PREVALENCE) %>%
+      dplyr::mutate(TARGET_SUBJECT_PREVALENCE = CONTROL_SUBJECT_PREVALENCE) %>%  dplyr::mutate(CONTROL_SUBJECT_PREVALENCE = TEMP) %>%
+      select(-TEMP) %>% dplyr::mutate(PREVALENCE_DIFFERENCE_RATIO = if_else(
+        is.na(CONTROL_SUBJECT_PREVALENCE) |
+          is.na(TARGET_SUBJECT_PREVALENCE),
+        -1,
+        (TARGET_SUBJECT_PREVALENCE / CONTROL_SUBJECT_PREVALENCE) - 1
+      ))
+  }
   if (autoScaleTime) {
     # Calculate the duration in the cohort in days
     object$data_initial <- object$data_initial %>%
-        dplyr::mutate(
-        COHORT_DURATION = as.integer(difftime(as.Date(COHORT_END_DATE), as.Date(COHORT_START_DATE), units = "days"))
-      )
+      dplyr::mutate(COHORT_DURATION = as.integer(difftime(
+        as.Date(COHORT_END_DATE),
+        as.Date(COHORT_START_DATE),
+        units = "days"
+      )))
     # Calculate the scaled prevalence for each PERSON_ID
     scaled_prevalence <- object$data_patients %>%
-      dplyr::left_join(object$data_initial %>% dplyr::select(SUBJECT_ID, COHORT_DURATION), by = c("PERSON_ID" = "SUBJECT_ID"), relationship = "many-to-many") %>%
-      dplyr::group_by(PERSON_ID, COHORT_DEFINITION_ID, CONCEPT_ID, CONCEPT_NAME, HERITAGE) %>%
+      dplyr::left_join(
+        object$data_initial %>% dplyr::select(SUBJECT_ID, COHORT_DURATION),
+        by = c("PERSON_ID" = "SUBJECT_ID"),
+        relationship = "many-to-many"
+      ) %>%
+      dplyr::group_by(PERSON_ID,
+                      COHORT_DEFINITION_ID,
+                      CONCEPT_ID,
+                      CONCEPT_NAME,
+                      HERITAGE) %>%
       dplyr::mutate(
-        SCALED_PREVALENCE = PREVALENCE / (COHORT_DURATION / 365)  # Assuming scaling by number of years
-      ) %>% dplyr::ungroup()
-    # Assuming object$data_features is your features dataframe
-    object$data_features <- update_features(object$data_features, scaled_prevalence) %>% dplyr::select(CONCEPT_ID,CONCEPT_NAME,PREVALENCE_DIFFERENCE_RATIO,TARGET_SUBJECT_COUNT,CONTROL_SUBJECT_COUNT)
+        SCALED_PREVALENCE = PREVALENCE / (COHORT_DURATION / 365)) # Assuming scaling by number of years) %>% dplyr::ungroup()
+        # Assuming object$data_features is your features dataframe
+        object$data_features <-
+          update_features(object$data_features, scaled_prevalence) %>% dplyr::select(
+            CONCEPT_ID,
+            CONCEPT_NAME,
+            PREVALENCE_DIFFERENCE_RATIO,
+            TARGET_SUBJECT_COUNT,
+            CONTROL_SUBJECT_COUNT
+          )
   }
   concepts = object$data_patients %>%
     select(CONCEPT_ID, CONCEPT_NAME, HERITAGE) %>%
@@ -46,9 +86,27 @@ format_results = function(pathToResults, studyName, autoScaleTime){
     bind_rows(
       target %>%
         group_by(PERSON_ID) %>%
-        summarize(CONCEPT_ID = 999999999, CONCEPT_NAME = "None", PREVALENCE = 99999, HERITAGE = "none", PREVALENCE_DIFFERENCE_RATIO = -1)
+        summarize(
+          CONCEPT_ID = 999999999,
+          CONCEPT_NAME = "None",
+          PREVALENCE = 99999,
+          HERITAGE = "none",
+          PREVALENCE_DIFFERENCE_RATIO = -1
+        )
     ) %>%
-    pivot_wider(id_cols = c(CONCEPT_ID, CONCEPT_NAME, HERITAGE, PREVALENCE_DIFFERENCE_RATIO, PREVALENCE), values_from = PRESENT, values_fill = 0, names_from = PERSON_ID, names_prefix = "PID_") %>%
+    pivot_wider(
+      id_cols = c(
+        CONCEPT_ID,
+        CONCEPT_NAME,
+        HERITAGE,
+        PREVALENCE_DIFFERENCE_RATIO,
+        PREVALENCE
+      ),
+      values_from = PRESENT,
+      values_fill = 0,
+      names_from = PERSON_ID,
+      names_prefix = "PID_"
+    ) %>%
     filter(CONCEPT_ID != 999999999) %>%
     mutate(CONCEPT_ID = as.character(CONCEPT_ID)) %>%
     filter(CONCEPT_ID != "0") %>%
@@ -73,15 +131,25 @@ format_results = function(pathToResults, studyName, autoScaleTime){
         select(PERSON_ID = SUBJECT_ID, COHORT_START_DATE),
       by = "PERSON_ID"
     ) %>%
-    mutate(AGE = floor(as.numeric(COHORT_START_DATE - lubridate::as_date(stringr::str_glue("{YEAR_OF_BIRTH}-01-01"))) / 365.25)) %>%
+    mutate(AGE = floor(as.numeric(
+      COHORT_START_DATE - lubridate::as_date(stringr::str_glue("{YEAR_OF_BIRTH}-01-01"))
+    ) / 365.25)) %>%
     select(PERSON_ID, GENDER_CONCEPT_ID, AGE) %>%
-    mutate(GENDER = factor(GENDER_CONCEPT_ID, levels = c(8507, 8532), labels = c("Male", "Female"))) %>%
+    mutate(GENDER = factor(
+      GENDER_CONCEPT_ID,
+      levels = c(8507, 8532),
+      labels = c("Male", "Female")
+    )) %>%
     mutate(PERSON_ID = stringr::str_c("PID_", PERSON_ID)) %>%
     as.data.frame() %>%
     column_to_rownames("PERSON_ID") %>%
     select(-GENDER_CONCEPT_ID)
 
-  res = list(target_matrix = target_matrix, target_row_annotation = target_row_annotation, target_col_annotation = target_col_annotation)
+  res = list(
+    target_matrix = target_matrix,
+    target_row_annotation = target_row_annotation,
+    target_col_annotation = target_col_annotation
+  )
 
   return(res)
 }
@@ -138,7 +206,6 @@ plot_prevalence = function(filtered_target){
     mutate(MALE_PROP_DIFF_HIGH = purrr::map_dbl(MALE_PROP_DIFF, ~ .x$estimate[2] + .x$conf.int[2])) %>%
     mutate(MALE_PROP_DIFF_SIGNIFICANT = map_lgl(MALE_PROP_DIFF, ~ .x$p.value < 0.05)) %>%
     mutate(PREVALENCE_LOG = log(PREVALENCE))
-
     # Plot
     p1 <- ggplot(plotdata, aes(x = PREVALENCE, y = CONCEPT_NAME, fill = PREVALENCE_LOG)) +
       geom_bar(stat = "identity") +
