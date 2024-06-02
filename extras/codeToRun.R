@@ -64,12 +64,10 @@ data = CohortContrast(
   prevalenceCutOff = 1.2,
   topDogs = 100, # Number of features to export
   presenceFilter = 0.05, # 0-1, percentage of people who must have the chosen feature present
-  removeOutliers = FALSE, # Remove people who have outlier-like feature values according to PCA
   complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
   nudgeTarget = FALSE, # nudge target cohort start date (days)
   nudgeControl = FALSE,# nudge control cohort start date (days)
-  runPCA = TRUE,
-  runPCAClusters = 4
+  createC2TInput = FALSE
 )
 
 data$resultList$pcaPlot1
@@ -100,15 +98,7 @@ personData <- heatmapResults$personData
 # GUI
 
 runGUI(
-  conn = connection,
-  connectionDetails = connectionDetails,
-  pathToDriver = pathToDriver,
   pathToResults = pathToResults,
-  dbms = dbms,
-  cdmSchema = cdmSchema,
-  cdmVocabSchema = cdmVocabSchema,
-  cdmTmpSchema = cdmTmpSchema,
-  cdmResultsSchema = cdmResultsSchema,
   studyName = studyName
 )
 ############################

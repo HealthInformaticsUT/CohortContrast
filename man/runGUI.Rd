@@ -4,39 +4,12 @@
 \alias{runGUI}
 \title{This function initiates the connection with database and starts Shiny application}
 \usage{
-runGUI(
-  conn,
-  connectionDetails,
-  pathToDriver = "./Drivers",
-  pathToResults = NULL,
-  dbms = "postgresql",
-  cdmSchema = "ohdsi_cdm",
-  cdmVocabSchema = "ohdsi_vocab",
-  cdmTmpSchema = "ohdsi_temp",
-  cdmResultsSchema = "ohdsi_results",
-  studyName = "Cohort2Trajectory"
-)
+runGUI(pathToResults = NULL, studyName = "Cohort2Trajectory")
 }
 \arguments{
-\item{pathToDriver}{Path to a folder containing the JDBC driver JAR files. See downloadJdbcDrivers for instructions on how to download the relevant drivers.}
-
 \item{pathToResults}{Path to target directory where results will be saved}
 
-\item{dbms}{The type of DBMS running on the server. Valid values are: 'oracle','postgresql','redshift','sql server','pdw', 'netezza','bigquery','sqlite', 'sqlite extended','spark'}
-
-\item{cdmSchema}{Schema which contains the OHDSI Common Data Model.}
-
-\item{cdmTmpSchema}{Schema for temporary tables}
-
 \item{cdmResultsSchema}{Schema which has the information about the cohorts created in Atlas}
-
-\item{user}{The user name used to access the server.}
-
-\item{pw}{The password for that user.}
-
-\item{server}{The name of the server.}
-
-\item{port}{The port on the server to connect to.}
 }
 \description{
 This function initiates the connection with database and starts Shiny application

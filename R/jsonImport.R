@@ -147,3 +147,4 @@ loadJsons <- function(studyName, pathToResults) {
 
   return(env)
 }
+

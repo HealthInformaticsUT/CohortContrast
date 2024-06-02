@@ -51,7 +51,6 @@ test_that("Created cohort table is with correct.", {
     prevalenceCutOff = 0.1,
     topDogs =10,
     presenceFilter = FALSE,
-    removeOutliers = FALSE,
     complementaryMappingTable = FALSE,
     nudgeTarget = 30,
     nudgeControl = FALSE
