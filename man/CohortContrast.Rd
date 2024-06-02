@@ -19,12 +19,10 @@ CohortContrast(
   prevalenceCutOff = 10,
   topDogs = FALSE,
   presenceFilter = 0.005,
-  removeOutliers = TRUE,
   nudgeControl = FALSE,
   nudgeTarget = FALSE,
   complementaryMappingTable = FALSE,
-  runPCA = FALSE,
-  runPCAClusters = 4
+  createC2TInput = FALSE
 )
 }
 \arguments{
@@ -49,8 +47,6 @@ CohortContrast(
 \item{topDogs}{numeric > if set, keeps this number of features in the analysis, top n prevalence difference}
 
 \item{presenceFilter}{numeric > if set, removes all features represented less than the given percentage}
-
-\item{removeOutliers}{boolean > if true this removes outlier patients from the target cohort, might cause loss of features}
 
 \item{nudgeControl}{number of days you would like to nudge the control cohort start day}
 

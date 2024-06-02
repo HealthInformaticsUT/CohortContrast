@@ -11,18 +11,27 @@ library(tidyverse)
 ################################################################################
 
 server = function(input, output, session) {
+  # Reactive values
   study_info <- reactiveVal(list())
-  studyName <- reactiveVal(studyName)
+  studyName <- reactiveVal()
+  target_mod <- reactiveVal()
+  original_data = reactiveVal(NULL)
+  loaded_data <- reactiveVal(NULL)
+  data_features <- reactiveVal(NULL)
+  data_patients <- reactiveVal(NULL)
 
   # Function to load data and update study_info
   load_study_data <- function() {
     names_and_rows <- list()
     study_names <- get_study_names(pathToResults)
-    for (study_name in study_names) {
+   for (study_name in study_names) {
       file_path <- str_c(pathToResults, "/tmp/datasets/", study_name, "_CC_medData.rdata")
+
       if (file.exists(file_path)) {
-        load(file_path)  # Assuming data_features is loaded
-        rows <- nrow(dplyr::distinct(dplyr::select(dplyr::filter(object$data_patients, COHORT_DEFINITION_ID == 2), PERSON_ID)))  # Adjust this if the data frame has a different name
+        load(file_path)
+#        loaded_data(object)
+#        original_data(object)
+        rows <- nrow(distinct(select(filter(object$data_patients, COHORT_DEFINITION_ID == 2), PERSON_ID)))
         names_and_rows[[study_name]] <- rows
       }
     }
@@ -42,81 +51,223 @@ server = function(input, output, session) {
     updateSelectInput(session, "studyName", choices = as.vector(choices))
   })
 
-  # Existing observeEvent for loading data based on selection
+  # Load data based on selection
   observeEvent(input$studyName, {
     req(input$studyName)
     split_name <- unlist(strsplit(input$studyName, " ", fixed = TRUE))
     correct_study_name <- split_name[1]
     file_path <- str_c(pathToResults, "/tmp/datasets/", correct_study_name, "_CC_medData.rdata")
-    studyName(correct_study_name)  # Update studyName reactive value
+    studyName(correct_study_name)
+
     if (file.exists(file_path)) {
+      load(file_path)
+      loaded_data(list(
+        data_initial = object$data_initial,
+        data_patients = object$data_patients,
+        data_features = object$data_features,
+        data_person = object$data_person,
+        target_matrix = object$target_matrix,
+        target_row_annotation = object$target_row_annotation,
+        target_col_annotation = object$target_col_annotation
+      ))
+      original_data(list(
+        data_initial = object$data_initial,
+        data_patients = object$data_patients,
+        data_features = object$data_features,
+        data_person = object$data_person,
+        target_matrix = object$target_matrix,
+        target_row_annotation = object$target_row_annotation,
+        target_col_annotation = object$target_col_annotation
+      ))
+      data_features(object$data_features)
+      data_patients(object$data_patients)
+      target_mod(object$data_features)
       print("Data loaded")
     } else {
       print("File not found")
     }
   })
 
-  # Reactive data transform
-  target = reactive({
-    print(studyName())
+  # Reactive expressions
+  target <- reactive({
+    req(studyName(), pathToResults, loaded_data())
+
+    autoScaleTime <- if (!is.null(input$scaleTime) && input$scaleTime) TRUE else FALSE
+    applyInverseTarget <- if (!is.null(input$applyInverseTarget) && input$applyInverseTarget) TRUE else FALSE
+
     format_results(
+      object = loaded_data(),
       pathToResults = pathToResults,
       studyName = studyName(),
-      autoScaleTime =  if (input$scaleTime)
-        TRUE
-      else
-        FALSE,
-      applyInverseTarget =  if (input$applyInverseTarget)
-        TRUE
-      else
-        FALSE
+      autoScaleTime = autoScaleTime,
+      applyInverseTarget = applyInverseTarget
     )
   })
 
-  target_filtered = reactive({
+  target_filtered <- reactive({
     filter_target(
       target(),
       input$prevalence,
       input$prevalence_ratio,
       input$domain,
-      removeUntreated = if (input$removeUntreated)
-        TRUE
-      else
-        FALSE
+      removeUntreated = if (input$removeUntreated) TRUE else FALSE
     )
   })
 
-  # output$prevalence <- renderPlot({
-  #   plot_prevalence(target_filtered())
-  # }, height = 950)  # Specify width and height in pixels
+  # Render plots
   output$prevalence <- renderPlot({
-    # Attempt to plot and handle errors if they occur
     tryCatch({
-      # Code that might throw an error
       plot_prevalence(target_filtered())
     }, error = function(e) {
-      # Error handling code
-      # Here you log the error if needed and return an alternative representation
-      print(e)  # Print the error message to the R console (optional)
-      plot_prevalence(NULL)    # Return NULL to ensure no plot output
+      print(e)
+      plot_prevalence(NULL)
     })
   }, height = 950)
-
-
-  # output$heatmap <- renderPlot({
-  #   plot_heatmap(target_filtered())
-  # }, height = 950)
 
   output$heatmap <- renderPlot({
-    # Attempt to plot and handle errors if they occur
     tryCatch({
-      # Code that might throw an error
       plot_heatmap(target_filtered())
     }, error = function(e) {
-      # Error handling code
-      # Here you log the error if needed and return an alternative representation
-      print(e)  # Print the error message to the R console (optional)
-      plot_prevalence(NULL)     # Return NULL to ensure no plot output
+      print(e)
+      plot_heatmap(NULL)
     })
   }, height = 950)
+
+  # Mapping table related stuff
+  observe({
+    req(data_features())
+    target_mod(data_features())
+  })
+
+  output$concept_table <- DT::renderDT({
+    datatable(
+      target_mod(),
+      selection = 'multiple',
+      filter = 'top'
+    )
+  }, server = TRUE)
+
+  # Combine concepts
+  observeEvent(input$accept_btn, {
+    removeModal()
+    new_concept_name <- input$new_concept_name
+    combineSelectedConcepts(new_concept_name)
+    target_mod(data_features())
+
+    loaded_data(list(
+      data_initial = loaded_data()$data_initial,
+      data_patients = data_patients(),
+      data_features = data_features(),
+      data_person = loaded_data()$data_person,
+      target_matrix = loaded_data()$target_matrix,
+      target_row_annotation = loaded_data()$target_row_annotation,
+      target_col_annotation = loaded_data()$target_col_annotation
+    ))
+  })
+
+  observeEvent(input$combine_btn, {
+    if (length(input$concept_table_rows_selected) > 1) {
+      showModal(modalDialog(
+        title = "Combine Concepts",
+        textInput("new_concept_name", "Enter New Concept Name:", ""),
+        footer = tagList(
+          modalButton("Cancel"),
+          actionButton("accept_btn", "Accept")
+        )
+      ))
+    } else {
+      showNotification("Select at least two rows to combine", type = "warning")
+    }
+  })
+
+  # Reset data to original
+  observeEvent(input$reset_btn, {
+    initial_data <- list(
+      data_initial = original_data()$data_initial,
+      data_patients = original_data()$data_patients,
+      data_features = original_data()$data_features,
+      data_person = original_data()$data_person,
+      target_matrix = original_data()$data_matrix,
+      target_row_annotation = original_data()$target_row_annotation,
+      target_col_annotation = original_data()$target_col_annotation
+    )
+
+    loaded_data(initial_data)
+    data_features(original_data()$data_features)
+    data_patients(original_data()$data_patients)
+    target_mod(original_data()$data_features)
+
+    data_features(data_features())
+  })
+
+  # Function to combine selected concepts
+  combineSelectedConcepts <- function(new_concept_name) {
+
+    selected_rows <- input$concept_table_rows_selected
+
+    data_features <- data_features()
+
+    data_patients <- data_patients()
+
+    data_initial <- loaded_data()$data_initial
+
+    n_patients <- data_initial %>%
+      group_by(COHORT_DEFINITION_ID) %>%
+      summarise(count = n(), .groups = 'drop') %>%
+      spread(COHORT_DEFINITION_ID, count, fill = 0)
+
+    count_target <- n_patients$`2`
+    count_control <- n_patients$`1`
+    selected_concept_ids <- as.numeric(target_mod()$CONCEPT_ID[selected_rows])
+
+    target_mod_data <- data_patients
+    selected_heritage <- as.vector(data_patients %>% select(CONCEPT_ID, HERITAGE) %>% distinct() %>%  filter(CONCEPT_ID %in% selected_concept_ids) %>% select(HERITAGE))
+    # Count occurrences of each heritage value and select the most frequent one
+    most_frequent_heritage <- names(sort(table(selected_heritage), decreasing = TRUE)[1])
+
+   # Identify rows to update
+    rows_to_update <- data_patients$CONCEPT_ID %in% selected_concept_ids
+
+    # Update rows in one go
+    data_patients <- data_patients %>%
+      mutate(
+        CONCEPT_ID = replace(CONCEPT_ID, rows_to_update, sample(selected_concept_ids, 1)),
+        CONCEPT_NAME = replace(CONCEPT_NAME, rows_to_update, new_concept_name),
+        HERITAGE = replace(HERITAGE, rows_to_update, most_frequent_heritage)
+      ) %>%
+      group_by(COHORT_DEFINITION_ID, PERSON_ID, CONCEPT_ID, CONCEPT_NAME, HERITAGE) %>%
+      summarise(PREVALENCE = sum(PREVALENCE), .groups = 'drop')
+
+    data_features <- data_patients %>%
+      group_by(CONCEPT_ID, CONCEPT_NAME) %>%
+      summarise(
+        TARGET_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 2 & PREVALENCE > 0),
+        CONTROL_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 1 & PREVALENCE > 0),
+        .groups = 'drop'
+      ) %>%
+      mutate(
+        TARGET_SUBJECT_PREVALENCE = TARGET_SUBJECT_COUNT / count_target,
+        CONTROL_SUBJECT_PREVALENCE = CONTROL_SUBJECT_COUNT / count_control,
+        PREVALENCE_DIFFERENCE_RATIO = case_when(
+          (is.na(TARGET_SUBJECT_PREVALENCE) | TARGET_SUBJECT_PREVALENCE == 0) ~ 0,
+          (is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0) & is.na(TARGET_SUBJECT_PREVALENCE) ~ -1,
+          (is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0) ~ 100,
+          TRUE ~ TARGET_SUBJECT_PREVALENCE / CONTROL_SUBJECT_PREVALENCE
+        )
+      )
+
+    data_features(data_features)
+    data_patients(data_patients)
+
+      loaded_data(list(
+      data_initial = data_initial,
+      data_patients = data_patients,
+      data_features = data_features,
+      data_person = loaded_data()$data_person,
+      target_matrix = loaded_data()$target_matrix,
+      target_row_annotation = loaded_data()$target_row_annotation,
+      target_col_annotation = loaded_data()$target_col_annotation
+    ))
+  }
+
 }

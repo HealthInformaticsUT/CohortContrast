@@ -13,7 +13,6 @@
 #' @param prevalenceCutOff numeric > if set, removes all of the concepts which are not present (in target) more than prevalenceCutOff times
 #' @param topDogs numeric > if set, keeps this number of features in the analysis, top n prevalence difference
 #' @param presenceFilter numeric > if set, removes all features represented less than the given percentage
-#' @param removeOutliers boolean > if true this removes outlier patients from the target cohort, might cause loss of features
 #' @param nudgeTarget number of days you would like to nudge the target cohort start day
 #' @param nudgeControl number of days you would like to nudge the control cohort start day
 #' @param complementaryMappingTable Mappingtable for mapping concept_ids if present
@@ -32,12 +31,10 @@ CohortContrast <- function(connection,
                            prevalenceCutOff = 10,
                            topDogs = FALSE,
                            presenceFilter = 0.005,
-                           removeOutliers = TRUE,
                            nudgeControl = FALSE,
                            nudgeTarget = FALSE,
                            complementaryMappingTable = FALSE,
-                           runPCA = FALSE,
-                           runPCAClusters = 4) {
+                           createC2TInput = FALSE) {
   printCustomMessage("Creating mandatory subdirectories ...")
   createMandatorySubDirs(pathToResults)
   # List of hard-coded objects
@@ -92,34 +89,39 @@ CohortContrast <- function(connection,
         PREVALENCE,
         HERITAGE
       )
-    # Ensuring that the updated_concept_map contains unique CONCEPT_ID entries
-    data$data_features <-
-      dplyr::select(
-        dplyr::mutate(
-          dplyr::left_join(
-            data$data_features,
-            complementaryMappingTable,
-            by = "CONCEPT_ID",
-            suffix = c("", ".compl")
-          ),
-          # Choose the complementaryMappingTable CONCEPT_NAME if it's not NA; otherwise, use the original
-          CONCEPT_NAME = ifelse(
-            is.na(CONCEPT_NAME.compl),
-            CONCEPT_NAME,
-            CONCEPT_NAME.compl
-          )
-        ),
-        # Select and rename the columns to match the original concept_map structure
-        CONCEPT_ID,
-        CONCEPT_NAME,
-        PREVALENCE_DIFFERENCE_RATIO,
-        TARGET_SUBJECT_COUNT,
-        CONTROL_SUBJECT_COUNT
-      )
+
+    data_patients <- data$data_patients
+
+    # Step 1: Create a mapping of CONCEPT_NAME to the first occurrence of CONCEPT_ID in complementaryMappingTable
+    unique_concept_ids <- complementaryMappingTable %>%
+      group_by(CONCEPT_NAME) %>%
+      slice(1) %>%
+      select(CONCEPT_NAME, CONCEPT_ID)
+
+    # Step 2: Replace CONCEPT_ID in data_patients with the mapped CONCEPT_ID for each CONCEPT_NAME
+    data_patients <- data_patients %>%
+      left_join(unique_concept_ids, by = "CONCEPT_NAME", suffix = c("", ".new")) %>%
+      mutate(CONCEPT_ID = ifelse(is.na(CONCEPT_ID.new), CONCEPT_ID, CONCEPT_ID.new)) %>%
+      select(-CONCEPT_ID.new)
+
+    # Step 3: Summarize data_patients to aggregate PREVALENCE
+    final_data <- data_patients %>%
+      group_by(COHORT_DEFINITION_ID, PERSON_ID, CONCEPT_ID, CONCEPT_NAME, HERITAGE) %>%
+      summarise(PREVALENCE = sum(PREVALENCE, na.rm = TRUE), .groups = 'drop')
+
+    # Assign the result back to data$data_patients
+    data$data_patients <- final_data
   }
 
+
+  ### Create data_features dataframe
+
+  # Calculate the number of patients in target and control groups
+  data_features = calculate_data_features(data)
   printCustomMessage("Starting running analysis on data...")
-  data_features = data$data_features
+  data_features = calculate_data_features(data)
+  data$data_features = calculate_data_features(data)
+  data_features =  data$data_features
   data_patients = data$data_patients
   data_initial = data$data_initial
   data_person = data$data_person
@@ -230,128 +232,66 @@ CohortContrast <- function(connection,
   #  #      #### #####    #
   #
   ###########################################
-  filtered_data = NULL
-  if (runPCA & nrow(features) > 1) {
-    results <-
-      performPCAAnalysis(patients_data, runPCAClusters, removeOutliers)
-    resultList$pcaPlot1 <- results$pcaPlot
-    filtered_data <- results$filteredData
 
-
-    # Use filtered_data as needed for further analysis
-  }
-  else if (nrow(features) <= 1) {
-    printCustomMessage("Only one feature left, exiting ...")
-    filePath = paste(pathToResults,
-                     "/tmp/datasets/",
-                     studyName,
-                     "_CC_medData.rdata",
-                     sep = "")
-    save_object(data, path = filePath)
-    printCustomMessage(paste("Saved the result to ", filePath, sep = ""))
-    return(data)
-  }
-  else {
-    filtered_data = patients_data
-  }
+  filtered_data = patients_data
 
 
 
   # export selected features
   resultList$selectedFeatureNames = colnames(filtered_data)
-  colnames(data$data_patients) = c(
-    "COHORT_DEFINITION_ID",
-    "PERSON_ID",
-    "CONCEPT_ID",
-    "CONCEPT_NAME",
-    "PREVALENCE",
-    "HERITAGE"
-  )
-
-  data_selected_patients = dplyr::select(
-    dplyr::filter(
-      data$data_patients,
-      CONCEPT_NAME %in% resultList$selectedFeatureNames,
-      COHORT_DEFINITION_ID == targetCohortId
-    ),
-    CONCEPT_ID,
-    CONCEPT_NAME,
-    PERSON_ID,
-    HERITAGE
-  )
-  # Creating target cohort & eligible patients dataset
-  #
-  data_target = dplyr::mutate(
-    dplyr::filter(
-      data_initial,
-      COHORT_DEFINITION_ID == targetCohortId,
-      SUBJECT_ID %in% unique(data_selected_patients$PERSON_ID)
-    ),
-    COHORT_DEFINITION_ID = 0
-  )
-
-  printCustomMessage("Creating a dataset for eligible patients only (Cohort2Trajectory input) ...")
-  # Creating state cohorts / eligible patients dataset
-  # Split the data by heritage
-  split_data <-
-    split(data_selected_patients, data_selected_patients$HERITAGE)
-
-  # Iterate over each heritage type and construct then execute SQL queries
-  results_list <-
-    queryHeritageData(
-      dataPatient = data_selected_patients,
-      connection,
-      cdmSchema,
-      cdmTmpSchema,
-      studyName,
-      split_data,
-      complementaryMappingTable
+  if (createC2TInput) {
+    data_selected_patients = dplyr::select(
+      dplyr::filter(
+        data$data_patients,
+        CONCEPT_NAME %in% resultList$selectedFeatureNames,
+        COHORT_DEFINITION_ID == targetCohortId
+      ),
+      CONCEPT_ID,
+      CONCEPT_NAME,
+      PERSON_ID,
+      HERITAGE
+    )
+    # Creating target cohort & eligible patients dataset
+    #
+    data_target = dplyr::mutate(
+      dplyr::filter(
+        data_initial,
+        COHORT_DEFINITION_ID == targetCohortId,
+        SUBJECT_ID %in% unique(data_selected_patients$PERSON_ID)
+      ),
+      COHORT_DEFINITION_ID = 0
     )
 
-  data_states <- do.call(rbind, results_list)
-  data_states$END_DATE = data_states$START_DATE
-  # Assuming you want to combine all results into a single data fram
-  colnames(data_states) <-
-    c("COHORT_DEFINITION_ID",
-      "SUBJECT_ID",
-      "COHORT_START_DATE",
-      "COHORT_END_DATE")
+    printCustomMessage("Creating a dataset for eligible patients only (Cohort2Trajectory input) ...")
+    # Creating state cohorts / eligible patients dataset
+    # Split the data by heritage
+    split_data <-
+      split(data_selected_patients, data_selected_patients$HERITAGE)
+    # Iterate over each heritage type and construct then execute SQL queries
+    results_list <-
+      queryHeritageData(
+        dataPatient = data_selected_patients,
+        connection,
+        cdmSchema,
+        cdmTmpSchema,
+        studyName,
+        split_data,
+        complementaryMappingTable
+      )
 
-  resultList$trajectoryData = rbind(data_target, data_states)
-  #  resultList$trajectoryData = dplyr::filter(resultList$trajectoryData, SUBJECT_ID %in% unique_person_ids)
-  resultList$trajectoryData$COHORT_DEFINITION_ID = trimws(resultList$trajectoryData$COHORT_DEFINITION_ID)
+    data_states <- do.call(rbind, results_list)
+    data_states$END_DATE = data_states$START_DATE
+    # Assuming you want to combine all results into a single data fram
+    colnames(data_states) <-
+      c("COHORT_DEFINITION_ID",
+        "SUBJECT_ID",
+        "COHORT_START_DATE",
+        "COHORT_END_DATE")
 
-  # Scaling
-  filtered_data_scaled <-
-    as.data.frame(lapply(filtered_data, scale_to_1_0))
-
-  results <-
-    performPCAAnalysis(
-      filtered_data_scaled,
-      runPCAClusters,
-      scaleData = FALSE,
-      removeOutliers = FALSE
-    ) # Scale is already done
-  resultList$pcaPlot2 <- results$pcaPlot
-  # Assuming your data frame is named 'filtered_data'
-  # Apply the function to each column of the DataFrame
-  printCustomMessage("Creating the heatmap ...")
-
-  if (ncol(filtered_data_scaled) < 2) {
-    message("Too few features for a heatmap!")
-    resultList$heatmapPlot1 <- NULL
+    resultList$trajectoryData = rbind(data_target, data_states)
+    resultList$trajectoryData$COHORT_DEFINITION_ID = trimws(resultList$trajectoryData$COHORT_DEFINITION_ID)
   }
-  else {
-    # Heatmap 1
-    colnames(filtered_data_scaled) <-
-      substr(colnames(filtered_data_scaled), 1, 15)
 
-    resultList$heatmapPlot1 <-
-      pheatmap::pheatmap(filtered_data_scaled,
-                         color = colorRampPalette(c("blue", "white", "red"))(100),
-                         show_rownames = F)
-
-  }
   printCustomMessage("Running analysis END!")
   ################################################################################
   #
@@ -444,7 +384,6 @@ queryHeritageData <-
           )
 
         # Ensuring that the updated_concept_map contains unique CONCEPT_ID entries
-        # concept_map <- unique(concept_map)
       }
       concept_map[[concept_string]] <-
         as.character(concept_map[['CONCEPT_ID']]) # Ensure consistent data type
@@ -573,3 +512,93 @@ performPrevalenceAnalysis <-
 
     return(significant_concepts)
   }
+
+
+performPrevalenceAnalysisLogistic <- function(data_patients, data_initial, targetCohortId, presenceFilter) {
+  # Aggregate the prevalence data for each concept within each cohort
+  agg_data <- dplyr::summarise(
+    dplyr::group_by(
+      dplyr::mutate(data_patients, PREVALENCE = ifelse(PREVALENCE > 0, 1, 0)),
+      COHORT_DEFINITION_ID,
+      CONCEPT_ID
+    ),
+    TOTAL_PREVALENCE = sum(PREVALENCE),
+    .groups = 'drop'
+  )
+
+  # Separate the data for each cohort for easier analysis
+  cohort_1 <- dplyr::filter(agg_data, COHORT_DEFINITION_ID != targetCohortId)
+  cohort_2 <- dplyr::filter(agg_data, COHORT_DEFINITION_ID == targetCohortId)
+
+  # Count of patients in each cohort
+  sample_1_n <- nrow(dplyr::filter(data_initial, COHORT_DEFINITION_ID != targetCohortId))
+  sample_2_n <- nrow(dplyr::filter(data_initial, COHORT_DEFINITION_ID == targetCohortId))
+
+  # Prepare a data frame to hold the results
+  significant_concepts <- data.frame(CONCEPT_ID = integer(), P_VALUE = double(), ODDS_RATIO = double())
+
+  # We implement Bonferroni correction
+  printCustomMessage("Starting running logistic regressions on data...")
+  alpha <- 0.05 / length(unique(agg_data$CONCEPT_ID))
+
+  # Perform logistic regression for each CONCEPT_ID
+  for (concept_id in unique(agg_data$CONCEPT_ID)) {
+    # Create the dataset for logistic regression
+    concept_data <- dplyr::mutate(data_patients,
+                                  PREVALENCE = ifelse(CONCEPT_ID == concept_id & PREVALENCE > 0, 1, 0),
+                                  TARGET = ifelse(COHORT_DEFINITION_ID == targetCohortId, 1, 0))
+
+    # Ensure presence filter and valid sample sizes
+    prevalence_cohort_2 <- sum(dplyr::filter(concept_data, TARGET == 1)$PREVALENCE)
+    if (prevalence_cohort_2 / sample_2_n < presenceFilter) {
+      next
+    }
+
+    # Perform logistic regression
+    model <- glm(TARGET ~ PREVALENCE, data = concept_data, family = binomial)
+    summary_model <- summary(model)
+
+    # Check if the presence of the concept is significant
+    p_value <- summary_model$coefficients[2, 4]
+    odds_ratio <- exp(coef(model)[2])
+
+    if (!is.na(p_value) && p_value < alpha) {
+      significant_concepts <- rbind(significant_concepts,
+                                    data.frame(CONCEPT_ID = concept_id, P_VALUE = p_value, ODDS_RATIO = odds_ratio))
+    }
+  }
+
+  return(significant_concepts)
+}
+
+
+calculate_data_features <- function(data) {
+  # Calculate number of patients per cohort
+  n_patients <- data$data_initial %>%
+    dplyr::group_by(COHORT_DEFINITION_ID) %>%
+    dplyr::summarise(count = dplyr::n(), .groups = 'drop') %>%
+    tidyr::pivot_wider(names_from = COHORT_DEFINITION_ID, values_from = count, values_fill = list(count = 0))
+
+  count_target <- n_patients$`2`
+  count_control <- n_patients$`1`
+  # Update data features with prevalence calculations
+  data_features <- data$data_patients %>%
+    dplyr::group_by(CONCEPT_ID, CONCEPT_NAME) %>%
+    dplyr::summarise(
+      TARGET_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 2 & PREVALENCE > 0),
+      CONTROL_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 1 & PREVALENCE > 0),
+      .groups = 'drop'
+    ) %>%
+    dplyr::mutate(
+      TARGET_SUBJECT_PREVALENCE = TARGET_SUBJECT_COUNT / count_target,
+      CONTROL_SUBJECT_PREVALENCE = CONTROL_SUBJECT_COUNT / count_control,
+      PREVALENCE_DIFFERENCE_RATIO = dplyr::case_when(
+        is.na(TARGET_SUBJECT_PREVALENCE) | TARGET_SUBJECT_PREVALENCE == 0 ~ 0,
+        (is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0) & is.na(TARGET_SUBJECT_PREVALENCE) ~ -1,
+        is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0 ~ 100,
+        TRUE ~ TARGET_SUBJECT_PREVALENCE / CONTROL_SUBJECT_PREVALENCE
+      )
+    )
+
+  return(data_features)
+}
