@@ -237,9 +237,6 @@ processCSVData <- function(connection, dbms, cdmTmpSchema, studyName, insertedCS
     relationName = tolower(studyName)
   )
 
-  insertedCSV <- nudgeCohortIfRequired(insertedCSV, nudgeTarget)
-  insertedCSV <- nudgeCohortIfRequired(insertedCSV, nudgeControl)
-
   DatabaseConnector::insertTable(
     connection = connection,
     databaseSchema = cdmTmpSchema,

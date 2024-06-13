@@ -59,10 +59,10 @@ data = CohortContrast(
   pathToResults,
   studyName,
   domainsIncluded = c("Drug", "Condition", "Measurement", "Observation", "Procedure", "Visit", "Visit detail"),
-  generateTables = FALSE,
+  generateTables = TRUE,
   readFromCSV = FALSE,
   prevalenceCutOff = 1.2,
-  topDogs = 500, # Number of features to export
+  topDogs = 100, # Number of features to export
   presenceFilter = 0.05, # 0-1, percentage of people who must have the chosen feature present
   complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
   nudgeTarget = FALSE, # nudge target cohort start date (days)
