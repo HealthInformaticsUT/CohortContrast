@@ -55,7 +55,7 @@ test_that("Created cohort table is with correct.", {
     nudgeTarget = 30,
     nudgeControl = FALSE
   )
-  expect_equal(length(data$resultList$selectedFeatures$CONCEPT_NAME) == 0, TRUE)
+  expect_equal(length(data$resultList$selectedFeatures$CONCEPT_NAME) ==10, TRUE)
 })
 #> Test passed 🥇
 

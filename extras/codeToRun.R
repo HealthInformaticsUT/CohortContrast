@@ -49,7 +49,7 @@ connection <- DatabaseConnector::connect(connectionDetails)
 #   CCCC    CCCC
 ##################
 
-
+# TODO: finalize logit tests
 data = CohortContrast(
   connection,
   connectionDetails,
@@ -58,42 +58,17 @@ data = CohortContrast(
   cdmTmpSchema,
   pathToResults,
   studyName,
-  domainsIncluded =   c("Drug", "Condition", "Measurement", "Observation", "Procedure", "Visit", "Visit detail"),
-  generateTables = TRUE,
+  domainsIncluded = c("Drug", "Condition", "Measurement", "Observation", "Procedure", "Visit", "Visit detail"),
+  generateTables = FALSE,
   readFromCSV = FALSE,
   prevalenceCutOff = 1.2,
-  topDogs = 100, # Number of features to export
+  topDogs = 500, # Number of features to export
   presenceFilter = 0.05, # 0-1, percentage of people who must have the chosen feature present
   complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
   nudgeTarget = FALSE, # nudge target cohort start date (days)
   nudgeControl = FALSE,# nudge control cohort start date (days)
-  createC2TInput = FALSE
-)
+  createC2TInput = FALSE)
 
-data$resultList$pcaPlot1
-data$resultList$heatmapPlot1
-data$resultList$selectedFeatureNames
-
-# # You can also use a complementary mapping table to map some concept ids to same name
-# # You can use vectors for that
-# complementaryMappingTable = createComplementaryMappingTable(conceptIds = c(1,2,3), conceptNames = c("Drug1", "Drug2", "Drug1"))
-
-
-# Heatmap 2
-heatmapResults <- createHeatmap(
-  data = data,
-  cohortDefinitionId = 2,
-  prevalenceRatioThreshold = 5, # Example threshold
-  prevalenceThreshold = 0.05, # Example threshold
-  cdmSchema = cdmSchema,
-  connection = connection,
-  complementaryMappingTable = FALSE
-)
-
-# Extracting the heatmap plot and other results
-heatmapPlot <- heatmapResults$heatmapPlot
-targetMatrix <- heatmapResults$targetMatrix
-personData <- heatmapResults$personData
 
 # GUI
 
