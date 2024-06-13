@@ -32,7 +32,7 @@ generateTables(
 
 \item{cdmTmpSchema}{OHDSI CDM temp schema, user has write permissions}
 
-\item{pathToResults}{Path to the neede subfolders such as 'inst'}
+\item{pathToResults}{Path to the mandatory subdirectories such as 'inst'}
 
 \item{studyName}{Name of the study being run, will be used in file and relation names}
 

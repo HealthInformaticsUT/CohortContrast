@@ -20,8 +20,11 @@ test_that("Query", {
   expect_gt(personCount, 0)
 })
 
+# TODO: Faulty ATM, Fix needed
 test_that("Cohort construction", {
-  createCohorts(connectionDetails)
+ settings <- loadJsons(studyName, pathToResults)
+  insertedJSONs <- settings$insertedJSONs
+  createCohorts(connectionDetails,insertedJSONs)
   sql <- "SELECT COUNT(*)
   FROM main.cohort
   WHERE cohort_definition_id = 1;"

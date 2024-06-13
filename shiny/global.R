@@ -2,15 +2,12 @@
 library(dplyr)
 library(tibble)
 library(tidyr)
+library(lubridate)
+library(stringr)
 ############################## Shiny functions
 
 # Functions for data loading and formatting ------------------------------------
-format_results <- function(object, pathToResults, studyName, autoScaleTime, applyInverseTarget) {
-
-  library(dplyr)
-  library(tidyr)
-  library(lubridate)
-  library(stringr)
+format_results <- function(object, pathToResults, studyName, autoscaleRate, applyInverseTarget, applyZTest, applyLogitTest) {
 
   # Calculate the number of patients in target and control groups
   n_patients <- object$data_initial %>%
@@ -22,6 +19,7 @@ format_results <- function(object, pathToResults, studyName, autoScaleTime, appl
   count_control <- n_patients$`1`
 
   # Update data features with prevalence calculations
+  data_features_temp = object$data_features %>% dplyr::select(CONCEPT_ID, ZTEST, LOGITTEST)
   object$data_features <- object$data_patients %>%
     group_by(CONCEPT_ID, CONCEPT_NAME) %>%
     summarise(
@@ -38,8 +36,14 @@ format_results <- function(object, pathToResults, studyName, autoScaleTime, appl
         is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0 ~ 100,
         TRUE ~ TARGET_SUBJECT_PREVALENCE / CONTROL_SUBJECT_PREVALENCE
       )
-    )
+    ) %>% left_join(data_features_temp, by = "CONCEPT_ID", keep = FALSE)
 
+  if (applyZTest) {
+    object$data_features = object$data_features %>% dplyr::filter(ZTEST)
+  }
+  if (applyLogitTest) {
+    object$data_features = object$data_features %>% dplyr::filter(LOGITTEST)
+  }
   if (applyInverseTarget) {
     # Invert target and control groups
     object$data_patients <- object$data_patients %>% mutate(COHORT_DEFINITION_ID = ifelse(COHORT_DEFINITION_ID == 1, 2, 1))
@@ -69,7 +73,7 @@ format_results <- function(object, pathToResults, studyName, autoScaleTime, appl
       ))
   }
 
-  if (autoScaleTime) {
+  if (autoscaleRate) {
     # Calculate the duration in the cohort in days
     object$data_initial <- object$data_initial %>%
       mutate(COHORT_DURATION = as.integer(difftime(
@@ -86,7 +90,7 @@ format_results <- function(object, pathToResults, studyName, autoScaleTime, appl
       ) %>%
       group_by(PERSON_ID, COHORT_DEFINITION_ID, CONCEPT_ID, CONCEPT_NAME, HERITAGE) %>%
       mutate(
-        PREVALENCE = if_else(PREVALENCE > 0, 1, 0),
+        #PREVALENCE = if_else(PREVALENCE > 0, 1, 0),
         SCALED_PREVALENCE = PREVALENCE / (COHORT_DURATION / 365)
       ) %>%
       ungroup()
@@ -221,7 +225,7 @@ plot_prevalence = function(filtered_target){
                       hjust = 0.5, vjust = 0.5, size = 20, fontface = "bold", color = "black") +
              theme_void())
   }
-
+  # TODO: IF nrow(filtered_target$target_matrix) is NULL print some relevant wanring message, it means too harsh filters 0 people will remain
   plotdata = filtered_target$target_row_annotation %>%
     rownames_to_column("CONCEPT_ID") %>%
     as_tibble() %>%
@@ -262,7 +266,6 @@ plot_prevalence = function(filtered_target){
     mutate(MALE_PROP_DIFF_HIGH = map_dbl(MALE_PROP_DIFF, ~ .x$conf.int[2])) %>%
     mutate(MALE_PROP_DIFF_SIGNIFICANT = if_else((MALE_PROP_DIFF_HIGH > MALE_PROP_OVERALL) & (MALE_PROP_DIFF_LOW < MALE_PROP_OVERALL), FALSE, TRUE)) %>%
     mutate(PREVALENCE_LOG = if_else(PREVALENCE_DIFFERENCE_RATIO < 1, 0, if_else(PREVALENCE_DIFFERENCE_RATIO > 100, 2, log10(PREVALENCE_DIFFERENCE_RATIO))))
-
   # Plot
   p1 <- ggplot(plotdata, aes(x = PREVALENCE, y = CONCEPT_NAME, fill = PREVALENCE_LOG)) +
     geom_bar(stat = "identity") +
@@ -280,7 +283,7 @@ plot_prevalence = function(filtered_target){
       legend.position = "bottom",
       strip.background = element_blank(),
       strip.text = element_blank(),
-      axis.text.y = element_text(size = 12) # Adjust the size as needed
+      axis.text.y = element_text(size = 15) # Adjust the size as needed
     )
 
   p2 <- ggplot(plotdata, aes(y = CONCEPT_NAME, color = AGE_DIFF_SIGNIFICANT)) +

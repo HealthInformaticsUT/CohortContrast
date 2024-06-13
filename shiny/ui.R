@@ -11,7 +11,7 @@ sidebar <- shinydashboard::dashboardSidebar(
       icon = icon("dashboard")
     ),
     shinydashboard::menuItem("Mapping", tabName = "mapping", icon = icon("sliders")),
-    shinydashboard::menuItem("Overview", tabName = "overview", icon = icon("receipt"))
+    shinydashboard::menuItem("Help", tabName = "help", icon = icon("receipt"))
   )
 )
 
@@ -22,7 +22,7 @@ body <- shinydashboard::dashboardBody(
     shinydashboard::tabItem(
       tabName = "dashboard",
       fluidRow(
-        h1("Cohorts"),
+        h3("Dashboard panel"),
         selectInput("studyName", "Choose a study:", choices = NULL)
         # selectInput("studyName", "Choose a study:",
         #             choices = get_study_names(pathToResults))
@@ -84,13 +84,23 @@ body <- shinydashboard::dashboardBody(
           width = 4,
           shiny::div(
             shiny.fluent::Toggle.shinyInput(
-              "scaleTime",
-              label = "Scale for time",
+              "scaleRate",
+              label = "Scale for rate",
               value = FALSE,
               onText = "On",
               offText = "Off"
             ),
-            shiny::textOutput("scaleTimeValue")
+            shiny::textOutput("scaleRateValue")
+          ),
+          shiny::div(
+            shiny.fluent::Toggle.shinyInput(
+              "applyZTest",
+              label = "Apply Z-test",
+              value = FALSE,
+              onText = "On",
+              offText = "Off"
+            ),
+            shiny::textOutput("applyZTestValue")
           )
         ),
         shiny::column(
@@ -104,6 +114,16 @@ body <- shinydashboard::dashboardBody(
               offText = "Off"
             ),
             shiny::textOutput("applyInverseTargetValue")
+          ),
+          shiny::div(
+            shiny.fluent::Toggle.shinyInput(
+              "applyLogitTest",
+              label = "Apply Logit-test",
+              value = FALSE,
+              onText = "On",
+              offText = "Off"
+            ),
+            shiny::textOutput("applyLogitTestValue")
           )
         ),
         shiny::column(
@@ -140,9 +160,25 @@ body <- shinydashboard::dashboardBody(
     ),
     # Settings tab
     shinydashboard::tabItem(
-      tabName = "overview",
-      h3("Overview panel"),
-      p("What data, where data, why data?")
+      tabName = "help",
+      h3("Help panel"),
+      shiny::tags$div(
+        style = "background-color: #f8f8f8; padding: 20px; border-radius: 5px;",
+        shiny::tags$h4("Enrichment Cutoff"),
+        shiny::tags$p("The enrichment cutoff is the value of the relative risk ratio. It compares the prevalence of a concept between target and control cohorts. Concepts with a relative risk ratio below this cutoff will be filtered out."),
+        shiny::tags$h4("Prevalence Cutoff"),
+        shiny::tags$p("The prevalence cutoff is the minimum percentage of people who should have the concept in the target cohort. Concepts with a prevalence below this cutoff will be filtered out."),
+        shiny::tags$h4("Scale for Rate"),
+        shiny::tags$p("When enabled, the prevalence will be calculated on a yearly basis for each person. This takes into account the total number of occurrences of the concept in the observation period."),
+        shiny::tags$h4("Inverse Target"),
+        shiny::tags$p("When enabled, the control cohort will become the target cohort and vice versa."),
+        shiny::tags$h4("Apply Z-test"),
+        shiny::tags$p("Apply Z-test for filtering concepts based on the difference in concept prevalence. This test is performed using a 2x2 table."),
+        shiny::tags$h4("Apply Logit-test"),
+        shiny::tags$p("Apply Logit-test for filtering concepts based on the significance inside a logit model. This test is performed using a logistic regression model."),
+        shiny::tags$h4("Remove Untreated Patients"),
+        shiny::tags$p("Remove all patients who have no concept in the target cohort.")
+      )
     )
   )
 )

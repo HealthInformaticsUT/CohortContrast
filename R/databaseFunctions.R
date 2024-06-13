@@ -1,5 +1,4 @@
 # Cohort creation
-# TODO: Should we change 0 values with 1'ns so that we would get some kind of prevalence, i think it is stupid
 
 #' Create relations of cohorts (target and control) to the database
 #'
@@ -8,7 +7,7 @@
 #' @param cdmSchema OHDSI CDM data schema
 #' @param cdmVocabSchema OHDSI CDM vocabulary schema
 #' @param cdmTmpSchema OHDSI CDM temp schema, user has write permissions
-#' @param pathToResults Path to the neede subfolders such as 'inst'
+#' @param pathToResults Path to the mandatory subdirectories such as 'inst'
 #' @param studyName Name of the study being run, will be used in file and relation names
 #' @param generateTables Boolean for recreating table
 #' @param domainsIncluded list of CDM domains to include
@@ -40,1085 +39,115 @@ generateTables <- function(connection,
     # Placeholder for inverse control
     inverseControl = FALSE
 
+
     if (readFromCSV) {
-      #################################
-      #   CCCCC     SSSSS   VV    VV
-      #  CC       SS        VV    VV
-      # CC          SSSS     VV  VV
-      #  CC            SS     VVVV
-      #   CCCCC   SSSSS        VV
-      #################################
-      dropRelation(
-        connection = connection ,
-        dbms = dbms,
-        schema = cdmTmpSchema,
-        relationName = tolower(studyName)
-      )
-      if (nudgeTarget != FALSE) {
-        insertedCSV = dplyr::mutate(
-          insertedCSV,
-          cohort_start_date = dplyr::if_else(
-            cohort_definition_id == 2,
-            as.Date(cohort_start_date) + nudgeTarget,
-            as.Date(cohort_start_date)
-          )
-        )
-        insertedCSV = dplyr::mutate(
-          insertedCSV,
-          cohort_end_date = dplyr::if_else(
-            cohort_definition_id == 2,
-            as.Date(cohort_end_date) + nudgeTarget,
-            as.Date(cohort_end_date)
-          )
-        )
-      }
-      if (nudgeControl != FALSE) {
-        insertedCSV = dplyr::mutate(
-          insertedCSV,
-          cohort_start_date = dplyr::if_else(
-            cohort_definition_id == 1,
-            as.Date(cohort_start_date) + nudgeTarget,
-            as.Date(cohort_start_date)
-          )
-        )
-        insertedCSV = dplyr::mutate(
-          insertedCSV,
-          cohort_end_date = dplyr::if_else(
-            cohort_definition_id == 1,
-            as.Date(cohort_end_date) + nudgeTarget,
-            as.Date(cohort_end_date)
-          )
-        )
-      }
-      DatabaseConnector::insertTable(
-        connection = connection,
-        databaseSchema = cdmTmpSchema,
-        tableName = tolower(studyName),
-        data = insertedCSV,
-        dropTableIfExists = TRUE,
-        createTable = TRUE,
-        tempTable = FALSE
-      )
-      if (length(unique(insertedCSV$COHORT)) == 1){inverseControl = TRUE}
-
-
-      printCustomMessage(paste(
-        "Creation of table",
-        cdmTmpSchema,
-        ".",
-        tolower(studyName),
-        "EXECUTED!",
-        sep = " "
-      ))
+      # Read the CSV file and return inverseControl value
+      inverseControl = processCSVData(connection, dbms, cdmTmpSchema, studyName, insertedCSV, nudgeTarget, nudgeControl)
     }
     else {
-      #########################################
-      #  JJJJJJ     SSSSS  OOOO    NN    NN
-      #      JJ   SS      OO  OO   NNN   NN
-      #      JJ    SSSS  OO    OO  NN N  NN
-      # JJ   JJ       SS  OO  OO   NN  N NN
-      #  JJJJJ    SSSSS    OOOO    NN   NNN
-      #########################################
-      for (i in 1:length(stateNamesJSON)) {
-        cohortJson <- insertedJSONs[i]
-        cohortName <- stateNamesJSON[i]
-        # creating cohorts
-        cohortExpression <-
-          CirceR::cohortExpressionFromJson(cohortJson)
-
-        cohortSql <-
-          CirceR::buildCohortQuery(cohortExpression,
-                                   options = CirceR::createGenerateOptions(generateStats = FALSE))
-
-        cohortsToCreate <-
-          rbind(
-            cohortsToCreate,
-            data.frame(
-              cohortId = i,
-              cohortName = cohortName,
-              sql = cohortSql,
-              stringsAsFactors = FALSE
-            )
-          )
-      }
-      ############################################################################
-      #
-      # Generate the saved states in database
-      #
-      ############################################################################
-      # Create the cohort tables to hold the cohort generation results
-      cohortTableNames <-
-        CohortGenerator::getCohortTableNames(cohortTable = studyName)
-      CohortGenerator::createCohortTables(
-        connection = connection,
-        cohortDatabaseSchema = cdmTmpSchema,
-        cohortTableNames = cohortTableNames
-      )
-      # Generate the cohorts
-      generateCohortSet(
-        connection = connection,
-        cdmDatabaseSchema = cdmSchema,
-        cdmVocabSchema = cdmVocabSchema,
-        cohortDatabaseSchema = cdmTmpSchema,
-        cohortTableNames = cohortTableNames,
-        cohortDefinitionSet = cohortsToCreate
-      )
-
-      # If need to nudge
-      if (nudgeTarget != FALSE) {
-        sql <- SqlRender::translate(
-          targetDialect = dbms,
-          sql = SqlRender::render(
-            sql = "UPDATE @cdmTmpSchema.@cohortTable SET cohort_start_date = CASE WHEN cohort_definition_id = 2 THEN DATEADD(day, @nudgeTarget, cohort_start_date) ELSE cohort_start_date END, cohort_end_date = CASE WHEN cohort_definition_id = 2 THEN DATEADD(day, @nudgeTarget, cohort_end_date) ELSE cohort_end_date END;",
-            cohortTable = studyName,
-            cdmTmpSchema = cdmTmpSchema,
-            nudgeTarget = nudgeTarget
-          )
-
-        )
-        DatabaseConnector::executeSql(connection,
-                                      sql)
-
-        printCustomMessage("Nudging target cohort EXECUTED!")
-
-      }
-      if (nudgeControl != FALSE) {
-        sql <- SqlRender::translate(
-          targetDialect = dbms,
-          sql = SqlRender::render(
-            sql = "UPDATE @cdmTmpSchema.@cohortTable SET cohort_start_date = CASE WHEN cohort_definition_id = 1 THEN DATEADD(day, @nudgeControl, cohort_start_date) ELSE cohort_start_date END, cohort_end_date = CASE WHEN cohort_definition_id = 1 THEN DATEADD(day, @nudgeControl, cohort_end_date) ELSE cohort_end_date END;",
-            cohortTable = studyName,
-            cdmTmpSchema = cdmTmpSchema,
-            nudgeControl = nudgeControl
-          )
-
-        )
-        DatabaseConnector::executeSql(connection,
-                                      sql)
-        printCustomMessage("Nudging control cohort EXECUTED!")
-      }
-
-      ## Check for the need of inverse control
-      sql <-
-        loadRenderTranslateSql(
-          dbms = dbms,
-          "SELECT * FROM @cdmTmpSchema.@studyTable;",
-          cdmTmpSchema = cdmTmpSchema,
-          studyTable = tolower(studyName)
-        )
-      data_initial <- DatabaseConnector::querySql(connection, sql)
-      if (length(unique(data_initial$COHORT_DEFINITION_ID)) == 1){inverseControl = TRUE}
-
+      inverseControl = processJSONData(connection, dbms, cdmTmpSchema, studyName, cdmSchema, cdmVocabSchema, stateNamesJSON, insertedJSONs, nudgeTarget, nudgeControl)
     }
     if (inverseControl) {
-      printCustomMessage("Creating inverse self-controls as control cohort is missing!")
-      # Change target cohort to cohort_definition_id = 2
-      sql <- SqlRender::translate(
-        targetDialect = dbms,
-        sql = SqlRender::render(
-          sql = "UPDATE @cdmTmpSchema.@cohortTable SET cohort_definition_id = 2 WHERE cohort_definition_id = 1;",
-          cohortTable = studyName,
-          cdmTmpSchema = cdmTmpSchema
-        )
-      )
-      DatabaseConnector::executeSql(connection,
-                                    sql)
-
-    # Call the function to update cohort table
-    update_cohort_table(connection, cdmTmpSchema, studyName, cdmSchema)
+      createInverseSelfControls(connection, dbms, cdmTmpSchema, studyName, cdmSchema, inverseControl)
     }
+
     ####################################
-    #  DDDDD    RRRRR    UU  UU  GGGGG
-    #  DD   DD  RR  RRR  UU  UU GG
-    #  DD    DD RRRRRR   UU  UU GG GGGG
-    #  DD   DD  RR   RR  UU  UU GG   GG
-    #  DDDDD    RR    RR  UUUU   GGGGG
-    ####################################
-    if ("Drug" %in% domainsIncluded) {
-      ############################################################################
-      #
-      # Generate drug prevalence table
-      #
-      ############################################################################
-      printCustomMessage("Creating temp tables, this can take a while...")
+    # For "Drug" domain
+    sqlQuery1 = "SELECT * INTO @cdmTmpSchema.cohortcontrast_drug_exposure_prevalence FROM (SELECT c.cohort_definition_id, c.drug_concept_id, (COUNT(DISTINCT c.person_id) / CAST(cohort_size.total_count AS FLOAT)) AS prevalence, COUNT(DISTINCT c.person_id) AS person_count FROM (SELECT * FROM @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.drug_exposure d ON g.subject_id = d.person_id WHERE d.drug_exposure_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, COUNT(DISTINCT subject_id) AS total_count FROM @cdmTmpSchema.@cohortTable GROUP BY cohort_definition_id) cohort_size ON c.cohort_definition_id = cohort_size.cohort_definition_id GROUP BY c.cohort_definition_id, c.drug_concept_id, cohort_size.total_count) a;"
+    sqlQuery2 = "SELECT * INTO  @cdmTmpSchema.cohortcontrast_drug_exposure_patient_prevalence FROM (SELECT c.cohort_definition_id, c.person_id, c.drug_concept_id, COUNT(DISTINCT c.drug_exposure_id)  AS prevalence FROM (SELECT g.cohort_definition_id, g.subject_id AS person_id, d.drug_concept_id, d.drug_exposure_id FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.drug_exposure d ON g.subject_id = d.person_id WHERE d.drug_exposure_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, subject_id, COUNT(DISTINCT drug_exposure_id) AS total_count FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.drug_exposure d ON g.subject_id = d.person_id WHERE d.drug_exposure_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date GROUP BY cohort_definition_id, subject_id) person_cohort ON c.cohort_definition_id = person_cohort.cohort_definition_id AND c.person_id = person_cohort.subject_id GROUP BY c.cohort_definition_id, c.person_id, c.drug_concept_id, person_cohort.total_count) tmp;"
 
-      dropRelation(
-        connection = connection ,
-        dbms = dbms,
-        schema = cdmTmpSchema,
-        relationName = "cohortcontrast_drug_prevalence"
-      )
+    generatePrevalenceTables(connection, dbms, cdmTmpSchema, studyName, cdmSchema, "Drug", domainsIncluded,
+                         c("cohortcontrast_drug_exposure_prevalence", "cohortcontrast_drug_exposure_patient_prevalence"),
+                         c(sqlQuery1, sqlQuery2))
 
-      sql1 <- SqlRender::translate(
-        targetDialect = dbms,
-        sql = SqlRender::render(
-          sql = customSQLRender(
-            "SELECT * INTO @cdmTmpSchema.cohortcontrast_drug_prevalence FROM (SELECT c.cohort_definition_id, c.drug_concept_id, (COUNT(DISTINCT c.person_id) / CAST(cohort_size.total_count AS FLOAT)) AS prevalence, COUNT(DISTINCT c.person_id) AS person_count FROM (SELECT * FROM @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.drug_exposure d ON g.subject_id = d.person_id WHERE d.drug_exposure_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, COUNT(DISTINCT subject_id) AS total_count FROM @cdmTmpSchema.@cohortTable GROUP BY cohort_definition_id) cohort_size ON c.cohort_definition_id = cohort_size.cohort_definition_id GROUP BY c.cohort_definition_id, c.drug_concept_id, cohort_size.total_count) a;",
-            dbms
-          ),
-          cohortTable = studyName,
-          cdmTmpSchema = cdmTmpSchema,
-          cdmSchema = cdmSchema
-        )
+    sqlQuery1 = "SELECT * INTO @cdmTmpSchema.cohortcontrast_condition_occurrence_prevalence FROM (SELECT c.cohort_definition_id, c.condition_concept_id, (COUNT(DISTINCT c.person_id) / CAST(cohort_size.total_count AS FLOAT))AS prevalence, COUNT(DISTINCT c.person_id) AS person_count FROM (SELECT * FROM @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.condition_occurrence d ON g.subject_id = d.person_id WHERE d.condition_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, COUNT(DISTINCT subject_id) AS total_count FROM @cdmTmpSchema.@cohortTable GROUP BY cohort_definition_id) cohort_size ON c.cohort_definition_id = cohort_size.cohort_definition_id GROUP BY c.cohort_definition_id, c.condition_concept_id, cohort_size.total_count) a;"
+    sqlQuery2 = "SELECT * INTO  @cdmTmpSchema.cohortcontrast_condition_occurrence_patient_prevalence FROM (SELECT c.cohort_definition_id, c.person_id, c.condition_concept_id, COUNT(DISTINCT c.condition_occurrence_id)  AS prevalence FROM (SELECT g.cohort_definition_id, g.subject_id AS person_id, d.condition_concept_id, d.condition_occurrence_id FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.condition_occurrence d ON g.subject_id = d.person_id WHERE d.condition_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, subject_id, COUNT(DISTINCT condition_occurrence_id) AS total_count FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.condition_occurrence d ON g.subject_id = d.person_id WHERE d.condition_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date GROUP BY cohort_definition_id, subject_id) person_cohort ON c.cohort_definition_id = person_cohort.cohort_definition_id AND c.person_id = person_cohort.subject_id GROUP BY c.cohort_definition_id, c.person_id, c.condition_concept_id, person_cohort.total_count) tmp;"
 
-      )
-      DatabaseConnector::executeSql(connection,
-                                    sql1)
+    # For "Condition" domain
+    generatePrevalenceTables(connection, dbms, cdmTmpSchema, studyName, cdmSchema, "Condition", domainsIncluded,
+                         c("cohortcontrast_condition_occurrence_prevalence", "cohortcontrast_condition_occurrence_patient_prevalence"),
+                         c(sqlQuery1, sqlQuery2))
 
-      printCustomMessage("Creation of table cohortcontrast_drug_prevalence EXECUTED!")
+    sqlQuery1 = "SELECT * INTO @cdmTmpSchema.cohortcontrast_measurement_prevalence FROM (SELECT c.cohort_definition_id, c.measurement_concept_id, (COUNT(DISTINCT c.person_id) / CAST(cohort_size.total_count AS FLOAT))AS prevalence, COUNT(DISTINCT c.person_id) AS person_count FROM (SELECT * FROM @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.measurement d ON g.subject_id = d.person_id WHERE d.measurement_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, COUNT(DISTINCT subject_id) AS total_count FROM @cdmTmpSchema.@cohortTable GROUP BY cohort_definition_id) cohort_size ON c.cohort_definition_id = cohort_size.cohort_definition_id GROUP BY c.cohort_definition_id, c.measurement_concept_id, cohort_size.total_count) a;"
+    sqlQuery2 = "SELECT * INTO  @cdmTmpSchema.cohortcontrast_measurement_patient_prevalence FROM (SELECT c.cohort_definition_id, c.person_id, c.measurement_concept_id, COUNT(DISTINCT c.measurement_id)  AS prevalence FROM (SELECT g.cohort_definition_id, g.subject_id AS person_id, d.measurement_concept_id, d.measurement_id FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.measurement d ON g.subject_id = d.person_id WHERE d.measurement_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, subject_id, COUNT(DISTINCT measurement_id) AS total_count FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.measurement d ON g.subject_id = d.person_id WHERE d.measurement_date BETWEEN g.cohort_start_date AND g.cohort_end_date GROUP BY cohort_definition_id, subject_id) person_cohort ON c.cohort_definition_id = person_cohort.cohort_definition_id AND c.person_id = person_cohort.subject_id GROUP BY c.cohort_definition_id, c.person_id, c.measurement_concept_id, person_cohort.total_count) tmp;"
 
-      ############################################################################
-      #
-      # Generate drug prevalence difference ratio table
-      #
-      ############################################################################
+    # For "Measurement" domain
+    generatePrevalenceTables(connection, dbms, cdmTmpSchema, studyName, cdmSchema, "Measurement", domainsIncluded,
+                         c("cohortcontrast_measurement_prevalence", "cohortcontrast_measurement_patient_prevalence"),
+                         c(sqlQuery1, sqlQuery2))
 
-      # Updated because some errors were occurring not checked
-      # dropRelation(
-      #   connection = connection ,
-      #   dbms = dbms,
-      #   schema = cdmTmpSchema,
-      #   relationName = "cohortcontrast_drug_prevalence_differences"
-      # )
-      #
-      # sql1 <- SqlRender::translate(
-      #   targetDialect = dbms,
-      #   sql = SqlRender::render(
-      #     sql = customSQLRender(
-      #       "SELECT * INTO @cdmTmpSchema.cohortcontrast_drug_prevalence_differences FROM ( SELECT CASE WHEN a.drug_concept_id IS NOT NULL THEN a.drug_concept_id ELSE b.drug_concept_id END AS drug_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio, b.person_count as target_subject_count, a.person_count as control_subject_count, b.prevalence as target_subject_prevalence, a.prevalence as control_subject_prevalence FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_drug_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_drug_prevalence WHERE cohort_definition_id = 2) b ON a.drug_concept_id = b.drug_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
-      #       dbms
-      #     ),
-      #     cdmTmpSchema = cdmTmpSchema,
-      #     domainLimit = domainLimit
-      #   )
-      #
-      # )
-      # DatabaseConnector::executeSql(connection,
-      #                               sql1)
-      #
-      # printCustomMessage("Creation of table cohortcontrast_drug_prevalence_differences EXECUTED!")
 
 
-      ############################################################################
-      #
-      # Generate drug prevalence table
-      #
-      ############################################################################
+    sqlQuery1 = "SELECT * INTO @cdmTmpSchema.cohortcontrast_procedure_occurrence_prevalence FROM (SELECT c.cohort_definition_id, c.procedure_concept_id, (COUNT(DISTINCT c.person_id) / CAST(cohort_size.total_count AS FLOAT))AS prevalence, COUNT(DISTINCT c.person_id) AS person_count FROM (SELECT * FROM @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.procedure_occurrence d ON g.subject_id = d.person_id WHERE d.procedure_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, COUNT(DISTINCT subject_id) AS total_count FROM @cdmTmpSchema.@cohortTable GROUP BY cohort_definition_id) cohort_size ON c.cohort_definition_id = cohort_size.cohort_definition_id GROUP BY c.cohort_definition_id, c.procedure_concept_id, cohort_size.total_count) a;"
+    sqlQuery2 = "SELECT * INTO  @cdmTmpSchema.cohortcontrast_procedure_occurrence_patient_prevalence FROM (SELECT c.cohort_definition_id, c.person_id, c.procedure_concept_id, COUNT(DISTINCT c.procedure_occurrence_id)  AS prevalence FROM (SELECT g.cohort_definition_id, g.subject_id AS person_id, d.procedure_concept_id, d.procedure_occurrence_id FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.procedure_occurrence d ON g.subject_id = d.person_id WHERE d.procedure_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, subject_id, COUNT(DISTINCT procedure_occurrence_id) AS total_count FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.procedure_occurrence d ON g.subject_id = d.person_id WHERE d.procedure_date BETWEEN g.cohort_start_date AND g.cohort_end_date GROUP BY cohort_definition_id, subject_id) person_cohort ON c.cohort_definition_id = person_cohort.cohort_definition_id AND c.person_id = person_cohort.subject_id GROUP BY c.cohort_definition_id, c.person_id, c.procedure_concept_id, person_cohort.total_count) tmp;"
 
-      dropRelation(
-        connection = connection ,
-        dbms = dbms,
-        schema = cdmTmpSchema,
-        relationName = "cohortcontrast_drug_patient_prevalence"
-      )
+    # For "Procedure" domain
+    generatePrevalenceTables(connection, dbms, cdmTmpSchema, studyName, cdmSchema, "Procedure", domainsIncluded,
+                         c("cohortcontrast_procedure_occurrence_prevalence", "cohortcontrast_procedure_occurrence_patient_prevalence"),
+                         c(sqlQuery1, sqlQuery2))
 
-      sql1 <- SqlRender::translate(
-        targetDialect = dbms,
-        sql = SqlRender::render(
-          sql = customSQLRender(
-            "SELECT * INTO  @cdmTmpSchema.cohortcontrast_drug_patient_prevalence FROM (SELECT c.cohort_definition_id, c.person_id, c.drug_concept_id, COUNT(DISTINCT c.drug_exposure_id)  AS prevalence FROM (SELECT g.cohort_definition_id, g.subject_id AS person_id, d.drug_concept_id, d.drug_exposure_id FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.drug_exposure d ON g.subject_id = d.person_id WHERE d.drug_exposure_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, subject_id, COUNT(DISTINCT drug_exposure_id) AS total_count FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.drug_exposure d ON g.subject_id = d.person_id WHERE d.drug_exposure_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date GROUP BY cohort_definition_id, subject_id) person_cohort ON c.cohort_definition_id = person_cohort.cohort_definition_id AND c.person_id = person_cohort.subject_id GROUP BY c.cohort_definition_id, c.person_id, c.drug_concept_id, person_cohort.total_count) tmp;",
-            dbms
-          ),
-          cohortTable = studyName,
-          cdmTmpSchema = cdmTmpSchema,
-          cdmSchema = cdmSchema
-        )
+    # For "Observation" domain
+    sqlQuery1 = "SELECT * INTO @cdmTmpSchema.cohortcontrast_observation_prevalence FROM (SELECT c.cohort_definition_id, c.observation_concept_id, (COUNT(DISTINCT c.person_id) / CAST(cohort_size.total_count AS FLOAT))AS prevalence, COUNT(DISTINCT c.person_id) AS person_count FROM (SELECT * FROM @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.observation d ON g.subject_id = d.person_id WHERE d.observation_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, COUNT(DISTINCT subject_id) AS total_count FROM @cdmTmpSchema.@cohortTable GROUP BY cohort_definition_id) cohort_size ON c.cohort_definition_id = cohort_size.cohort_definition_id GROUP BY c.cohort_definition_id, c.observation_concept_id, cohort_size.total_count) a;"
+    sqlQuery2 = "SELECT * INTO  @cdmTmpSchema.cohortcontrast_observation_patient_prevalence FROM (SELECT c.cohort_definition_id, c.person_id, c.observation_concept_id, COUNT(DISTINCT c.observation_id)  AS prevalence FROM (SELECT g.cohort_definition_id, g.subject_id AS person_id, d.observation_concept_id, d.observation_id FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.observation d ON g.subject_id = d.person_id WHERE d.observation_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, subject_id, COUNT(DISTINCT observation_id) AS total_count FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.observation d ON g.subject_id = d.person_id WHERE d.observation_date BETWEEN g.cohort_start_date AND g.cohort_end_date GROUP BY cohort_definition_id, subject_id) person_cohort ON c.cohort_definition_id = person_cohort.cohort_definition_id AND c.person_id = person_cohort.subject_id GROUP BY c.cohort_definition_id, c.person_id, c.observation_concept_id, person_cohort.total_count) tmp;"
 
-      )
-      DatabaseConnector::executeSql(connection,
-                                    sql1)
+    generatePrevalenceTables(connection, dbms, cdmTmpSchema, studyName, cdmSchema, "Observation", domainsIncluded,
+                         c("cohortcontrast_observation_prevalence", "cohortcontrast_observation_patient_prevalence"),
+                         c(sqlQuery1, sqlQuery2))
 
-      printCustomMessage("Creation of table cohortcontrast_drug_prevalence EXECUTED!")
-    }
-    ############################################################################
-    #   CCCC   OOOOO   NN   NN  DDDDD   IIII  TTTTTT  IIII   OOOOO   NN   NN
-    #  CC    OO     OO NNN  NN  DD  DD   II     TT     II  OO     OO NNN  NN
-    # CC     OO     OO NNNN NN  DD   DD  II     TT     II  OO     OO NNNN NN
-    #  CC    OO     OO NN NNNN  DD  DD   II     TT     II  OO     OO NN NNNN
-    #   CCCC   OOOOO   NN  NNN  DDDDD   IIII    TT    IIII   OOOOO   NN   NN
-    ############################################################################
-    if ("Condition" %in% domainsIncluded) {
-      ############################################################################
-      #
-      # Generate condition prevalence table
-      #
-      ############################################################################
-      dropRelation(
-        connection = connection ,
-        dbms = dbms,
-        schema = cdmTmpSchema,
-        relationName = "cohortcontrast_condition_prevalence"
-      )
+    # For "Visit" domain
+    sqlQuery1 = "SELECT * INTO @cdmTmpSchema.cohortcontrast_visit_occurrence_prevalence FROM (SELECT c.cohort_definition_id, c.visit_concept_id, (COUNT(DISTINCT c.person_id) / CAST(cohort_size.total_count AS FLOAT)) AS prevalence, COUNT(DISTINCT c.person_id) AS person_count FROM (SELECT * FROM @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.visit_occurrence d ON g.subject_id = d.person_id WHERE d.visit_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, COUNT(DISTINCT subject_id) AS total_count FROM @cdmTmpSchema.@cohortTable GROUP BY cohort_definition_id) cohort_size ON c.cohort_definition_id = cohort_size.cohort_definition_id GROUP BY c.cohort_definition_id, c.visit_concept_id, cohort_size.total_count) a;"
+    sqlQuery2 = "SELECT * INTO  @cdmTmpSchema.cohortcontrast_visit_occurrence_patient_prevalence FROM (SELECT c.cohort_definition_id, c.person_id, c.visit_concept_id, COUNT(DISTINCT c.visit_occurrence_id)  AS prevalence FROM (SELECT g.cohort_definition_id, g.subject_id AS person_id, d.visit_concept_id, d.visit_occurrence_id FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.visit_occurrence d ON g.subject_id = d.person_id WHERE d.visit_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, subject_id, COUNT(DISTINCT visit_occurrence_id) AS total_count FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.visit_occurrence d ON g.subject_id = d.person_id WHERE d.visit_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date GROUP BY cohort_definition_id, subject_id) person_cohort ON c.cohort_definition_id = person_cohort.cohort_definition_id AND c.person_id = person_cohort.subject_id GROUP BY c.cohort_definition_id, c.person_id, c.visit_concept_id, person_cohort.total_count) tmp;"
 
-      sql1 <- SqlRender::translate(
-        targetDialect = dbms,
-        sql = SqlRender::render(
-          sql = customSQLRender(
-            "SELECT * INTO @cdmTmpSchema.cohortcontrast_condition_prevalence FROM (SELECT c.cohort_definition_id, c.condition_concept_id, (COUNT(DISTINCT c.person_id) / CAST(cohort_size.total_count AS FLOAT))AS prevalence, COUNT(DISTINCT c.person_id) AS person_count FROM (SELECT * FROM @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.condition_occurrence d ON g.subject_id = d.person_id WHERE d.condition_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, COUNT(DISTINCT subject_id) AS total_count FROM @cdmTmpSchema.@cohortTable GROUP BY cohort_definition_id) cohort_size ON c.cohort_definition_id = cohort_size.cohort_definition_id GROUP BY c.cohort_definition_id, c.condition_concept_id, cohort_size.total_count) a;",
-            dbms
-          ),
-          cohortTable = studyName,
-          cdmTmpSchema = cdmTmpSchema,
-          cdmSchema = cdmSchema
-        )
+    generatePrevalenceTables(connection, dbms, cdmTmpSchema, studyName, cdmSchema, "Visit", domainsIncluded,
+                         c("cohortcontrast_visit_occurrence_prevalence", "cohortcontrast_visit_occurrence_patient_prevalence"),
+                         c(sqlQuery1, sqlQuery2))
+    # For "Visit detail" domain
+    sqlQuery1 = "SELECT * INTO @cdmTmpSchema.cohortcontrast_visit_detail_prevalence FROM (SELECT c.cohort_definition_id, c.visit_detail_concept_id, (COUNT(DISTINCT c.person_id) / CAST(cohort_size.total_count AS FLOAT)) AS prevalence, COUNT(DISTINCT c.person_id) AS person_count FROM (SELECT * FROM @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.visit_detail d ON g.subject_id = d.person_id WHERE d.visit_detail_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, COUNT(DISTINCT subject_id) AS total_count FROM @cdmTmpSchema.@cohortTable GROUP BY cohort_definition_id) cohort_size ON c.cohort_definition_id = cohort_size.cohort_definition_id GROUP BY c.cohort_definition_id, c.visit_detail_concept_id, cohort_size.total_count) a;"
+    sqlQuery2 = "SELECT * INTO  @cdmTmpSchema.cohortcontrast_visit_detail_patient_prevalence FROM (SELECT c.cohort_definition_id, c.person_id, c.visit_detail_concept_id, COUNT(DISTINCT c.visit_detail_id)  AS prevalence FROM (SELECT g.cohort_definition_id, g.subject_id AS person_id, d.visit_detail_concept_id, d.visit_detail_id FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.visit_detail d ON g.subject_id = d.person_id WHERE d.visit_detail_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, subject_id, COUNT(DISTINCT visit_detail_id) AS total_count FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.visit_detail d ON g.subject_id = d.person_id WHERE d.visit_detail_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date GROUP BY cohort_definition_id, subject_id) person_cohort ON c.cohort_definition_id = person_cohort.cohort_definition_id AND c.person_id = person_cohort.subject_id GROUP BY c.cohort_definition_id, c.person_id, c.visit_detail_concept_id, person_cohort.total_count) tmp;"
 
-      )
-      DatabaseConnector::executeSql(connection,
-                                    sql1)
-
-      printCustomMessage("Creation of table cohortcontrast_condition_prevalence EXECUTED!")
-
-      ############################################################################
-      #
-      # Generate condition prevalence difference ratio table
-      #
-      ############################################################################
-
-      # Updated because some errors were occurring not checked
-      # dropRelation(
-      #   connection = connection ,
-      #   dbms = dbms,
-      #   schema = cdmTmpSchema,
-      #   relationName = "cohortcontrast_condition_prevalence_differences"
-      # )
-      #
-      # sql1 <- SqlRender::translate(
-      #   targetDialect = dbms,
-      #   sql = SqlRender::render(
-      #     sql = customSQLRender(
-      #       "SELECT * INTO @cdmTmpSchema.cohortcontrast_condition_prevalence_differences FROM ( SELECT CASE WHEN a.condition_concept_id IS NOT NULL THEN a.condition_concept_id ELSE b.condition_concept_id END AS condition_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio,  b.person_count as target_subject_count, a.person_count as control_subject_count, b.prevalence as target_subject_prevalence, a.prevalence as control_subject_prevalence FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_condition_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_condition_prevalence WHERE cohort_definition_id = 2) b ON a.condition_concept_id = b.condition_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
-      #       dbms
-      #     ),
-      #     cdmTmpSchema = cdmTmpSchema,
-      #     domainLimit = domainLimit
-      #   )
-      #
-      # )
-      # DatabaseConnector::executeSql(connection,
-      #                               sql1)
-      #
-      # printCustomMessage(
-      #   "Creation of table cohortcontrast_condition_prevalence_differences EXECUTED!"
-      # )
-
-
-
-      ############################################################################
-      #
-      # Generate condition prevalence table
-      #
-      ############################################################################
-      dropRelation(
-        connection = connection ,
-        dbms = dbms,
-        schema = cdmTmpSchema,
-        relationName = "cohortcontrast_condition_patient_prevalence"
-      )
-
-      sql1 <- SqlRender::translate(
-        targetDialect = dbms,
-        sql = SqlRender::render(
-          sql = "SELECT * INTO  @cdmTmpSchema.cohortcontrast_condition_patient_prevalence FROM (SELECT c.cohort_definition_id, c.person_id, c.condition_concept_id, COUNT(DISTINCT c.condition_occurrence_id)  AS prevalence FROM (SELECT g.cohort_definition_id, g.subject_id AS person_id, d.condition_concept_id, d.condition_occurrence_id FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.condition_occurrence d ON g.subject_id = d.person_id WHERE d.condition_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, subject_id, COUNT(DISTINCT condition_occurrence_id) AS total_count FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.condition_occurrence d ON g.subject_id = d.person_id WHERE d.condition_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date GROUP BY cohort_definition_id, subject_id) person_cohort ON c.cohort_definition_id = person_cohort.cohort_definition_id AND c.person_id = person_cohort.subject_id GROUP BY c.cohort_definition_id, c.person_id, c.condition_concept_id, person_cohort.total_count) tmp;",
-          cohortTable = studyName,
-          cdmTmpSchema = cdmTmpSchema,
-          cdmSchema = cdmSchema
-        )
-
-      )
-      DatabaseConnector::executeSql(connection,
-                                    sql1)
-
-      printCustomMessage("Creation of table cohortcontrast_condition_prevalence EXECUTED!")
-    }
-    ################################################################################################################
-    # MMMM   MMMM  EEEEEEEE    AAAA   SSSSSS  UU    UU  RRRRRR   EEEEEEEE  MMMM   MMMM  EEEEEEEE  NN    NN   TTTTTT
-    # MM MM MM MM  EE         AA  AA  SS      UU    UU  RR   RR  EE        MM MM MM MM  EE        NNN   NN     TT
-    # MM  MMM  MM  EEEEE     AAAAAAA   SSSSS  UU    UU  RRRRRR   EEEEE     MM  MMM  MM  EEEEE     NN NN NN     TT
-    # MM       MM  EE        AA   AA      SS  UU    UU  RR  RR   EE        MM       MM  EE        NN   NNN     TT
-    # MM       MM  EEEEEEEE  AA   AA  SSSSSS   UUUUUU   RR   RR  EEEEEEEE  MM       MM  EEEEEEEE  NN    NN     TT
-    ################################################################################################################
-    if ("Measurement" %in% domainsIncluded) {
-      ############################################################################
-      #
-      # Generate measurement prevalence table
-      #
-      ############################################################################
-
-      dropRelation(
-        connection = connection ,
-        dbms = dbms,
-        schema = cdmTmpSchema,
-        relationName = "cohortcontrast_measurement_prevalence"
-      )
-
-      sql1 <- SqlRender::translate(
-        targetDialect = dbms,
-        sql = SqlRender::render(
-          sql = "SELECT * INTO @cdmTmpSchema.cohortcontrast_measurement_prevalence FROM (SELECT c.cohort_definition_id, c.measurement_concept_id, (COUNT(DISTINCT c.person_id) / CAST(cohort_size.total_count AS FLOAT))AS prevalence, COUNT(DISTINCT c.person_id) AS person_count FROM (SELECT * FROM @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.measurement d ON g.subject_id = d.person_id WHERE d.measurement_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, COUNT(DISTINCT subject_id) AS total_count FROM @cdmTmpSchema.@cohortTable GROUP BY cohort_definition_id) cohort_size ON c.cohort_definition_id = cohort_size.cohort_definition_id GROUP BY c.cohort_definition_id, c.measurement_concept_id, cohort_size.total_count) a;",
-          cohortTable = studyName,
-          cdmTmpSchema = cdmTmpSchema,
-          cdmSchema = cdmSchema
-        )
-
-      )
-      DatabaseConnector::executeSql(connection,
-                                    sql1)
-
-      printCustomMessage("Creation of table cohortcontrast_measurement_prevalence EXECUTED!")
-
-      ############################################################################
-      #
-      # Generate measurement prevalence difference ratio table
-      #
-      ############################################################################
-
-      # Updated because some errors were occurring not checked
-      # dropRelation(
-      #   connection = connection ,
-      #   dbms = dbms,
-      #   schema = cdmTmpSchema,
-      #   relationName = "cohortcontrast_measurement_prevalence_differences"
-      # )
-      #
-      # sql1 <- SqlRender::translate(
-      #   targetDialect = dbms,
-      #   sql = SqlRender::render(
-      #     sql = "SELECT * INTO @cdmTmpSchema.cohortcontrast_measurement_prevalence_differences FROM ( SELECT CASE WHEN a.measurement_concept_id IS NOT NULL THEN a.measurement_concept_id ELSE b.measurement_concept_id END AS measurement_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio,  b.person_count as target_subject_count, a.person_count as control_subject_count, b.prevalence as target_subject_prevalence, a.prevalence as control_subject_prevalence FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_measurement_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_measurement_prevalence WHERE cohort_definition_id = 2) b ON a.measurement_concept_id = b.measurement_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
-      #     cdmTmpSchema = cdmTmpSchema,
-      #     domainLimit = domainLimit
-      #   )
-      #
-      # )
-      # DatabaseConnector::executeSql(connection,
-      #                               sql1)
-      #
-      # printCustomMessage(
-      #   "Creation of table cohortcontrast_measurement_prevalence_differences EXECUTED!"
-      # )
-
-
-
-      ############################################################################
-      #
-      # Generate measurement prevalence table
-      #
-      ############################################################################
-      dropRelation(
-        connection = connection ,
-        dbms = dbms,
-        schema = cdmTmpSchema,
-        relationName = "cohortcontrast_measurement_patient_prevalence"
-      )
-
-      sql1 <- SqlRender::translate(
-        targetDialect = dbms,
-        sql = SqlRender::render(
-          sql = "SELECT * INTO  @cdmTmpSchema.cohortcontrast_measurement_patient_prevalence FROM (SELECT c.cohort_definition_id, c.person_id, c.measurement_concept_id, COUNT(DISTINCT c.measurement_id)  AS prevalence FROM (SELECT g.cohort_definition_id, g.subject_id AS person_id, d.measurement_concept_id, d.measurement_id FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.measurement d ON g.subject_id = d.person_id WHERE d.measurement_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, subject_id, COUNT(DISTINCT measurement_id) AS total_count FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.measurement d ON g.subject_id = d.person_id WHERE d.measurement_date BETWEEN g.cohort_start_date AND g.cohort_end_date GROUP BY cohort_definition_id, subject_id) person_cohort ON c.cohort_definition_id = person_cohort.cohort_definition_id AND c.person_id = person_cohort.subject_id GROUP BY c.cohort_definition_id, c.person_id, c.measurement_concept_id, person_cohort.total_count) tmp;",
-          cohortTable = studyName,
-          cdmTmpSchema = cdmTmpSchema,
-          cdmSchema = cdmSchema
-        )
-
-      )
-      DatabaseConnector::executeSql(connection,
-                                    sql1)
-
-      printCustomMessage("Creation of table cohortcontrast_measurement_prevalence EXECUTED!")
-    }
-    ############################################################################
-    #  PPPPP  RRRRR     OOOOO    CCCC  EEEEE  DDDDD  UU   UU  RRRRR   EEEEE
-    #  PP  PP RR  RR  OO     OO CC     EE     DD  DD UU   UU  RR  RR  EE
-    #  PPPPP  RRRRR   OO     OO C      EEEE   DD  DD UU   UU  RRRRR   EEEE
-    #  PP     RR  RR  OO     OO CC     EE     DD  DD UU   UU  RR  RR  EE
-    #  PP     RR   RR   OOOOO    CCCC  EEEEE  DDDDD   UUUUU   RR   RR EEEEE
-    ############################################################################
-    if ("Procedure" %in% domainsIncluded) {
-      ############################################################################
-      #
-      # Generate procedure prevalence table
-      #
-      ############################################################################
-
-      dropRelation(
-        connection = connection ,
-        dbms = dbms,
-        schema = cdmTmpSchema,
-        relationName = "cohortcontrast_procedure_prevalence"
-      )
-
-      sql1 <- SqlRender::translate(
-        targetDialect = dbms,
-        sql = SqlRender::render(
-          sql = "SELECT * INTO @cdmTmpSchema.cohortcontrast_procedure_prevalence FROM (SELECT c.cohort_definition_id, c.procedure_concept_id, (COUNT(DISTINCT c.person_id) / CAST(cohort_size.total_count AS FLOAT))AS prevalence, COUNT(DISTINCT c.person_id) AS person_count FROM (SELECT * FROM @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.procedure_occurrence d ON g.subject_id = d.person_id WHERE d.procedure_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, COUNT(DISTINCT subject_id) AS total_count FROM @cdmTmpSchema.@cohortTable GROUP BY cohort_definition_id) cohort_size ON c.cohort_definition_id = cohort_size.cohort_definition_id GROUP BY c.cohort_definition_id, c.procedure_concept_id, cohort_size.total_count) a;",
-          cohortTable = studyName,
-          cdmTmpSchema = cdmTmpSchema,
-          cdmSchema = cdmSchema
-        )
-
-      )
-      DatabaseConnector::executeSql(connection,
-                                    sql1)
-
-      printCustomMessage("Creation of table cohortcontrast_procedure_prevalence EXECUTED!")
-
-      ############################################################################
-      #
-      # Generate procedure prevalence difference ratio table
-      #
-      ############################################################################
-
-      # Updated because some errors were occurring not checked
-      # dropRelation(
-      #   connection = connection ,
-      #   dbms = dbms,
-      #   schema = cdmTmpSchema,
-      #   relationName = "cohortcontrast_procedure_prevalence_differences"
-      # )
-      #
-      # sql1 <- SqlRender::translate(
-      #   targetDialect = dbms,
-      #   sql = SqlRender::render(
-      #     sql = "SELECT * INTO @cdmTmpSchema.cohortcontrast_procedure_prevalence_differences FROM ( SELECT CASE WHEN a.procedure_concept_id IS NOT NULL THEN a.procedure_concept_id ELSE b.procedure_concept_id END AS procedure_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio,  b.person_count as target_subject_count, a.person_count as control_subject_count, b.prevalence as target_subject_prevalence, a.prevalence as control_subject_prevalence FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_procedure_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_procedure_prevalence WHERE cohort_definition_id = 2) b ON a.procedure_concept_id = b.procedure_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
-      #     cdmTmpSchema = cdmTmpSchema,
-      #     domainLimit = domainLimit
-      #   )
-      #
-      # )
-      # DatabaseConnector::executeSql(connection,
-      #                               sql1)
-      #
-      # printCustomMessage(
-      #   "Creation of table cohortcontrast_procedure_prevalence_differences EXECUTED!"
-      # )
-      #
-
-      ############################################################################
-      #
-      # Generate procedure prevalence table
-      #
-      ############################################################################
-      dropRelation(
-        connection = connection ,
-        dbms = dbms,
-        schema = cdmTmpSchema,
-        relationName = "cohortcontrast_procedure_patient_prevalence"
-      )
-
-      sql1 <- SqlRender::translate(
-        targetDialect = dbms,
-        sql = SqlRender::render(
-          sql = "SELECT * INTO  @cdmTmpSchema.cohortcontrast_procedure_patient_prevalence FROM (SELECT c.cohort_definition_id, c.person_id, c.procedure_concept_id, COUNT(DISTINCT c.procedure_occurrence_id)  AS prevalence FROM (SELECT g.cohort_definition_id, g.subject_id AS person_id, d.procedure_concept_id, d.procedure_occurrence_id FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.procedure_occurrence d ON g.subject_id = d.person_id WHERE d.procedure_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, subject_id, COUNT(DISTINCT procedure_occurrence_id) AS total_count FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.procedure_occurrence d ON g.subject_id = d.person_id WHERE d.procedure_date BETWEEN g.cohort_start_date AND g.cohort_end_date GROUP BY cohort_definition_id, subject_id) person_cohort ON c.cohort_definition_id = person_cohort.cohort_definition_id AND c.person_id = person_cohort.subject_id GROUP BY c.cohort_definition_id, c.person_id, c.procedure_concept_id, person_cohort.total_count) tmp;",
-          cohortTable = studyName,
-          cdmTmpSchema = cdmTmpSchema,
-          cdmSchema = cdmSchema
-        )
-
-      )
-      DatabaseConnector::executeSql(connection,
-                                    sql1)
-
-      printCustomMessage("Creation of table cohortcontrast_procedure_prevalence EXECUTED!")
-    }
-    ############################################################################################
-    #    OOOOO   BBBBB   SSSS  EEEEE  RRRRR  VV     VV   AAA   TTTTTT IIIIII   OOOOO   NN    NN
-    #  OO     OO BB  BB SS     EE     RR  RR  VV   VV   AA AA    TT     II   OO     OO NNN   NN
-    #  OO     OO BBBBB   SSSS  EEEE   RRRRR    VV VV   AA   AA   TT     II   OO     OO NNNN. NN
-    #  OO     OO BB  BB     SS EE     RR  RR    VVV    AAAAAAA   TT     II   OO     OO NN NN NN
-    #    OOOOO   BBBBB  SSSSS  EEEEE  RR   RR    V     AA   AA   TT   IIIIII   OOOOO   NN   NNN
-    ############################################################################################
-    if ("Observation" %in% domainsIncluded) {
-      ############################################################################
-      #
-      # Generate observation prevalence table
-      #
-      ############################################################################
-
-      dropRelation(
-        connection = connection ,
-        dbms = dbms,
-        schema = cdmTmpSchema,
-        relationName = "cohortcontrast_observation_prevalence"
-      )
-
-      sql1 <- SqlRender::translate(
-        targetDialect = dbms,
-        sql = SqlRender::render(
-          sql = "SELECT * INTO @cdmTmpSchema.cohortcontrast_observation_prevalence FROM (SELECT c.cohort_definition_id, c.observation_concept_id, (COUNT(DISTINCT c.person_id) / CAST(cohort_size.total_count AS FLOAT))AS prevalence, COUNT(DISTINCT c.person_id) AS person_count FROM (SELECT * FROM @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.observation d ON g.subject_id = d.person_id WHERE d.observation_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, COUNT(DISTINCT subject_id) AS total_count FROM @cdmTmpSchema.@cohortTable GROUP BY cohort_definition_id) cohort_size ON c.cohort_definition_id = cohort_size.cohort_definition_id GROUP BY c.cohort_definition_id, c.observation_concept_id, cohort_size.total_count) a;",
-          cohortTable = studyName,
-          cdmTmpSchema = cdmTmpSchema,
-          cdmSchema = cdmSchema
-        )
-
-      )
-      DatabaseConnector::executeSql(connection,
-                                    sql1)
-
-      printCustomMessage("Creation of table cohortcontrast_observation_prevalence EXECUTED!")
-
-      ############################################################################
-      #
-      # Generate observation prevalence difference ratio table
-      #
-      ############################################################################
-
-      # Updated because some errors were occurring not checked
-      # dropRelation(
-      #   connection = connection ,
-      #   dbms = dbms,
-      #   schema = cdmTmpSchema,
-      #   relationName = "cohortcontrast_observation_prevalence_differences"
-      # )
-      #
-      # sql1 <- SqlRender::translate(
-      #   targetDialect = dbms,
-      #   sql = SqlRender::render(
-      #     sql = "SELECT * INTO @cdmTmpSchema.cohortcontrast_observation_prevalence_differences FROM ( SELECT CASE WHEN a.observation_concept_id IS NOT NULL THEN a.observation_concept_id ELSE b.observation_concept_id END AS observation_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio,  b.person_count as target_subject_count, a.person_count as control_subject_count, b.prevalence as target_subject_prevalence, a.prevalence as control_subject_prevalence FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_observation_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_observation_prevalence WHERE cohort_definition_id = 2) b ON a.observation_concept_id = b.observation_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
-      #     cdmTmpSchema = cdmTmpSchema,
-      #     domainLimit = domainLimit
-      #   )
-      #
-      # )
-      # DatabaseConnector::executeSql(connection,
-      #                               sql1)
-      #
-      # printCustomMessage(
-      #   "Creation of table cohortcontrast_observation_prevalence_differences EXECUTED!"
-      # )
-
-
-
-      ############################################################################
-      #
-      # Generate drug prevalence table
-      #
-      ############################################################################
-      dropRelation(
-        connection = connection ,
-        dbms = dbms,
-        schema = cdmTmpSchema,
-        relationName = "cohortcontrast_observation_patient_prevalence"
-      )
-
-      sql1 <- SqlRender::translate(
-        targetDialect = dbms,
-        sql = SqlRender::render(
-          sql = "SELECT * INTO  @cdmTmpSchema.cohortcontrast_observation_patient_prevalence FROM (SELECT c.cohort_definition_id, c.person_id, c.observation_concept_id, COUNT(DISTINCT c.observation_id)  AS prevalence FROM (SELECT g.cohort_definition_id, g.subject_id AS person_id, d.observation_concept_id, d.observation_id FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.observation d ON g.subject_id = d.person_id WHERE d.observation_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, subject_id, COUNT(DISTINCT observation_id) AS total_count FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.observation d ON g.subject_id = d.person_id WHERE d.observation_date BETWEEN g.cohort_start_date AND g.cohort_end_date GROUP BY cohort_definition_id, subject_id) person_cohort ON c.cohort_definition_id = person_cohort.cohort_definition_id AND c.person_id = person_cohort.subject_id GROUP BY c.cohort_definition_id, c.person_id, c.observation_concept_id, person_cohort.total_count) tmp;",
-          cohortTable = studyName,
-          cdmTmpSchema = cdmTmpSchema,
-          cdmSchema = cdmSchema
-        )
-
-      )
-      DatabaseConnector::executeSql(connection,
-                                    sql1)
-
-      printCustomMessage("Creation of table cohortcontrast_observation_patient_prevalence EXECUTED!")
-
-    }
-
-    ############################################################################
-    #  VV     VV   IIIIII    SSSSS  IIIIII   TTTTTTTT
-    #   VV   VV      II     SS        II     T  TT  T
-    #    VV VV       II      SSSS     II        TT
-    #     VVV        II        SSS    II        TT
-    #      V       IIIIII   SSSSS   IIIIII      TT
-    ############################################################################
-    ############################################################################################
-    if ("Visit" %in% domainsIncluded) {
-    ############################################################################
-    #
-    # Generate visit occurrence table
-    #
-    ############################################################################
-
-    dropRelation(
-      connection = connection ,
-      dbms = dbms,
-      schema = cdmTmpSchema,
-      relationName = "cohortcontrast_visit_occurrence_prevalence"
-    )
-
-    sql1 <- SqlRender::translate(
-      targetDialect = dbms,
-      sql = SqlRender::render(
-        sql = "SELECT * INTO @cdmTmpSchema.cohortcontrast_visit_occurrence_prevalence FROM (SELECT c.cohort_definition_id, c.visit_concept_id, (COUNT(DISTINCT c.person_id) / CAST(cohort_size.total_count AS FLOAT)) AS prevalence, COUNT(DISTINCT c.person_id) AS person_count FROM (SELECT * FROM @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.visit_occurrence d ON g.subject_id = d.person_id WHERE d.visit_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, COUNT(DISTINCT subject_id) AS total_count FROM @cdmTmpSchema.@cohortTable GROUP BY cohort_definition_id) cohort_size ON c.cohort_definition_id = cohort_size.cohort_definition_id GROUP BY c.cohort_definition_id, c.visit_concept_id, cohort_size.total_count) a;",
-        cohortTable = studyName,
-        cdmTmpSchema = cdmTmpSchema,
-        cdmSchema = cdmSchema
-      )
-
-    )
-    DatabaseConnector::executeSql(connection,
-                                  sql1)
-
-    printCustomMessage("Creation of table cohortcontrast_visit_occurrence EXECUTED!")
-
-    ############################################################################
-    #
-    # Generate observation prevalence difference ratio table
-    #
-    ############################################################################
-
-    # Updated because some errors were occurring not checked
-    # dropRelation(
-    #   connection = connection ,
-    #   dbms = dbms,
-    #   schema = cdmTmpSchema,
-    #   relationName = "cohortcontrast_visit_occurrence_prevalence_differences"
-    # )
-    #
-    # sql1 <- SqlRender::translate(
-    #   targetDialect = dbms,
-    #   sql = SqlRender::render(
-    #     sql = "SELECT * INTO @cdmTmpSchema.cohortcontrast_visit_occurrence_prevalence_differences FROM ( SELECT CASE WHEN a.visit_concept_id IS NOT NULL THEN a.visit_concept_id ELSE b.visit_concept_id END AS visit_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio,  b.person_count as target_subject_count, a.person_count as control_subject_count, b.prevalence as target_subject_prevalence, a.prevalence as control_subject_prevalence FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_visit_occurrence_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_visit_occurrence_prevalence WHERE cohort_definition_id = 2) b ON a.visit_concept_id = b.visit_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
-    #     cdmTmpSchema = cdmTmpSchema,
-    #     domainLimit = domainLimit
-    #   )
-    #
-    # )
-    # DatabaseConnector::executeSql(connection,
-    #                               sql1)
-    #
-    # printCustomMessage(
-    #   "Creation of table cohortcontrast_visit_occurrence_prevalence_differences EXECUTED!"
-    # )
-
-
-
-    ############################################################################
-    #
-    # Generate drug prevalence table
-    #
-    ############################################################################
-    dropRelation(
-      connection = connection ,
-      dbms = dbms,
-      schema = cdmTmpSchema,
-      relationName = "cohortcontrast_visit_occurrence_patient_prevalence"
-    )
-
-    sql1 <- SqlRender::translate(
-      targetDialect = dbms,
-      sql = SqlRender::render(
-        sql = "SELECT * INTO  @cdmTmpSchema.cohortcontrast_visit_occurrence_patient_prevalence FROM (SELECT c.cohort_definition_id, c.person_id, c.visit_concept_id, COUNT(DISTINCT c.visit_occurrence_id)  AS prevalence FROM (SELECT g.cohort_definition_id, g.subject_id AS person_id, d.visit_concept_id, d.visit_occurrence_id FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.visit_occurrence d ON g.subject_id = d.person_id WHERE d.visit_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, subject_id, COUNT(DISTINCT visit_occurrence_id) AS total_count FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.visit_occurrence d ON g.subject_id = d.person_id WHERE d.visit_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date GROUP BY cohort_definition_id, subject_id) person_cohort ON c.cohort_definition_id = person_cohort.cohort_definition_id AND c.person_id = person_cohort.subject_id GROUP BY c.cohort_definition_id, c.person_id, c.visit_concept_id, person_cohort.total_count) tmp;",
-        cohortTable = studyName,
-        cdmTmpSchema = cdmTmpSchema,
-        cdmSchema = cdmSchema
-      )
-
-    )
-    DatabaseConnector::executeSql(connection,
-                                  sql1)
-
-    printCustomMessage("Creation of table cohortcontrast_visit_occurrence_patient_prevalence EXECUTED!")
-
+    generatePrevalenceTables(connection, dbms, cdmTmpSchema, studyName, cdmSchema, "Visit detail", domainsIncluded,
+                         c("cohortcontrast_visit_detail_prevalence", "cohortcontrast_visit_detail_patient_prevalence"),
+                         c(sqlQuery1, sqlQuery2))
   }
-
-
-    ################################################################################################################
-    #  VV     VV   IIIIII    SSSSS  IIIIII   TTTTTTTT          DDDD.    EEEEE  TTTTTTTT    AAA      IIIIII   LL
-    #   VV   VV      II     SS        II     T  TT  T          DD  DD   EE     T  TT  T   AA AA       II     LL
-    #    VV VV       II      SSSS     II        TT             DD   DD  EEEE      TT     AA   AA      II     LL
-    #     VVV        II        SSS    II        TT             DD  DD   EE        TT    AAAAAAAAA     II     LL
-    #      V       IIIIII   SSSSS   IIIIII      TT             DDDD     EEEEE     TT   AA       AA  IIIIII   LLLLLL
-    ################################################################################################################
-    if ("Visit detail" %in% domainsIncluded) {
-      ############################################################################
-      #
-      # Generate visit detail prevalence table
-      #
-      ############################################################################
-  dropRelation(
-    connection = connection ,
-    dbms = dbms,
-    schema = cdmTmpSchema,
-    relationName = "cohortcontrast_visit_detail_prevalence"
-  )
-
-  sql1 <- SqlRender::translate(
-    targetDialect = dbms,
-    sql = SqlRender::render(
-      sql = "SELECT * INTO @cdmTmpSchema.cohortcontrast_visit_detail_prevalence FROM (SELECT c.cohort_definition_id, c.visit_detail_concept_id, (COUNT(DISTINCT c.person_id) / CAST(cohort_size.total_count AS FLOAT)) AS prevalence, COUNT(DISTINCT c.person_id) AS person_count FROM (SELECT * FROM @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.visit_detail d ON g.subject_id = d.person_id WHERE d.visit_detail_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, COUNT(DISTINCT subject_id) AS total_count FROM @cdmTmpSchema.@cohortTable GROUP BY cohort_definition_id) cohort_size ON c.cohort_definition_id = cohort_size.cohort_definition_id GROUP BY c.cohort_definition_id, c.visit_detail_concept_id, cohort_size.total_count) a;",
-      cohortTable = studyName,
-      cdmTmpSchema = cdmTmpSchema,
-      cdmSchema = cdmSchema
-    )
-
-  )
-  DatabaseConnector::executeSql(connection,
-                                sql1)
-
-  printCustomMessage("Creation of table cohortcontrast_visit_detail_prevalence EXECUTED!")
-
-  ############################################################################
-  #
-  # Generate observation prevalence difference ratio table
-  #
-  ############################################################################
-
-  # Updated because some errors were occurring not checked
-  # dropRelation(
-  #   connection = connection ,
-  #   dbms = dbms,
-  #   schema = cdmTmpSchema,
-  #   relationName = "cohortcontrast_visit_detail_prevalence_differences"
-  # )
-  #
-  # sql1 <- SqlRender::translate(
-  #   targetDialect = dbms,
-  #   sql = SqlRender::render(
-  #     sql = "SELECT * INTO @cdmTmpSchema.cohortcontrast_visit_detail_prevalence_differences FROM ( SELECT CASE WHEN a.visit_detail_concept_id IS NOT NULL THEN a.visit_detail_concept_id ELSE b.visit_detail_concept_id END AS visit_detail_concept_id, CASE WHEN CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END = 0 THEN NULL ELSE (CASE WHEN b.prevalence IS NOT NULL THEN b.prevalence ELSE 0 END - CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence END) / CASE WHEN a.prevalence IS NOT NULL THEN a.prevalence ELSE 0 END END        AS prevalence_difference_ratio,  b.person_count as target_subject_count, a.person_count as control_subject_count, b.prevalence as target_subject_prevalence, a.prevalence as control_subject_prevalence FROM (SELECT * FROM @cdmTmpSchema.cohortcontrast_visit_detail_prevalence WHERE cohort_definition_id = 1) a FULL OUTER JOIN (SELECT * FROM @cdmTmpSchema.cohortcontrast_visit_detail_prevalence WHERE cohort_definition_id = 2) b ON a.visit_detail_concept_id = b.visit_detail_concept_id order by prevalence_difference_ratio desc LIMIT @domainLimit) tmp;",
-  #     cdmTmpSchema = cdmTmpSchema,
-  #     domainLimit = domainLimit
-  #   )
-  #
-  # )
-  # DatabaseConnector::executeSql(connection,
-  #                               sql1)
-  #
-  # printCustomMessage(
-  #   "Creation of table cohortcontrast_visit_detail_prevalence_differences EXECUTED!"
-  # )
-
-
-
-  ############################################################################
-  #
-  # Generate drug prevalence table
-  #
-  ############################################################################
-  dropRelation(
-    connection = connection ,
-    dbms = dbms,
-    schema = cdmTmpSchema,
-    relationName = "cohortcontrast_visit_detail_patient_prevalence"
-  )
-
-  sql1 <- SqlRender::translate(
-    targetDialect = dbms,
-    sql = SqlRender::render(
-      sql = "SELECT * INTO  @cdmTmpSchema.cohortcontrast_visit_detail_patient_prevalence FROM (SELECT c.cohort_definition_id, c.person_id, c.visit_detail_concept_id, COUNT(DISTINCT c.visit_detail_id)  AS prevalence FROM (SELECT g.cohort_definition_id, g.subject_id AS person_id, d.visit_detail_concept_id, d.visit_detail_id FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.visit_detail d ON g.subject_id = d.person_id WHERE d.visit_detail_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date) c JOIN (SELECT cohort_definition_id, subject_id, COUNT(DISTINCT visit_detail_id) AS total_count FROM  @cdmTmpSchema.@cohortTable g JOIN @cdmSchema.visit_detail d ON g.subject_id = d.person_id WHERE d.visit_detail_start_date BETWEEN g.cohort_start_date AND g.cohort_end_date GROUP BY cohort_definition_id, subject_id) person_cohort ON c.cohort_definition_id = person_cohort.cohort_definition_id AND c.person_id = person_cohort.subject_id GROUP BY c.cohort_definition_id, c.person_id, c.visit_detail_concept_id, person_cohort.total_count) tmp;",
-      cohortTable = studyName,
-      cdmTmpSchema = cdmTmpSchema,
-      cdmSchema = cdmSchema
-    )
-
-  )
-  DatabaseConnector::executeSql(connection,
-                                sql1)
-
-  printCustomMessage("Creation of table cohortcontrast_visit_detail_patient_prevalence EXECUTED!")
-
-}
-  }
-  ############################################################################
-  #  ######  ##  ###   ##    ###    ##
-  #  ##      ##  ####  ##    ###    ##
-  #  ####    ##  ## ## ##   ## ##   ##
-  #  ##      ##  ##  ####  #######  ##
-  #  ##      ##  ##   ### ##     ## #####
-  ############################################################################
-
-
   ############################################################################
   #
   # Query data from database
   #
   ############################################################################
+
   printCustomMessage("Querying prevalence difference data from database ...")
 
-  # sql1 = ""
-  sql2 = ""
+  sqlQuery = ""
   c = 0
-  if ("Drug" %in% domainsIncluded) {
-    # sql1 <-
-    #   paste(
-    #     sql1,
-    #     "SELECT drug_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count, target_subject_prevalence, control_subject_prevalence FROM @cdmTmpSchema.cohortcontrast_drug_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON drug_concept_id = v.concept_id",
-    #     sep = ""
-    #   )
 
-    sql2 <-
-      paste(
-        sql2,
-        "SELECT cohort_definition_id, person_id, drug_concept_id as concept_id, v.concept_name, prevalence, 'drug_exposure' as heritage FROM @cdmTmpSchema.cohortcontrast_drug_patient_prevalence LEFT JOIN @cdmVocabSchema.concept v ON drug_concept_id = v.concept_id",
-        sep = ""
-      )
+  domains <- c("Drug", "Measurement", "Condition", "Observation", "Visit", "Visit detail", "Procedure")
 
-    c = c + 1
+  for (domain in domains) {
+    result <- generateSqlQuery(domain, sqlQuery, c, domainsIncluded)
+    sqlQuery <- result$sql
+    c <- result$counter
   }
-  if ("Measurement" %in% domainsIncluded) {
-    if (c != 0) {
-      # sql1 <- paste(sql1, " UNION ", sep = "")
 
-      sql2 <- paste(sql2, " UNION ", sep = "")
-
-    }
-    # sql1 <-
-    #   paste(
-    #     sql1,
-    #     "SELECT measurement_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count, target_subject_prevalence, control_subject_prevalence FROM @cdmTmpSchema.cohortcontrast_measurement_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON measurement_concept_id = v.concept_id",
-    #     sep = ""
-    #   )
-
-    sql2 <-
-      paste(
-        sql2,
-        "SELECT cohort_definition_id, person_id, measurement_concept_id as concept_id, v.concept_name, prevalence, 'measurement' as heritage FROM @cdmTmpSchema.cohortcontrast_measurement_patient_prevalence LEFT JOIN @cdmVocabSchema.concept v ON measurement_concept_id = v.concept_id",
-        sep = ""
-      )
-
-    c = c + 1
-  }
-  if ("Condition" %in% domainsIncluded) {
-    if (c != 0) {
-      # sql1 <- paste(sql1, " UNION ", sep = "")
-
-      sql2 <- paste(sql2, " UNION ", sep = "")
-
-    }
-    # sql1 <-
-    #   paste(
-    #     sql1,
-    #     "SELECT condition_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count, target_subject_prevalence, control_subject_prevalence FROM @cdmTmpSchema.cohortcontrast_condition_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON condition_concept_id = v.concept_id",
-    #     sep = ""
-    #   )
-
-    sql2 <-
-      paste(
-        sql2,
-        "SELECT cohort_definition_id, person_id, condition_concept_id as concept_id, v.concept_name, prevalence, 'condition_occurrence' as heritage FROM @cdmTmpSchema.cohortcontrast_condition_patient_prevalence LEFT JOIN @cdmVocabSchema.concept v ON condition_concept_id = v.concept_id",
-        sep = ""
-      )
-
-    c = c + 1
-  }
-  if ("Observation" %in% domainsIncluded) {
-    if (c != 0) {
-      # sql1 <- paste(sql1, " UNION ", sep = "")
-
-      sql2 <- paste(sql2, " UNION ", sep = "")
-
-    }
-    # sql1 <-
-    #   paste(
-    #     sql1,
-    #     "SELECT observation_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count, target_subject_prevalence, control_subject_prevalence FROM @cdmTmpSchema.cohortcontrast_observation_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON observation_concept_id = v.concept_id",
-    #     sep = ""
-    #   )
-
-    sql2 <-
-      paste(
-        sql2,
-        "SELECT cohort_definition_id, person_id, observation_concept_id as concept_id, v.concept_name, prevalence, 'observation' as heritage FROM @cdmTmpSchema.cohortcontrast_observation_patient_prevalence LEFT JOIN @cdmVocabSchema.concept v ON observation_concept_id = v.concept_id",
-        sep = ""
-      )
-
-    c = c + 1
-  }
-  if ("Visit" %in% domainsIncluded) {
-    if (c != 0) {
-      # sql1 <- paste(sql1, " UNION ", sep = "")
-
-      sql2 <- paste(sql2, " UNION ", sep = "")
-
-    }
-    # sql1 <-
-    #   paste(
-    #     sql1,
-    #     "SELECT visit_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count, target_subject_prevalence, control_subject_prevalence FROM @cdmTmpSchema.cohortcontrast_visit_occurrence_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON visit_concept_id = v.concept_id",
-    #     sep = ""
-    #   )
-
-    sql2 <-
-      paste(
-        sql2,
-        "SELECT cohort_definition_id, person_id, visit_concept_id as concept_id, v.concept_name, prevalence, 'visit_occurrence' as heritage FROM @cdmTmpSchema.cohortcontrast_visit_occurrence_patient_prevalence LEFT JOIN @cdmVocabSchema.concept v ON visit_concept_id = v.concept_id",
-        sep = ""
-      )
-
-    c = c + 1
-  }
-  if ("Visit detail" %in% domainsIncluded) {
-    if (c != 0) {
-      # sql1 <- paste(sql1, " UNION ", sep = "")
-
-      sql2 <- paste(sql2, " UNION ", sep = "")
-
-    }
-    # sql1 <-
-    #   paste(
-    #     sql1,
-    #     "SELECT visit_detail_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count, target_subject_prevalence, control_subject_prevalence FROM @cdmTmpSchema.cohortcontrast_visit_detail_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON visit_detail_concept_id = v.concept_id",
-    #     sep = ""
-    #   )
-
-    sql2 <-
-      paste(
-        sql2,
-        "SELECT cohort_definition_id, person_id, visit_detail_concept_id as concept_id, v.concept_name, prevalence, 'visit_detail' as heritage FROM @cdmTmpSchema.cohortcontrast_visit_detail_patient_prevalence LEFT JOIN @cdmVocabSchema.concept v ON visit_detail_concept_id = v.concept_id",
-        sep = ""
-      )
-
-    c = c + 1
-  }
-  if ("Procedure" %in% domainsIncluded) {
-    if (c != 0) {
-      #sql1 <- paste(sql1, " UNION ", sep = "")
-
-      sql2 <- paste(sql2, " UNION ", sep = "")
-
-    }
-    # sql1 <-
-    #   paste(
-    #     sql1,
-    #     "SELECT procedure_concept_id as concept_id, v.concept_name, prevalence_difference_ratio, target_subject_count, control_subject_count, target_subject_prevalence, control_subject_prevalence FROM @cdmTmpSchema.cohortcontrast_procedure_prevalence_differences LEFT JOIN @cdmVocabSchema.concept v ON procedure_concept_id = v.concept_id",
-    #     sep = ""
-    #   )
-
-    sql2 <-
-      paste(
-        sql2,
-        "SELECT cohort_definition_id, person_id, procedure_concept_id as concept_id, v.concept_name, prevalence, 'procedure_occurrence' as heritage FROM @cdmTmpSchema.cohortcontrast_procedure_patient_prevalence LEFT JOIN @cdmVocabSchema.concept v ON procedure_concept_id = v.concept_id",
-        sep = ""
-      )
-
-    c = c + 1
-  }
-  #sql1 <- paste(sql1, ";", sep = "")
-
-  sql2 <- paste(sql2, ";", sep = "")
-
-
-  # sql <-
-  #   loadRenderTranslateSql(
-  #     dbms = dbms,
-  #     sql1,
-  #     cdmTmpSchema = cdmTmpSchema,
-  #     cdmVocabSchema = cdmVocabSchema
-  #   )
-  #data_features <- DatabaseConnector::querySql(connection, sql)
+  sqlQuery <- paste(sqlQuery, ";", sep = "")
 
   printCustomMessage("Querying person prevalence data from database ...")
 
-  sql <-
-    loadRenderTranslateSql(
-      dbms = dbms,
-      sql2,
-      cdmTmpSchema = cdmTmpSchema,
-      cdmVocabSchema = cdmVocabSchema
-    )
+  sql <- loadRenderTranslateSql(
+  dbms = dbms,
+  sqlQuery,
+  cdmTmpSchema = cdmTmpSchema,
+  cdmVocabSchema = cdmVocabSchema
+  )
   data_patients <- DatabaseConnector::querySql(connection, sql)
 
   printCustomMessage("Querying initial data from database ...")
 
-  sql <-
-    loadRenderTranslateSql(
-      dbms = dbms,
-      "SELECT * FROM @cdmTmpSchema.@studyTable;",
-      cdmTmpSchema = cdmTmpSchema,
-      studyTable = tolower(studyName)
-    )
+  sql <- loadRenderTranslateSql(
+  dbms = dbms,
+  "SELECT * FROM @cdmTmpSchema.@studyTable;",
+  cdmTmpSchema = cdmTmpSchema,
+  studyTable = tolower(studyName)
+  )
   data_initial <- DatabaseConnector::querySql(connection, sql)
 
 
@@ -1138,7 +167,7 @@ generateTables <- function(connection,
   # Setting names for each list element
   return(
     list(
-      #data_features = data_features,
+  #data_features = data_features,
       data_patients = data_patients,
       data_initial = data_initial,
       data_person = data_person
@@ -1199,3 +228,186 @@ dropRelation <-
                              " EXECUTED!",
                              sep = ""))
   }
+
+processCSVData <- function(connection, dbms, cdmTmpSchema, studyName, insertedCSV, nudgeTarget, nudgeControl) {
+  dropRelation(
+    connection = connection,
+    dbms = dbms,
+    schema = cdmTmpSchema,
+    relationName = tolower(studyName)
+  )
+
+  insertedCSV <- nudgeCohortIfRequired(insertedCSV, nudgeTarget)
+  insertedCSV <- nudgeCohortIfRequired(insertedCSV, nudgeControl)
+
+  DatabaseConnector::insertTable(
+    connection = connection,
+    databaseSchema = cdmTmpSchema,
+    tableName = tolower(studyName),
+    data = insertedCSV,
+    dropTableIfExists = TRUE,
+    createTable = TRUE,
+    tempTable = FALSE
+  )
+
+  nudgeCohorts(connection, dbms, cdmTmpSchema, studyName, nudgeTarget, nudgeControl)
+
+
+  inverseControl <- if (length(unique(insertedCSV$COHORT)) == 1) TRUE else FALSE
+
+  printCustomMessage(paste(
+    "Creation of table",
+    cdmTmpSchema,
+    ".",
+    tolower(studyName),
+    "EXECUTED!",
+    sep = " "
+  ))
+
+  return(inverseControl)
+}
+
+# Function to create cohorts
+createCohorts <- function(stateNamesJSON, insertedJSONs) {
+  cohortsToCreate <- data.frame()
+  for (i in 1:length(stateNamesJSON)) {
+    cohortJson <- insertedJSONs[i]
+    cohortName <- stateNamesJSON[i]
+    cohortExpression <- CirceR::cohortExpressionFromJson(cohortJson)
+    cohortSql <- CirceR::buildCohortQuery(cohortExpression, options = CirceR::createGenerateOptions(generateStats = FALSE))
+    cohortsToCreate <- rbind(cohortsToCreate, data.frame(cohortId = i, cohortName = cohortName, sql = cohortSql, stringsAsFactors = FALSE))
+  }
+  return(cohortsToCreate)
+}
+
+# Function to nudge cohorts
+nudgeCohorts <- function(connection, dbms, cdmTmpSchema, studyName, nudgeTarget, nudgeControl) {
+  if (nudgeTarget != FALSE) {
+    sql <- SqlRender::translate(targetDialect = dbms, sql = SqlRender::render(sql = "UPDATE @cdmTmpSchema.@cohortTable SET cohort_start_date = CASE WHEN cohort_definition_id = 2 THEN DATEADD(day, @nudgeTarget, cohort_start_date) ELSE cohort_start_date END, cohort_end_date = CASE WHEN cohort_definition_id = 2 THEN DATEADD(day, @nudgeTarget, cohort_end_date) ELSE cohort_end_date END;", cohortTable = studyName, cdmTmpSchema = cdmTmpSchema, nudgeTarget = nudgeTarget))
+    DatabaseConnector::executeSql(connection, sql)
+    printCustomMessage("Nudging target cohort EXECUTED!")
+  }
+  if (nudgeControl != FALSE) {
+    sql <- SqlRender::translate(targetDialect = dbms, sql = SqlRender::render(sql = "UPDATE @cdmTmpSchema.@cohortTable SET cohort_start_date = CASE WHEN cohort_definition_id = 1 THEN DATEADD(day, @nudgeControl, cohort_start_date) ELSE cohort_start_date END, cohort_end_date = CASE WHEN cohort_definition_id = 1 THEN DATEADD(day, @nudgeControl, cohort_end_date) ELSE cohort_end_date END;", cohortTable = studyName, cdmTmpSchema = cdmTmpSchema, nudgeControl = nudgeControl))
+    DatabaseConnector::executeSql(connection, sql)
+    printCustomMessage("Nudging control cohort EXECUTED!")
+  }
+}
+
+# Function to check for the need of inverse control
+checkInverseControl <- function(connection, dbms, cdmTmpSchema, studyName) {
+  sql <- loadRenderTranslateSql(dbms = dbms, "SELECT * FROM @cdmTmpSchema.@studyTable;", cdmTmpSchema = cdmTmpSchema, studyTable = tolower(studyName))
+  data_initial <- DatabaseConnector::querySql(connection, sql)
+  return(length(unique(data_initial$COHORT_DEFINITION_ID)) == 1)
+}
+
+# Main function
+processJSONData <- function(connection, dbms, cdmTmpSchema, studyName, cdmSchema, cdmVocabSchema, stateNamesJSON, insertedJSONs, nudgeTarget, nudgeControl) {
+  cohortsToCreate <- createCohorts(stateNamesJSON, insertedJSONs)
+  cohortTableNames <- CohortGenerator::getCohortTableNames(cohortTable = studyName)
+  CohortGenerator::createCohortTables(connection = connection, cohortDatabaseSchema = cdmTmpSchema, cohortTableNames = cohortTableNames)
+  generateCohortSet(connection = connection, cdmDatabaseSchema = cdmSchema, cdmVocabSchema = cdmVocabSchema, cohortDatabaseSchema = cdmTmpSchema, cohortTableNames = cohortTableNames, cohortDefinitionSet = cohortsToCreate)
+  nudgeCohorts(connection, dbms, cdmTmpSchema, studyName, nudgeTarget, nudgeControl)
+  inverseControl <- checkInverseControl(connection, dbms, cdmTmpSchema, studyName)
+  return(inverseControl)
+}
+
+createInverseSelfControls <- function(connection, dbms, cdmTmpSchema, studyName, cdmSchema, inverseControl) {
+  if (inverseControl) {
+    printCustomMessage("Creating inverse self-controls as control cohort is missing!")
+    sql <- SqlRender::translate(
+      targetDialect = dbms,
+      sql = SqlRender::render(
+        sql = "UPDATE @cdmTmpSchema.@cohortTable SET cohort_definition_id = 2 WHERE cohort_definition_id = 1;",
+        cohortTable = studyName,
+        cdmTmpSchema = cdmTmpSchema
+      )
+    )
+    DatabaseConnector::executeSql(connection, sql)
+    update_cohort_table(connection, cdmTmpSchema, studyName, cdmSchema)
+  }
+}
+
+generatePrevalenceTables <- function(connection, dbms, cdmTmpSchema, studyName, cdmSchema, domain, domainsIncluded, relationNames, sqlQueries) {
+  if (domain %in% domainsIncluded) {
+    for (i in seq_along(relationNames)) {
+
+      dropRelation(
+        connection = connection,
+        dbms = dbms,
+        schema = cdmTmpSchema,
+        relationName = relationNames[i]
+      )
+
+      sql <- SqlRender::translate(
+        targetDialect = dbms,
+        sql = SqlRender::render(
+          sql = customSQLRender(
+            sqlQueries[i],
+            dbms
+          ),
+          cohortTable = studyName,
+          cdmTmpSchema = cdmTmpSchema,
+          cdmSchema = cdmSchema
+        )
+      )
+
+      DatabaseConnector::executeSql(connection, sql)
+
+      printCustomMessage(paste("Creation of table", relationNames[i], "EXECUTED!"))
+    }
+  }
+}
+generateSqlQuery <- function(domain, sql, counter, domainsIncluded) {
+  if (domain %in% domainsIncluded) {
+    if (counter != 0) {
+      sql <- paste(sql, " UNION ", sep = "")
+    }
+    domainShort = domain
+    if (domain == "Visit") {
+      domain = 'visit_occurrence'
+      domainShort = 'visit'
+    }
+    else if (domain == "Visit detail") {
+      domain = 'visit_detail'
+      domainShort = 'visit_detail'
+    }
+    else if (domain == "Drug") {
+      domain = 'drug_exposure'
+      domainShort = 'drug'
+    }
+    else if (domain == "Measurement") {
+      domain = 'measurement'
+      domainShort = 'measurement'
+    }
+    else if (domain == "Procedure") {
+      domain = 'procedure_occurrence'
+      domainShort = 'procedure'
+    }
+    else if (domain == "Observationl") {
+      domain = 'observation'
+      domainShort = 'observation'
+    }
+    else if (domain == "Condition") {
+      domain = 'condition_occurrence'
+      domainShort = 'condition'
+    }
+
+    sql <- paste(
+      sql,
+      sprintf(
+        "SELECT cohort_definition_id, person_id, %s_concept_id as concept_id, v.concept_name, prevalence, '%s' as heritage FROM @cdmTmpSchema.cohortcontrast_%s_patient_prevalence LEFT JOIN @cdmVocabSchema.concept v ON %s_concept_id = v.concept_id",
+        domainShort,
+        domain,
+        domain,
+        domainShort
+      ),
+      sep = ""
+    )
+
+
+    counter <- counter + 1
+  }
+
+  return(list(sql = sql, counter = counter))
+}

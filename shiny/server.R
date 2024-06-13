@@ -29,8 +29,8 @@ server = function(input, output, session) {
 
       if (file.exists(file_path)) {
         load(file_path)
-#        loaded_data(object)
-#        original_data(object)
+       loaded_data(object)
+       original_data(object)
         rows <- nrow(distinct(select(filter(object$data_patients, COHORT_DEFINITION_ID == 2), PERSON_ID)))
         names_and_rows[[study_name]] <- rows
       }
@@ -92,15 +92,18 @@ server = function(input, output, session) {
   target <- reactive({
     req(studyName(), pathToResults, loaded_data())
 
-    autoScaleTime <- if (!is.null(input$scaleTime) && input$scaleTime) TRUE else FALSE
+    autoscaleRate <- if (!is.null(input$scaleRate) && input$scaleRate) TRUE else FALSE
     applyInverseTarget <- if (!is.null(input$applyInverseTarget) && input$applyInverseTarget) TRUE else FALSE
-
+    applyZTest = if (!is.null(input$applyZTest) && input$applyZTest) TRUE else FALSE
+    applyLogitTest = if (!is.null(input$applyLogitTest) && input$applyLogitTest) TRUE else FALSE
     format_results(
       object = loaded_data(),
       pathToResults = pathToResults,
       studyName = studyName(),
-      autoScaleTime = autoScaleTime,
-      applyInverseTarget = applyInverseTarget
+      autoScaleRate = autoScaleRate,
+      applyInverseTarget = applyInverseTarget,
+      applyZTest = applyZTest,
+      applyLogitTest = applyLogitTest
     )
   })
 
@@ -220,6 +223,22 @@ server = function(input, output, session) {
     count_control <- n_patients$`1`
     selected_concept_ids <- as.numeric(target_mod()$CONCEPT_ID[selected_rows])
 
+    representingConceptId <-selected_concept_ids[which.max(as.numeric(target_mod()$PREVALENCE_DIFFERENCE_RATIO[selected_rows]))]
+
+    # TODO: maybe run tests again instead of making assuption for all?
+    representingZTest <- any(target_mod()$ZTEST[selected_rows])
+    representingLogitTest <- any(target_mod()$LOGITTEST[selected_rows])
+
+    data_features <-
+      data_features %>% dplyr::mutate(
+        ZTEST = dplyr::if_else(CONCEPT_ID == representingConceptId, representingZTest, ZTEST),
+        LOGITTEST = dplyr::if_else(
+          CONCEPT_ID == representingConceptId,
+          representingLogitTest,
+          LOGITTEST
+        )
+      )
+
     target_mod_data <- data_patients
     selected_heritage <- as.vector(data_patients %>% select(CONCEPT_ID, HERITAGE) %>% distinct() %>%  filter(CONCEPT_ID %in% selected_concept_ids) %>% select(HERITAGE))
     # Count occurrences of each heritage value and select the most frequent one
@@ -231,13 +250,14 @@ server = function(input, output, session) {
     # Update rows in one go
     data_patients <- data_patients %>%
       mutate(
-        CONCEPT_ID = replace(CONCEPT_ID, rows_to_update, sample(selected_concept_ids, 1)),
+        CONCEPT_ID = replace(CONCEPT_ID, rows_to_update, representingConceptId),
         CONCEPT_NAME = replace(CONCEPT_NAME, rows_to_update, new_concept_name),
         HERITAGE = replace(HERITAGE, rows_to_update, most_frequent_heritage)
       ) %>%
       group_by(COHORT_DEFINITION_ID, PERSON_ID, CONCEPT_ID, CONCEPT_NAME, HERITAGE) %>%
       summarise(PREVALENCE = sum(PREVALENCE), .groups = 'drop')
 
+    data_features_temp = data_features %>% dplyr::select(CONCEPT_ID, ZTEST, LOGITTEST)
     data_features <- data_patients %>%
       group_by(CONCEPT_ID, CONCEPT_NAME) %>%
       summarise(
@@ -254,7 +274,7 @@ server = function(input, output, session) {
           (is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0) ~ 100,
           TRUE ~ TARGET_SUBJECT_PREVALENCE / CONTROL_SUBJECT_PREVALENCE
         )
-      )
+      ) %>% left_join(data_features_temp, by = "CONCEPT_ID", keep = FALSE)
 
     data_features(data_features)
     data_patients(data_patients)
