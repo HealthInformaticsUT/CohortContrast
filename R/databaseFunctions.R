@@ -381,7 +381,7 @@ generateSqlQuery <- function(domain, sql, counter, domainsIncluded) {
       domain = 'procedure_occurrence'
       domainShort = 'procedure'
     }
-    else if (domain == "Observationl") {
+    else if (domain == "Observation") {
       domain = 'observation'
       domainShort = 'observation'
     }

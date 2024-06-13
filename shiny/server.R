@@ -92,7 +92,7 @@ server = function(input, output, session) {
   target <- reactive({
     req(studyName(), pathToResults, loaded_data())
 
-    autoscaleRate <- if (!is.null(input$scaleRate) && input$scaleRate) TRUE else FALSE
+    autoScaleRate <- if (!is.null(input$scaleRate) && input$scaleRate) TRUE else FALSE
     applyInverseTarget <- if (!is.null(input$applyInverseTarget) && input$applyInverseTarget) TRUE else FALSE
     applyZTest = if (!is.null(input$applyZTest) && input$applyZTest) TRUE else FALSE
     applyLogitTest = if (!is.null(input$applyLogitTest) && input$applyLogitTest) TRUE else FALSE

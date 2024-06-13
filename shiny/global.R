@@ -7,7 +7,7 @@ library(stringr)
 ############################## Shiny functions
 
 # Functions for data loading and formatting ------------------------------------
-format_results <- function(object, pathToResults, studyName, autoscaleRate, applyInverseTarget, applyZTest, applyLogitTest) {
+format_results <- function(object, pathToResults, studyName, autoScaleRate, applyInverseTarget, applyZTest, applyLogitTest) {
 
   # Calculate the number of patients in target and control groups
   n_patients <- object$data_initial %>%
@@ -73,7 +73,7 @@ format_results <- function(object, pathToResults, studyName, autoscaleRate, appl
       ))
   }
 
-  if (autoscaleRate) {
+  if (autoScaleRate) {
     # Calculate the duration in the cohort in days
     object$data_initial <- object$data_initial %>%
       mutate(COHORT_DURATION = as.integer(difftime(
