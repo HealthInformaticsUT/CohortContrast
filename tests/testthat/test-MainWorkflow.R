@@ -48,12 +48,13 @@ test_that("Created cohort table is with correct.", {
     domainsIncluded =  c("Drug"),
     generateTables = TRUE,
     readFromCSV = FALSE,
-    prevalenceCutOff = 0.1,
+    prevalenceCutOff = 0,
     topDogs =10,
     presenceFilter = FALSE,
     complementaryMappingTable = FALSE,
     nudgeTarget = 30,
-    nudgeControl = FALSE
+    nudgeControl = FALSE,
+    createC2TInput = FALSE
   )
   expect_equal(length(data$resultList$selectedFeatures$CONCEPT_NAME) ==10, TRUE)
 })

@@ -155,7 +155,8 @@ body <- shinydashboard::dashboardBody(
       fluidRow(DT::DTOutput("concept_table")),
       fluidRow(
         actionButton("combine_btn", "Combine Selected"),
-        actionButton("reset_btn", "Reset")
+        actionButton("reset_btn", "Reset"),
+        actionButton("save_btn", "Snapshot")
       )
     ),
     # Settings tab

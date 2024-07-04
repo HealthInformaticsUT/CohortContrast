@@ -15,7 +15,6 @@ generateTables(
   generateTables = TRUE,
   domainsIncluded = c("Drug", "Condition", "Measurement", "Observation", "Procedure",
     "Visit", "Visit detail"),
-  domainLimit = 1000,
   readFromCSV = FALSE,
   nudgeTarget = FALSE,
   nudgeControl = FALSE
@@ -39,8 +38,6 @@ generateTables(
 \item{generateTables}{Boolean for recreating table}
 
 \item{domainsIncluded}{list of CDM domains to include}
-
-\item{domainLimit}{nr of instances allowed from a domain}
 
 \item{readFromCSV}{boolean > if TRUE file from ./inst/CSV will be used as cohort data, otherwise JSONs will be used.}
 
