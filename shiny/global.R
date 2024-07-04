@@ -288,7 +288,7 @@ plot_prevalence = function(filtered_target){
 
   p2 <- ggplot(plotdata, aes(y = CONCEPT_NAME, color = AGE_DIFF_SIGNIFICANT)) +
     geom_point(aes(x = AGE_DIFF_ESTIMATE)) +
-    geom_errorbar(aes(xmin = AGE_DIFF_LOW, xmax = AGE_DIFF_HIGH), linewidth = 1) +
+    geom_errorbar(aes(xmin = AGE_DIFF_LOW, xmax = AGE_DIFF_HIGH), linewidth = 5) +
     geom_vline(aes(xintercept = AVERAGE_AGE_OVERALL), color = "darkgreen") +
     scale_color_manual(values = c("grey60", "blue"), breaks = c(FALSE, TRUE)) +
     facet_grid(HERITAGE ~ ., space = "free_y", scales = "free_y") +
@@ -305,7 +305,7 @@ plot_prevalence = function(filtered_target){
 
   p3 <- ggplot(plotdata, aes(y = CONCEPT_NAME, color = MALE_PROP_DIFF_SIGNIFICANT)) +
     geom_point(aes(x = MALE_PROP_DIFF_ESTIMATE)) +
-    geom_errorbar(aes(xmin = MALE_PROP_DIFF_LOW, xmax = MALE_PROP_DIFF_HIGH), linewidth = 1) +
+    geom_errorbar(aes(xmin = MALE_PROP_DIFF_LOW, xmax = MALE_PROP_DIFF_HIGH), linewidth = 5) +
     geom_vline(aes(xintercept = MALE_PROP_OVERALL), color = "darkgreen") +
     scale_color_manual(values = c("grey60", "blue"), breaks = c(FALSE, TRUE)) +
     scale_x_continuous(labels = scales::label_percent()) +

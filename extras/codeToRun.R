@@ -1,4 +1,4 @@
-devtools::install_github("HealthInformaticsUT/CohortContrast") # Run for installing the HEAD
+#devtools::install_github("HealthInformaticsUT/CohortContrast") # Run for installing the HEAD
 
 studyName <- "TestCohortContrast" # TODO
 pathToResults <- getwd()   # TODO should be a path to the directory containing the inst directory
@@ -58,16 +58,16 @@ data = CohortContrast(
   cdmTmpSchema,
   pathToResults,
   studyName,
-  domainsIncluded = c("Drug", "Condition", "Measurement", "Observation", "Procedure", "Visit", "Visit detail"),
+  domainsIncluded =  c("Drug", "Condition", "Measurement", "Observation", "Procedure", "Visit", "Visit detail"),
   generateTables = TRUE,
   readFromCSV = FALSE,
   prevalenceCutOff = 1.2,
-  topDogs = 100, # Number of features to export
+  topDogs = FALSE, # Number of features to export
   presenceFilter = 0.05, # 0-1, percentage of people who must have the chosen feature present
   complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
   nudgeTarget = FALSE, # nudge target cohort start date (days)
   nudgeControl = FALSE,# nudge control cohort start date (days)
-  createC2TInput = FALSE)
+  createC2TInput = TRUE)
 
 
 # GUI

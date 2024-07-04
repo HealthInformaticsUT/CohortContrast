@@ -15,22 +15,23 @@ server = function(input, output, session) {
   study_info <- reactiveVal(list())
   studyName <- reactiveVal()
   target_mod <- reactiveVal()
-  original_data = reactiveVal(NULL)
+  original_data <- reactiveVal(NULL)
   loaded_data <- reactiveVal(NULL)
   data_features <- reactiveVal(NULL)
   data_patients <- reactiveVal(NULL)
+  complementaryMappingTable <- reactiveVal(data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), stringsAsFactors = FALSE))
 
   # Function to load data and update study_info
   load_study_data <- function() {
     names_and_rows <- list()
     study_names <- get_study_names(pathToResults)
-   for (study_name in study_names) {
+    for (study_name in study_names) {
       file_path <- str_c(pathToResults, "/tmp/datasets/", study_name, "_CC_medData.rdata")
 
       if (file.exists(file_path)) {
         load(file_path)
-       loaded_data(object)
-       original_data(object)
+        loaded_data(object)
+        original_data(object)
         rows <- nrow(distinct(select(filter(object$data_patients, COHORT_DEFINITION_ID == 2), PERSON_ID)))
         names_and_rows[[study_name]] <- rows
       }
@@ -82,6 +83,7 @@ server = function(input, output, session) {
       data_features(object$data_features)
       data_patients(object$data_patients)
       target_mod(object$data_features)
+      if(!is.null(object$complementaryMappingTable)) complementaryMappingTable(object$complementaryMappingTable)
       print("Data loaded")
     } else {
       print("File not found")
@@ -94,8 +96,8 @@ server = function(input, output, session) {
 
     autoScaleRate <- if (!is.null(input$scaleRate) && input$scaleRate) TRUE else FALSE
     applyInverseTarget <- if (!is.null(input$applyInverseTarget) && input$applyInverseTarget) TRUE else FALSE
-    applyZTest = if (!is.null(input$applyZTest) && input$applyZTest) TRUE else FALSE
-    applyLogitTest = if (!is.null(input$applyLogitTest) && input$applyLogitTest) TRUE else FALSE
+    applyZTest <- if (!is.null(input$applyZTest) && input$applyZTest) TRUE else FALSE
+    applyLogitTest <- if (!is.null(input$applyLogitTest) && input$applyLogitTest) TRUE else FALSE
     format_results(
       object = loaded_data(),
       pathToResults = pathToResults,
@@ -166,6 +168,7 @@ server = function(input, output, session) {
       target_row_annotation = loaded_data()$target_row_annotation,
       target_col_annotation = loaded_data()$target_col_annotation
     ))
+
   })
 
   observeEvent(input$combine_btn, {
@@ -201,18 +204,40 @@ server = function(input, output, session) {
     target_mod(original_data()$data_features)
 
     data_features(data_features())
+    complementaryMappingTable(if (!is.null(object$complementaryMappingTable)) complementaryMappingTable(object$complementaryMappingTable) else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), stringsAsFactors = FALSE))
+  })
+
+  # Save data to file on button press
+  observeEvent(input$save_btn, {
+    # Create the base file path
+    file_base <- str_c(pathToResults, "/tmp/datasets/", studyName(), "_Snapshot")
+    file_path <- str_c(file_base, "_CC_medData.rdata")
+    counter <- 1
+
+    # Check if file exists and append increasing numbers if necessary
+    while (file.exists(file_path)) {
+      file_path <- str_c(file_base, "_", counter, "_CC_medData.rdata")
+      counter <- counter + 1
+    }
+    # Extract the data from the reactive
+    object <- loaded_data()
+    object$complementaryMappingTable <- complementaryMappingTable()
+
+    # Save the actual data to the file
+    save(object, file = file_path)
+
+    # Notify the user
+    showNotification(paste("Data saved to", file_path))
   })
 
   # Function to combine selected concepts
   combineSelectedConcepts <- function(new_concept_name) {
-
     selected_rows <- input$concept_table_rows_selected
 
     data_features <- data_features()
-
     data_patients <- data_patients()
-
     data_initial <- loaded_data()$data_initial
+    complementary_mapping <- complementaryMappingTable()
 
     n_patients <- data_initial %>%
       group_by(COHORT_DEFINITION_ID) %>%
@@ -223,31 +248,22 @@ server = function(input, output, session) {
     count_control <- n_patients$`1`
     selected_concept_ids <- as.numeric(target_mod()$CONCEPT_ID[selected_rows])
 
-    representingConceptId <-selected_concept_ids[which.max(as.numeric(target_mod()$PREVALENCE_DIFFERENCE_RATIO[selected_rows]))]
+    representingConceptId <- selected_concept_ids[which.max(as.numeric(target_mod()$PREVALENCE_DIFFERENCE_RATIO[selected_rows]))]
 
-    # TODO: maybe run tests again instead of making assuption for all?
     representingZTest <- any(target_mod()$ZTEST[selected_rows])
     representingLogitTest <- any(target_mod()$LOGITTEST[selected_rows])
 
-    data_features <-
-      data_features %>% dplyr::mutate(
-        ZTEST = dplyr::if_else(CONCEPT_ID == representingConceptId, representingZTest, ZTEST),
-        LOGITTEST = dplyr::if_else(
-          CONCEPT_ID == representingConceptId,
-          representingLogitTest,
-          LOGITTEST
-        )
-      )
+    data_features <- data_features %>% dplyr::mutate(
+      ZTEST = dplyr::if_else(CONCEPT_ID == representingConceptId, representingZTest, ZTEST),
+      LOGITTEST = dplyr::if_else(CONCEPT_ID == representingConceptId, representingLogitTest, LOGITTEST)
+    )
 
     target_mod_data <- data_patients
-    selected_heritage <- as.vector(data_patients %>% select(CONCEPT_ID, HERITAGE) %>% distinct() %>%  filter(CONCEPT_ID %in% selected_concept_ids) %>% select(HERITAGE))
-    # Count occurrences of each heritage value and select the most frequent one
+    selected_heritage <- as.vector(data_patients %>% select(CONCEPT_ID, HERITAGE) %>% distinct() %>% filter(CONCEPT_ID %in% selected_concept_ids) %>% select(HERITAGE))
     most_frequent_heritage <- names(sort(table(selected_heritage), decreasing = TRUE)[1])
 
-   # Identify rows to update
     rows_to_update <- data_patients$CONCEPT_ID %in% selected_concept_ids
 
-    # Update rows in one go
     data_patients <- data_patients %>%
       mutate(
         CONCEPT_ID = replace(CONCEPT_ID, rows_to_update, representingConceptId),
@@ -257,7 +273,7 @@ server = function(input, output, session) {
       group_by(COHORT_DEFINITION_ID, PERSON_ID, CONCEPT_ID, CONCEPT_NAME, HERITAGE) %>%
       summarise(PREVALENCE = sum(PREVALENCE), .groups = 'drop')
 
-    data_features_temp = data_features %>% dplyr::select(CONCEPT_ID, ZTEST, LOGITTEST)
+    data_features_temp <- data_features %>% dplyr::select(CONCEPT_ID, ZTEST, LOGITTEST)
     data_features <- data_patients %>%
       group_by(CONCEPT_ID, CONCEPT_NAME) %>%
       summarise(
@@ -279,15 +295,29 @@ server = function(input, output, session) {
     data_features(data_features)
     data_patients(data_patients)
 
-      loaded_data(list(
+    # Update complementaryMappingTable
+    new_rows <- data.frame(CONCEPT_ID = selected_concept_ids, CONCEPT_NAME = new_concept_name, stringsAsFactors = FALSE)
+    complementary_mapping <- rbind(complementary_mapping, new_rows)
+
+    # Update all related concept names in complementaryMappingTable
+    related_concepts <- complementary_mapping$CONCEPT_NAME %in% complementary_mapping$CONCEPT_NAME[complementary_mapping$CONCEPT_ID %in% selected_concept_ids]
+    complementary_mapping$CONCEPT_NAME[related_concepts] <- new_concept_name
+    complementary_mapping <- complementary_mapping %>% distinct() # Ensure no duplicates
+
+    complementaryMappingTable(complementary_mapping)
+
+    loaded_data(list(
       data_initial = data_initial,
       data_patients = data_patients,
       data_features = data_features,
       data_person = loaded_data()$data_person,
       target_matrix = loaded_data()$target_matrix,
       target_row_annotation = loaded_data()$target_row_annotation,
-      target_col_annotation = loaded_data()$target_col_annotation
+      target_col_annotation = loaded_data()$target_col_annotation,
+      complementaryMappingTable = complementary_mapping
     ))
   }
+
+
 
 }

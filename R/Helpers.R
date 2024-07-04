@@ -306,6 +306,28 @@ update_cohort_table <- function(connection, cdmTmpSchema, studyName, cdmSchema) 
       )
 
       DatabaseConnector::executeSql(connection, sql_insert)
+      printCustomMessage("Updated cohort table for inverse control!")
     }
   }
 }
+
+#' Function to sanitize a single string
+#' @param input_string A  state label name
+#' @keywords internal
+sanitize_single <- function(input_string) {
+  safe_string <- gsub("[^A-Za-z0-9_.-]", "_", input_string)  # Corrected regex
+  if (substr(safe_string, 1, 1) == '.') {
+    safe_string <- paste0('_', safe_string)
+  }
+  return(safe_string)
+}
+
+#' Sanitize filenames not in correct format
+#'
+#' @param input_strings A vector of state label names
+#' @keywords internal
+sanitize <- function(input_strings) {
+  # Apply the sanitization function to each element of the vector
+  sapply(input_strings, sanitize_single)
+}
+

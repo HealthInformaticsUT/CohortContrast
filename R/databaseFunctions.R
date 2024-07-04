@@ -11,7 +11,6 @@
 #' @param studyName Name of the study being run, will be used in file and relation names
 #' @param generateTables Boolean for recreating table
 #' @param domainsIncluded list of CDM domains to include
-#' @param domainLimit nr of instances allowed from a domain
 #' @param readFromCSV boolean > if TRUE file from ./inst/CSV will be used as cohort data, otherwise JSONs will be used.
 #' @param nudgeTarget number of days you would like to nudge the target cohort start day
 #' @param nudgeControl number of days you would like to nudge the control cohort start day
@@ -25,7 +24,6 @@ generateTables <- function(connection,
                            studyName = "SampleStudy",
                            generateTables = TRUE,
                            domainsIncluded = c("Drug", "Condition", "Measurement", "Observation", "Procedure", "Visit", "Visit detail"),
-                           domainLimit = 1000,
                            readFromCSV = FALSE,
                            nudgeTarget = FALSE,
                            nudgeControl = FALSE) {

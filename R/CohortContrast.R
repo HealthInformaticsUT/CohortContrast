@@ -141,8 +141,8 @@ queryHeritageData <-
       concept_map[[concept_string]] <-
         as.character(concept_map[['CONCEPT_ID']]) # Ensure consistent data type
       colnames(concept_map) <- c(concept_string, "CONCEPT_NAME")
-      concept_map$CONCEPT_NAME <-
-        substr(concept_map$CONCEPT_NAME, 1, 20)
+      # concept_map$CONCEPT_NAME <-
+      #   substr(concept_map$CONCEPT_NAME, 1, 20)
       # Before applying the mapping, check if query_result is not empty and has 'CONCEPT_ID'
       if (nrow(query_result) > 0 &&
           concept_string %in% names(query_result)) {
@@ -455,8 +455,26 @@ handleMapping <- function(data, complementaryMappingTable) {
       summarise(PREVALENCE = sum(PREVALENCE, na.rm = TRUE),
                 .groups = 'drop')
 
+  final_data_summarized <- final_data %>%
+    group_by(CONCEPT_ID, HERITAGE) %>%
+    summarise(Summed_Prevalence = sum(PREVALENCE, na.rm = TRUE), .groups = 'drop')
+
+  # Assign the most prevalent heritage to each concept ID and PERSON_ID
+  most_prevalent_heritage <- final_data_summarized %>%
+    group_by(CONCEPT_ID) %>%
+    filter(Summed_Prevalence == max(Summed_Prevalence)) %>%
+    slice(1) %>%  # In case of tie, take the first occurrence
+    select(CONCEPT_ID, HERITAGE)
+
+  # Merge the most prevalent heritage back to the original dataframe and sum the PREVALENCE
+  result <- final_data %>%
+    select(-HERITAGE) %>%
+    left_join(most_prevalent_heritage, by = "CONCEPT_ID") %>%
+    group_by(COHORT_DEFINITION_ID, PERSON_ID, CONCEPT_ID, CONCEPT_NAME, HERITAGE) %>%
+    summarise(PREVALENCE = sum(PREVALENCE, na.rm = TRUE), .groups = 'drop')
+
   # Assign the result back to data$data_patients
-  data$data_patients <- final_data
+  data$data_patients <- result
   return(data)
 }
 
@@ -640,7 +658,7 @@ createC2TInput <- function(data, targetCohortId, createC2TInput) {
         "COHORT_END_DATE")
 
     data$resultList$trajectoryData = rbind(data_target, data_states)
-    data$resultList$trajectoryData$COHORT_DEFINITION_ID = trimws(resultList$trajectoryData$COHORT_DEFINITION_ID)
+    #data$resultList$trajectoryData$COHORT_DEFINITION_ID = trimws(data$resultList$trajectoryData$COHORT_DEFINITION_ID)
   }
   return(data)
 }
