@@ -1,4 +1,5 @@
-#devtools::install_github("HealthInformaticsUT/CohortContrast") # Run for installing the HEAD
+devtools::install_github("HealthInformaticsUT/CohortContrast") # Run for installing the HEAD
+library(CohortContrast)
 
 studyName <- "TestCohortContrast" # TODO
 pathToResults <- getwd()   # TODO should be a path to the directory containing the inst directory

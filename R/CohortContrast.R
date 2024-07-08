@@ -69,7 +69,7 @@ CohortContrast <- function(connection,
   data = createDataFeatures(data, topDogs)
   data = handleTests(data, targetCohortId, presenceFilter)
   data = handleFeatureSelection(data, topDogs, prevalenceCutOff, targetCohortId)
-  data = createC2TInput(data, targetCohortId, createC2TInput)
+  data = createC2TInput(data, targetCohortId, createC2TInput, complementaryMappingTable)
   data = saveResult(data, pathToResults, studyName)
 
   return(data)
@@ -82,7 +82,7 @@ queryHeritageData <-
            cdmTmpSchema,
            studyName,
            split_data,
-           complementaryMappingTable) {
+           complementaryMappingTable = FALSE) {
     results_list <- lapply(names(split_data), function(heritage) {
       printCustomMessage(paste("Querying eligible ", heritage, " data ...", sep = ""))
       unique_person_ids <- unique(split_data[[heritage]]$PERSON_ID)
@@ -607,7 +607,7 @@ handleFeatureSelection <- function(data, topDogs, prevalenceCutOff, targetCohort
 }
 
 # Define a function to handle the creation of C2T input
-createC2TInput <- function(data, targetCohortId, createC2TInput) {
+createC2TInput <- function(data, targetCohortId, createC2TInput,complementaryMappingTable = FALSE) {
   if (createC2TInput) {
     data_selected_patients = dplyr::select(
       dplyr::filter(
