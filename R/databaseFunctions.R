@@ -138,6 +138,12 @@ generateTables <- function(connection,
   )
   data_patients <- DatabaseConnector::querySql(connection, sql)
 
+  # aggregate rows in case of multiple observation periods in same cohort + remove void concepts
+  data_patients <- data_patients %>%
+    dplyr::group_by(COHORT_DEFINITION_ID,PERSON_ID,CONCEPT_ID,CONCEPT_NAME,PREVALENCE,HERITAGE) %>%
+    dplyr::summarize(PREVALENCE = sum(PREVALENCE), .groups = 'drop') %>% dplyr::filter(CONCEPT_ID != 0)
+
+
   printCustomMessage("Querying initial data from database ...")
 
   sql <- loadRenderTranslateSql(

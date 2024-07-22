@@ -22,7 +22,9 @@ CohortContrast(
   nudgeControl = FALSE,
   nudgeTarget = FALSE,
   complementaryMappingTable = FALSE,
-  createC2TInput = FALSE
+  createC2TInput = FALSE,
+  runZTests = TRUE,
+  runLogitTests = TRUE
 )
 }
 \arguments{
@@ -53,6 +55,10 @@ CohortContrast(
 \item{nudgeTarget}{number of days you would like to nudge the target cohort start day}
 
 \item{complementaryMappingTable}{Mappingtable for mapping concept_ids if present}
+
+\item{runZTests}{boolean for Z-tests}
+
+\item{runLogitTests}{boolean for logit-tests}
 
 \item{cdmDataSchema}{Schema which contains the OHDSI Common Data Model.}
 }

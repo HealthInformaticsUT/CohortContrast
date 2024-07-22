@@ -16,6 +16,8 @@
 #' @param nudgeTarget number of days you would like to nudge the target cohort start day
 #' @param nudgeControl number of days you would like to nudge the control cohort start day
 #' @param complementaryMappingTable Mappingtable for mapping concept_ids if present
+#' @param runZTests boolean for Z-tests
+#' @param runLogitTests boolean for logit-tests
 #'
 #' @keywords internal
 CohortContrast <- function(connection,
@@ -42,7 +44,9 @@ CohortContrast <- function(connection,
                            nudgeControl = FALSE,
                            nudgeTarget = FALSE,
                            complementaryMappingTable = FALSE,
-                           createC2TInput = FALSE) {
+                           createC2TInput = FALSE,
+                           runZTests = TRUE,
+                           runLogitTests = TRUE) {
   printCustomMessage("Creating mandatory subdirectories ...")
   createMandatorySubDirs(pathToResults)
   targetCohortId = 2
@@ -67,7 +71,7 @@ CohortContrast <- function(connection,
   }
 
   data = createDataFeatures(data, topDogs)
-  data = handleTests(data, targetCohortId, presenceFilter)
+  data = handleTests(data, targetCohortId, presenceFilter,runZTests,runLogitTests)
   data = handleFeatureSelection(data, topDogs, prevalenceCutOff, targetCohortId)
   data = createC2TInput(data, targetCohortId, createC2TInput, complementaryMappingTable)
   data = saveResult(data, pathToResults, studyName)
@@ -488,11 +492,12 @@ createDataFeatures <- function(data, topDogs) {
 }
 
 # Define a function to handle the tests
-handleTests <- function(data, targetCohortId, presenceFilter) {
+handleTests <- function(data, targetCohortId, presenceFilter,runZTests = TRUE, runLogitTests = TRUE) {
   data_features = data$data_features
   data_patients = data$data_patients
   data_initial = data$data_initial
 
+  if (runZTests){
   significant_concepts <-
     performPrevalenceAnalysis(data_patients,
                               data_initial,
@@ -501,7 +506,14 @@ handleTests <- function(data, targetCohortId, presenceFilter) {
   data_features <- data_features %>%
     dplyr::mutate(ZTEST = dplyr::if_else(CONCEPT_ID %in% significant_concepts$CONCEPT_ID, TRUE, FALSE))
   printCustomMessage("Z-test on data executed!")
+  }
+  else {
+    data_features <- data_features %>%
+      dplyr::mutate(ZTEST = FALSE)
+    printCustomMessage("Z-tests were disabled!")
+  }
   # Logit test
+  if (runLogitTests){
   significant_concepts <-
     performPrevalenceAnalysisLogistic(data_patients,
                                       data_initial,
@@ -513,6 +525,11 @@ handleTests <- function(data, targetCohortId, presenceFilter) {
       LOGITTEST = dplyr::if_else(CONCEPT_ID %in% significant_concepts$CONCEPT_ID, TRUE, FALSE)
     )
   printCustomMessage("Logit-test on data executed!")
+  }  else {
+    data_features <- data_features %>%
+      dplyr::mutate(LOGITTEST = FALSE)
+    printCustomMessage("Logit-tests were disabled!")
+  }
 
   # Overwrite data_features to apply tests
   data$data_features = data_features
@@ -552,7 +569,7 @@ handleFeatureSelection <- function(data, topDogs, prevalenceCutOff, targetCohort
     n_features_left = nrow(features)
     printCustomMessage(
       paste(
-        "After filtering for prevalence cutoff of",
+        "After filtering for prevalence cutoff of ",
         prevalenceCutOff,
         ", there are ",
         n_features_left,

@@ -68,7 +68,9 @@ data = CohortContrast(
   complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
   nudgeTarget = FALSE, # nudge target cohort start date (days)
   nudgeControl = FALSE,# nudge control cohort start date (days)
-  createC2TInput = TRUE)
+  createC2TInput = TRUE,
+  runZTests = TRUE,
+  runLogitTests = TRUE)
 
 
 # GUI
