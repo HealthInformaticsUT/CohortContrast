@@ -170,10 +170,13 @@ format_results <- function(object, pathToResults, studyName, autoScaleRate, appl
     as.matrix()
 
   # Demographics
+  # Process the data to ensure one row per person using the earliest cohort start date
   target_col_annotation <- object$data_person %>%
     inner_join(
       object$data_initial %>%
         filter(COHORT_DEFINITION_ID == 2) %>%
+        group_by(SUBJECT_ID) %>%
+        filter(COHORT_START_DATE == min(COHORT_START_DATE)) %>%
         select(PERSON_ID = SUBJECT_ID, COHORT_START_DATE),
       by = "PERSON_ID"
     ) %>%
