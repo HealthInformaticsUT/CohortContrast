@@ -1,7 +1,7 @@
 Package: CohortContrast
 Type: Package
 Title: CohortContrast: Package for cohorts' trajectory feature selection 
-Version: 1.0.0
+Version: 0.0.0.900
 Author: Markus Haug
 Maintainer: Markus Haug <markus.haug@ut.ee>
 Description: After defining a target cohort (cohort we are intrested in) and a control cohort (cohort we use for general population or for comparison) the package workflow extracts medical interventions which are over-represented in the target cohort over observation period. The are different argument values users can experiment with such as topDogs (max number of exported eligible features), presenceFilter (% of people must have the intervention), prevalenceCutOff (if prevalence odds are less than the given value, the feature will not be extracted). This is a workflow for medical proccess investigation and feature extraction.
@@ -19,17 +19,16 @@ Imports:
     stringr,
     stats,
     utils,
-    RJSONIO,
-    patchwork
+    patchwork,
+    CDMConnector,
+    DBI,
+    duckdb,
+    CohortConstructor
 Suggests: 
     testthat (>= 3.0.0)
 Remotes:
-    OHDSI/CirceR,
-    OHDSI/CohortGenerator,
-    OHDSI/DatabaseConnector,
-    OHDSI/SqlRender,
-    OHDSI/Eunomia,
     Appsilon/shiny.fluent
 LinkingTo:
     Rcpp
 Config/testthat/edition: 3
+Config/testthat/parallel: true
