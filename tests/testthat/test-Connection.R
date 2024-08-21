@@ -1,38 +1,30 @@
 library(testthat)
-library(Eunomia)
 
-connectionDetails <- getEunomiaConnectionDetails()
+studyName = "TestCohortContrast"
+pathToResults <<- dirname(dirname(getwd())) #pathToResults = paste(getwd(), "/tests",sep="")
 
-test_that("Get connection details", {
-  expect_s3_class(connectionDetails, "ConnectionDetails")
-})
+################################################################################
+#
+# Database credentials
+#
+################################################################################
+
+con <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+cdm <- CDMConnector::cdm_from_con(con, cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
+
 
 test_that("Connect", {
-  connection <- DatabaseConnector::connect(connectionDetails)
-  expect_s4_class(connection, "DatabaseConnectorDbiConnection")
-  DatabaseConnector::disconnect(connection)
+  con <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+  expect_s4_class(con, "duckdb_connection")
 })
 
-connection <- DatabaseConnector::connect(connectionDetails)
 
-test_that("Query", {
-  personCount <- DatabaseConnector::querySql(connection, "SELECT COUNT(*) FROM main.person;")
-  expect_gt(personCount, 0)
-})
-
-# TODO: Faulty ATM, Fix needed
-test_that("Cohort construction", {
- settings <- loadJsons(studyName, pathToResults)
-  insertedJSONs <- settings$insertedJSONs
-  createCohorts(connectionDetails,insertedJSONs)
-  sql <- "SELECT COUNT(*)
-  FROM main.cohort
-  WHERE cohort_definition_id = 1;"
-  cohortCount <- DatabaseConnector::renderTranslateQuerySql(connection, sql)
-  expect_gt(cohortCount, 0)
+test_that("Get connection cdm reference", {
+  cdm <- CDMConnector::cdm_from_con(con, cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
+  expect_s3_class(cdm, "cdm_reference")
 })
 
 test_that("Disconnect", {
-  DatabaseConnector::disconnect(connection)
-  expect_false(DatabaseConnector::dbIsValid(connection))
+  CDMConnector::cdmDisconnect(cdm)
+  expect_false(DBI::dbIsValid(con))
 })

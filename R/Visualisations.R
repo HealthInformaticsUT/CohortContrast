@@ -230,15 +230,6 @@ createHeatmap <-
     tm_gaps = cumsum(purrr::map_int(reordering$MATRIX, nrow))
 
     rownames(tm) = target_row_annotation[rownames(tm),]$CONCEPT_NAME
-    # # Create target matrix for heatmap
-    # targetMatrix <- data %>%
-    #   filter(COHORT_DEFINITION_ID == cohortDefinitionId) %>%
-    #   select(-COHORT_DEFINITION_ID) %>%
-    #   left_join(concepts, by = c("CONCEPT_ID", "CONCEPT_NAME")) %>%
-    #   pivot_wider(names_from = PERSON_ID, values_from = PRESENT, values_fill = list(PRESENT = 0))
-    #
-    # # Fetch and process demographic data for column annotations
-    # personData <- fetchPersonData(cdmSchema, connection)
 
     # Create the heatmap
     heatmapPlot <- pheatmap::pheatmap(
@@ -276,8 +267,6 @@ fetchPersonData <- function(cdmSchema, connection) {
           ".person;")
   personData <- dbGetQuery(connection, sqlQuery)
 
-  # Process personData as necessary
-  # This might include renaming columns, converting IDs to factors, etc.
 
   return(personData)
 }
