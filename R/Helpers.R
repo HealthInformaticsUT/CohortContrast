@@ -4,14 +4,6 @@
 #
 ################################################################################
 
-#' Function for finding NaN values in a data.frame object
-#'
-#' @param data SQL data.frame object
-#' @keywords internal
-is.nan.data.frame <- function(data) {
-  do.call(cbind, lapply(data, is.nan))
-}
-
 #' Function for saving summary tables to path
 #'
 #' @param object Object to save
@@ -51,8 +43,10 @@ createMandatorySubDirs <- function(pathToResults) {
   dir.create(file.path(paste(pathToResults, '/inst', sep = ""), 'CSV'), showWarnings = FALSE)
 }
 
-
-# Function to normalize and scale a vector
+#' # Function to normalize and scale a vector
+#'
+#' @param x Array of numeric
+#' @keywords internal
 scale_to_1_0 <- function(x) {
   # Normalize to 0-1
   #x_norm <- (x - min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
@@ -61,7 +55,11 @@ scale_to_1_0 <- function(x) {
   return(x_norm)
 }
 
-
+#' Function for logging prints
+#'
+#' @param message Message to show
+#'
+#' @keywords internal
 printCustomMessage <- function(message) {
   # Calculate the length of the message to dynamically create the border
   border <- paste(rep("-", nchar(message)), collapse = "")
@@ -77,23 +75,11 @@ printCustomMessage <- function(message) {
   cat("\n") # Print a new line
 }
 
-
-customSQLRender <- function(sql, dbms) {
-  if (dbms == 'sqlite' && startsWith(sql, "SELECT * INTO")) {
-    # Pattern to match "schemaName.tableName"
-    pattern <-
-      "SELECT \\* INTO\\s+([a-zA-Z0-9_@]+)\\.([a-zA-Z0-9_]+)\\s+FROM"
-
-
-    # Replacement template for SQLite
-    replacementTemplate <- "CREATE TABLE \\1.\\2 AS SELECT * FROM"
-
-    # Use gsub to replace based on the captured groups in the pattern
-    sql <- gsub(pattern, replacementTemplate, sql, perl = TRUE)
-  }
-  return(sql)
-}
-
+#' Function for creating the complementary mapping table which can be used in CohortContrast execution function
+#'
+#' @param conceptIds Array of concept ids to use
+#' @param conceptNames Matching array of concept names to use
+#' @keywords internal
 createComplementaryMappingTable <-
   function(conceptIds, conceptNames) {
     # Check if vectors are of the same length
@@ -125,7 +111,10 @@ createComplementaryMappingTable <-
     return(complementaryMappingTable)
   }
 
-
+#'Function for loading all of the study names saved in ./tmp/datasets
+#'
+#' @param pathToResults Path to the results folder, can be project's working directory
+#' @keywords internal
 get_study_names <- function(pathToResults) {
   # List all files in the specified directory
   tmpdir = paste(pathToResults,'/tmp/datasets/', sep = "" )
@@ -135,13 +124,19 @@ get_study_names <- function(pathToResults) {
   study_name_pattern <- "(?<=/)([^/]+)(?=_CC_medData\\.rdata$)"
 
   # Extract study names from the filenames
-  study_names <- str_extract(files, study_name_pattern)
+  study_names <- stringr::str_extract(files, study_name_pattern)
 
   # Return the unique study names
   return(unique(study_names))
 }
 
-# Function to calculate inverse dates
+#'Function for calculating inverse dates
+#'
+#' @param observation_period_start_date Observation period start date
+#' @param observation_period_end_date Observation period end date
+#' @param cohort_start_date Cohort inclusion period start date
+#' @param cohort_end_date Cohort inclusion end date
+#' @keywords internal
 calculate_inverse_dates <- function(observation_period_start_date, observation_period_end_date, cohort_start_date, cohort_end_date) {
   inverse_date_ranges <- list()
 

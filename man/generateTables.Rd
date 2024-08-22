@@ -2,40 +2,28 @@
 % Please edit documentation in R/databaseFunctions.R
 \name{generateTables}
 \alias{generateTables}
-\title{Create relations of cohorts (target and control) to the database}
+\title{Generate analysis tables
+Create relations of cohorts (target and control) to the database}
 \usage{
 generateTables(
-  connection,
-  dbms,
-  cdmSchema = "ohdsi_cdm",
-  cdmVocabSchema = "ohdsi_vocab",
-  cdmTmpSchema = "ohdsi_tmp",
+  cdm,
   pathToResults = getwd(),
   studyName = "SampleStudy",
-  generateTables = TRUE,
   domainsIncluded = c("Drug", "Condition", "Measurement", "Observation", "Procedure",
     "Visit", "Visit detail"),
   readFromCSV = FALSE,
   nudgeTarget = FALSE,
-  nudgeControl = FALSE
+  nudgeControl = FALSE,
+  useInverseControls = FALSE,
+  useTargetMatching = FALSE
 )
 }
 \arguments{
-\item{connection}{DatabaseConnector object: connection to the database}
-
-\item{dbms}{DatabaseConnector connection database dialect}
-
-\item{cdmSchema}{OHDSI CDM data schema}
-
-\item{cdmVocabSchema}{OHDSI CDM vocabulary schema}
-
-\item{cdmTmpSchema}{OHDSI CDM temp schema, user has write permissions}
+\item{cdm}{CDMConnector object: connection to the database}
 
 \item{pathToResults}{Path to the mandatory subdirectories such as 'inst'}
 
 \item{studyName}{Name of the study being run, will be used in file and relation names}
-
-\item{generateTables}{Boolean for recreating table}
 
 \item{domainsIncluded}{list of CDM domains to include}
 
@@ -44,8 +32,16 @@ generateTables(
 \item{nudgeTarget}{number of days you would like to nudge the target cohort start day}
 
 \item{nudgeControl}{number of days you would like to nudge the control cohort start day}
+
+\item{useInverseControls}{Boolean for using inverse controls (target cohort's observation period which is not included)}
+
+\item{useTargetMatching}{Boolean for using patient matching for controls}
+}
+\value{
+object of dataframes and updated cdm object
 }
 \description{
+Generate analysis tables
 Create relations of cohorts (target and control) to the database
 }
 \keyword{internal}
