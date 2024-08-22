@@ -1,7 +1,7 @@
-# Cohort creation
+#' @importFrom dplyr %>%
 
+#' @title Generate analysis tables
 #' Create relations of cohorts (target and control) to the database
-#'
 #' @param cdm CDMConnector object: connection to the database
 #' @param pathToResults Path to the mandatory subdirectories such as 'inst'
 #' @param studyName Name of the study being run, will be used in file and relation names
@@ -11,6 +11,8 @@
 #' @param nudgeControl number of days you would like to nudge the control cohort start day
 #' @param useInverseControls Boolean for using inverse controls (target cohort's observation period which is not included)
 #' @param useTargetMatching Boolean for using patient matching for controls
+#'
+#' @return object of dataframes and updated cdm object
 #'
 #' @keywords internal
 generateTables <- function(cdm,
@@ -266,6 +268,16 @@ generateTables <- function(cdm,
   )
 }
 
+#' This function creates target and control tables into the CDMConnector instance from the CSV files
+#' @param cdm Connection to database (CDMConnector object)
+#' @param insertedCSVTarget The dataframe for target cohort
+#' @param insertedCSVControl The dataframe for control cohort
+#' @param nudgeTarget number of days you would like to nudge the target cohort start day
+#' @param nudgeControl number of days you would like to nudge the control cohort start day
+#' @param useInverseControls Boolean for using inverse controls (target cohort's observation period which is not included)
+#' @param useTargetMatching Boolean for using patient matching for controls
+#'
+#' @keywords internal
 processCSVData <- function(cdm, useInverseControls = FALSE, useTargetMatching = FALSE, insertedCSVTarget, insertedCSVControl, nudgeTarget, nudgeControl) {
 
   if(is.null(insertedCSVTarget))
@@ -308,7 +320,14 @@ processCSVData <- function(cdm, useInverseControls = FALSE, useTargetMatching = 
   return(cdm)
 }
 
-# Function to nudge cohorts
+#' Function to nudge cohorts
+#'
+#' This function outputs a dataframe with columns SUBJECT_ID, COHORT_DEFINITION_ID, COHORT_START_DATE, COHORT_END_DATE
+#' @param cdm Connection to database
+#' @param nudgeTarget number of days you would like to nudge the target cohort start day
+#' @param nudgeControl number of days you would like to nudge the control cohort start day
+#'
+#' @keywords internal
 nudgeCohorts <- function(cdm, nudgeTarget, nudgeControl) {
   if (nudgeTarget != FALSE) {
     cdm$target <-  cdm$target |>
@@ -322,7 +341,16 @@ nudgeCohorts <- function(cdm, nudgeTarget, nudgeControl) {
   }
 }
 
-# Main function
+#' This function creates target and control tables into the CDMConnector instance from the JSON files
+#' @param cdm Connection to database (CDMConnector object)
+#' @param insertedJSONTarget The JSON representation for target cohort
+#' @param insertedJSONControl The JSON representation  for control cohort
+#' @param nudgeTarget number of days you would like to nudge the target cohort start day
+#' @param nudgeControl number of days you would like to nudge the control cohort start day
+#' @param useInverseControls Boolean for using inverse controls (target cohort's observation period which is not included)
+#' @param useTargetMatching Boolean for using patient matching for controls
+#'
+#' @keywords internal
 processJSONData <- function(cdm, useInverseControls = FALSE, useTargetMatching = FALSE, insertedJSONTarget, insertedJSONControl, nudgeTarget, nudgeControl) {
   if(is.null(insertedJSONTarget))
   {
@@ -338,7 +366,7 @@ processJSONData <- function(cdm, useInverseControls = FALSE, useTargetMatching =
       computeAttrition = TRUE,
       overwrite = TRUE
     )
-    #cdm$target <- omopgenerics::newCohortTable(cdm$target)
+  cdm$target <- omopgenerics::newCohortTable(cdm$target)
   }
   if (is.null(insertedJSONControl) | useInverseControls | useTargetMatching) {
     if(useInverseControls & useTargetMatching) {
@@ -362,6 +390,7 @@ processJSONData <- function(cdm, useInverseControls = FALSE, useTargetMatching =
       computeAttrition = TRUE,
       overwrite = TRUE
     )
+    cdm$control <- omopgenerics::newCohortTable(cdm$control)
   }
   nudgeCohorts(cdm, nudgeTarget, nudgeControl)
 

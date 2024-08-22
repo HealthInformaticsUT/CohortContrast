@@ -7,12 +7,12 @@
 #' This function initiates the connection with database and starts Shiny application
 #'
 #' @param pathToResults Path to target directory where results will be saved
-#' @param cdmResultsSchema Schema which has the information about the cohorts created in Atlas
-#' @example man/examples/runGUI.R
-#'
+#' @param studyName The study to load first in the GUI
+#' @import ggplot2
+#' @import patchwork
 #' @export
 runGUI <- function(pathToResults = NULL,
-                   studyName = "Cohort2Trajectory") {
+                   studyName = "CohortContrast") {
   ################################################################################
   #
   # Creating global variables
@@ -40,6 +40,11 @@ runGUI <- function(pathToResults = NULL,
   #
   ################################################################################
 
-  shiny::runApp("./shiny")
+  appDir <- system.file("shiny", package = "CohortContrast")
+  if (appDir == "") {
+    stop("Could not find Shiny app directory. Try re-installing the package.", call. = FALSE)
+  }
+
+  shiny::runApp(appDir)
 
 }

@@ -5,17 +5,12 @@
 \title{Get data from OMOP CDM specified in imported JSON files}
 \usage{
 CohortContrast(
-  connection,
-  connectionDetails,
-  cdmSchema,
-  cdmVocabSchema,
-  cdmTmpSchema,
+  cdm,
   pathToResults,
   studyName,
   domainsIncluded = c("Drug", "Condition", "Measurement", "Observation", "Procedure",
     "Visit", "Visit detail"),
-  generateTables = TRUE,
-  readFromCSV = FALSE,
+  readFromCSV = TRUE,
   prevalenceCutOff = 10,
   topDogs = FALSE,
   presenceFilter = 0.005,
@@ -23,24 +18,20 @@ CohortContrast(
   nudgeTarget = FALSE,
   complementaryMappingTable = FALSE,
   createC2TInput = FALSE,
+  useInverseControls = FALSE,
+  useTargetMatching = FALSE,
   runZTests = TRUE,
   runLogitTests = TRUE
 )
 }
 \arguments{
-\item{connection}{Connection to database}
+\item{cdm}{Connection to database}
 
-\item{connectionDetails}{An object of class connectionDetails as created by the DatabaseConnector::createConnectionDetails function.}
-
-\item{cdmSchema}{JSONs from which cohorts will be created}
-
-\item{cdmVocabSchema}{Schema for temporary tables}
+\item{pathToResults}{Path to the results folder, can be project's working directory}
 
 \item{studyName}{Customized name for the study}
 
 \item{domainsIncluded}{list of CDM domains to include}
-
-\item{generateTables}{boolean > if TRUE new tables will be generated to the database.}
 
 \item{readFromCSV}{boolean > if TRUE file from ./inst/CSV will be used as cohort data, otherwise JSONs will be used.}
 
@@ -56,13 +47,17 @@ CohortContrast(
 
 \item{complementaryMappingTable}{Mappingtable for mapping concept_ids if present}
 
+\item{createC2TInput}{Boolean for creating Cohort2Trajectory input dataframe}
+
+\item{useInverseControls}{Boolean for using inverse controls (target cohort's observation period which is not included)}
+
+\item{useTargetMatching}{Boolean for using patient matching for controls}
+
 \item{runZTests}{boolean for Z-tests}
 
 \item{runLogitTests}{boolean for logit-tests}
-
-\item{cdmDataSchema}{Schema which contains the OHDSI Common Data Model.}
 }
 \description{
-This function outputs a dataframe with columns SUBJECT_ID, COHORT_DEFINITION_ID, COHORT_START_DATE, COHORT_END_DATE
+Get data from OMOP CDM specified in imported JSON files
 }
-\keyword{internal}
+\keyword{external}

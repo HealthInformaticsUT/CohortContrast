@@ -1,1 +1,4 @@
 exportPattern("^[[:alpha:]]+")
+importFrom("stats", "binomial", "coef", "dist", "filter", "glm",
+                "hclust", "prop.test", "sd", "var")
+importFrom("dplyr", "%>%")

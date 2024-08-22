@@ -1,6 +1,5 @@
-#' Get data from OMOP CDM specified in imported JSON files
+#' @title Get data from OMOP CDM specified in imported JSON files
 #'
-#' This function outputs a dataframe with columns SUBJECT_ID, COHORT_DEFINITION_ID, COHORT_START_DATE, COHORT_END_DATE
 #' @param cdm Connection to database
 #' @param pathToResults Path to the results folder, can be project's working directory
 #' @param studyName Customized name for the study
@@ -18,7 +17,9 @@
 #' @param runZTests boolean for Z-tests
 #' @param runLogitTests boolean for logit-tests
 #'
-#' @keywords internal
+#' @importFrom dplyr %>%
+#'
+#' @keywords external
 CohortContrast <- function(cdm,
                            pathToResults,
                            studyName,
@@ -70,7 +71,7 @@ CohortContrast <- function(cdm,
                      presenceFilter,
                      runZTests,
                      runLogitTests)
-  data = handleFeatureSelection(data, topDogs, prevalenceCutOff, targetCohortId, runZTests, runLogitTests)
+  data = handleFeatureSelection(data, studyName, topDogs, prevalenceCutOff, targetCohortId, runZTests, runLogitTests)
 
   # Maybe create separate. function for this
   data = createC2TInput(data,
@@ -87,7 +88,6 @@ CohortContrast <- function(cdm,
 #' This function outputs a list of domain specigic data which is filtered by the worfklow configuration
 #' @param dataPatient Data of the selected patients
 #' @param cdm Connection to database
-#' @param studyName Customized name for the study
 #' @param split_data Data split by heritage
 #' @param complementaryMappingTable Mappingtable for mapping concept_ids if present
 #'
@@ -163,7 +163,7 @@ queryHeritageData <-
                 suffix = c("", ".compl")
               ),
               # Choose the complementaryMappingTable CONCEPT_NAME if it's not NA; otherwise, use the original
-              CONCEPT_NAME = ifelse(
+              CONCEPT_NAME = dplyr::if_else(
                 is.na(CONCEPT_NAME.compl),
                 CONCEPT_NAME,
                 CONCEPT_NAME.compl
@@ -227,22 +227,22 @@ queryHeritageData <-
     return(results_list)
   }
 
-#' This function performs Z-tests on the patient prevalence data target vs control
+#' @title This function performs Z-tests on the patient prevalence data target vs control
+#'
 #' @param data_patients Prevalence data for patients
 #' @param data_initial Imported cohort dataframe
 #' @param targetCohortId Target cohort id
-#' @param presenceFilter Presence filter 0-1, if 0.1 then feature has to be present for at least 10% of patients
+#' @param presenceFilter Presence filter 0-1, if 0.1 then feature has to be present for at least 10 percent of patients
 #'
 #' @keywords internal
-performPrevalenceAnalysis <-
-  function(data_patients,
+performPrevalenceAnalysis <- function(data_patients,
            data_initial,
            targetCohortId,
            presenceFilter) {
     # Aggregate the prevalence data for each concept within each cohort
     agg_data <- dplyr::summarise(
       dplyr::group_by(
-        dplyr::mutate(data_patients, PREVALENCE = ifelse(PREVALENCE > 0, 1, 0)),
+        dplyr::mutate(data_patients, PREVALENCE = dplyr::if_else(PREVALENCE > 0, 1, 0)),
         COHORT_DEFINITION_ID,
         CONCEPT_ID
       ),
@@ -310,11 +310,12 @@ performPrevalenceAnalysis <-
     return(significant_concepts)
   }
 
-#' This function learns separate logistic regression models on the patient prevalence data target vs control
+#' @title This function learns separate logistic regression models on the patient prevalence data target vs control
+#'
 #' @param data_patients Prevalence data for patients
 #' @param data_initial Imported cohort dataframe
 #' @param targetCohortId Target cohort id
-#' @param presenceFilter Presence filter 0-1, if 0.1 then feature has to be present for at least 10% of patients
+#' @param presenceFilter Presence filter 0-1, if 0.1 then feature has to be present for at least 10 percent of patients
 #'
 #' @keywords internal
 performPrevalenceAnalysisLogistic <-
@@ -324,7 +325,7 @@ performPrevalenceAnalysisLogistic <-
            presenceFilter) {
     # Aggregate the prevalence data for each concept within each cohort
     agg_data <- data_patients %>%
-      dplyr::mutate(PREVALENCE = ifelse(PREVALENCE > 0, 1, 0)) %>%
+      dplyr::mutate(PREVALENCE = dplyr::if_else(PREVALENCE > 0, 1, 0)) %>%
       dplyr::group_by(COHORT_DEFINITION_ID, CONCEPT_ID) %>%
       dplyr::summarise(TOTAL_PREVALENCE = sum(PREVALENCE),
                        .groups = 'drop')
@@ -363,9 +364,9 @@ performPrevalenceAnalysisLogistic <-
       # Create the dataset for logistic regression
       concept_data <- data_patients %>%
         dplyr::mutate(
-          PREVALENCE = ifelse(CONCEPT_ID == concept_id &
-                                PREVALENCE > 0, 1, 0),
-          TARGET = ifelse(COHORT_DEFINITION_ID == targetCohortId, 1, 0)
+          PREVALENCE = dplyr::if_else(CONCEPT_ID == concept_id &
+                                        PREVALENCE > 0, 1, 0),
+          TARGET = dplyr::if_else(COHORT_DEFINITION_ID == targetCohortId, 1, 0)
         )
 
       # Ensure presence filter and valid sample sizes
@@ -402,6 +403,7 @@ performPrevalenceAnalysisLogistic <-
 #' This filters data based on prevalence difference ratio and return the nHighestPrevalenceDifference greates differences
 #' @param data Data list object
 #' @param nHighestPrevalenceDifference Number of features with highest prevalence difference ratio to keep
+#' @importFrom dplyr %>%
 #'
 #' @keywords internal
 calculate_data_features <-
@@ -447,7 +449,7 @@ calculate_data_features <-
     if (nHighestPrevalenceDifference != FALSE) {
       # Keep only the nHighestPrevalenceDifference rows with highest values of PREVALENCE_DIFFERENCE_RATIO
       data_features <- data_features %>%
-        dplyr::arrange(desc(PREVALENCE_DIFFERENCE_RATIO)) %>%
+        dplyr::arrange(dplyr::desc(PREVALENCE_DIFFERENCE_RATIO)) %>%
         dplyr::slice_head(n = nHighestPrevalenceDifference)
     }
 
@@ -472,7 +474,7 @@ handleMapping <- function(data, complementaryMappingTable) {
           suffix = c("", ".compl")
         ),
         # Choose the complementaryMappingTable CONCEPT_NAME if it's not NA; otherwise, use the original
-        CONCEPT_NAME = ifelse(
+        CONCEPT_NAME = dplyr::if_else(
           is.na(CONCEPT_NAME.compl),
           CONCEPT_NAME,
           CONCEPT_NAME.compl
@@ -491,50 +493,50 @@ handleMapping <- function(data, complementaryMappingTable) {
 
   # Step 1: Create a mapping of CONCEPT_NAME to the first occurrence of CONCEPT_ID in complementaryMappingTable
   unique_concept_ids <- complementaryMappingTable %>%
-    group_by(CONCEPT_NAME) %>%
-    slice(1) %>%
-    select(CONCEPT_NAME, CONCEPT_ID)
+    dplyr::group_by(CONCEPT_NAME) %>%
+    dplyr::slice(1) %>%
+    dplyr::select(CONCEPT_NAME, CONCEPT_ID)
 
   # Step 2: Replace CONCEPT_ID in data_patients with the mapped CONCEPT_ID for each CONCEPT_NAME
   data_patients <- data_patients %>%
-    left_join(unique_concept_ids,
+    dplyr::left_join(unique_concept_ids,
               by = "CONCEPT_NAME",
               suffix = c("", ".new")) %>%
-    mutate(CONCEPT_ID = ifelse(is.na(CONCEPT_ID.new), CONCEPT_ID, CONCEPT_ID.new)) %>%
-    select(-CONCEPT_ID.new)
+   dplyr:: mutate(CONCEPT_ID = dplyr::if_else(is.na(CONCEPT_ID.new), CONCEPT_ID, CONCEPT_ID.new)) %>%
+    dplyr::select(-CONCEPT_ID.new)
 
   # Step 3: Summarize data_patients to aggregate PREVALENCE
   final_data <- data_patients %>%
-    group_by(COHORT_DEFINITION_ID,
-             PERSON_ID,
-             CONCEPT_ID,
-             CONCEPT_NAME,
-             HERITAGE) %>%
-    summarise(PREVALENCE = sum(PREVALENCE, na.rm = TRUE),
+    dplyr::group_by(COHORT_DEFINITION_ID,
+                    PERSON_ID,
+                    CONCEPT_ID,
+                    CONCEPT_NAME,
+                    HERITAGE) %>%
+    dplyr::summarise(PREVALENCE = sum(PREVALENCE, na.rm = TRUE),
               .groups = 'drop')
 
   final_data_summarized <- final_data %>%
-    group_by(CONCEPT_ID, HERITAGE) %>%
-    summarise(Summed_Prevalence = sum(PREVALENCE, na.rm = TRUE),
+    dplyr::group_by(CONCEPT_ID, HERITAGE) %>%
+    dplyr::summarise(Summed_Prevalence = sum(PREVALENCE, na.rm = TRUE),
               .groups = 'drop')
 
   # Assign the most prevalent heritage to each concept ID and PERSON_ID
   most_prevalent_heritage <- final_data_summarized %>%
-    group_by(CONCEPT_ID) %>%
-    filter(Summed_Prevalence == max(Summed_Prevalence)) %>%
-    slice(1) %>%  # In case of tie, take the first occurrence
-    select(CONCEPT_ID, HERITAGE)
+    dplyr::group_by(CONCEPT_ID) %>%
+    dplyr::filter(Summed_Prevalence == max(Summed_Prevalence)) %>%
+    dplyr::slice(1) %>%  # In case of tie, take the first occurrence
+    dplyr::select(CONCEPT_ID, HERITAGE)
 
   # Merge the most prevalent heritage back to the original dataframe and sum the PREVALENCE
   result <- final_data %>%
-    select(-HERITAGE) %>%
-    left_join(most_prevalent_heritage, by = "CONCEPT_ID") %>%
-    group_by(COHORT_DEFINITION_ID,
-             PERSON_ID,
-             CONCEPT_ID,
-             CONCEPT_NAME,
-             HERITAGE) %>%
-    summarise(PREVALENCE = sum(PREVALENCE, na.rm = TRUE),
+    dplyr::select(-HERITAGE) %>%
+    dplyr::left_join(most_prevalent_heritage, by = "CONCEPT_ID") %>%
+    dplyr::group_by(COHORT_DEFINITION_ID,
+                    PERSON_ID,
+                    CONCEPT_ID,
+                    CONCEPT_NAME,
+                    HERITAGE) %>%
+    dplyr::summarise(PREVALENCE = sum(PREVALENCE, na.rm = TRUE),
               .groups = 'drop')
 
   # Assign the result back to data$data_patients
@@ -631,6 +633,7 @@ handleTests <-
 #' @keywords internal
 handleFeatureSelection <-
   function(data,
+           studyName,
            topDogs,
            prevalenceCutOff,
            targetCohortId,
@@ -685,7 +688,7 @@ handleFeatureSelection <-
     else {
       topNFeatures <-
         dplyr::pull(dplyr::slice(dplyr::arrange(
-          data_features, desc(PREVALENCE_DIFFERENCE_RATIO)
+          data_features, dplyr::desc(PREVALENCE_DIFFERENCE_RATIO)
         ), 1:topDogs), CONCEPT_ID)
       features = dplyr::filter(data_features, CONCEPT_ID %in% topNFeatures)
       n_features_left = nrow(features)
@@ -772,7 +775,6 @@ createC2TInput <-
         queryHeritageData(
           dataPatient = data_selected_patients,
           cdm = data$cdm,
-          studyName = studyName,
           split_data = split_data,
           complementaryMappingTable = complementaryMappingTable
         )

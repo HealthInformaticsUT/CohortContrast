@@ -4,12 +4,12 @@
 \alias{runGUI}
 \title{This function initiates the connection with database and starts Shiny application}
 \usage{
-runGUI(pathToResults = NULL, studyName = "Cohort2Trajectory")
+runGUI(pathToResults = NULL, studyName = "CohortContrast")
 }
 \arguments{
 \item{pathToResults}{Path to target directory where results will be saved}
 
-\item{cdmResultsSchema}{Schema which has the information about the cohorts created in Atlas}
+\item{studyName}{The study to load first in the GUI}
 }
 \description{
 This function initiates the connection with database and starts Shiny application
