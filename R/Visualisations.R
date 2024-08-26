@@ -1,65 +1,17 @@
-performPCAAnalysis <-
-  function(data,
-           runPCAClusters = 4,
-           scaleData = TRUE,
-           removeOutliers = TRUE,
-           stdDevThreshold = 6) {
-    printCustomMessage("Running PCA analysis ...")
+#' @importFrom dplyr %>%
 
-    # Determine if scaling is needed
-    if (scaleData) {
-      has_variance <- sapply(data, function(x)
-        var(x, na.rm = TRUE) != 0)
-      if (!any(has_variance)) {
-        printCustomMessage("No columns left after filtering for non-zero variance. PCA cannot be performed.")
-        return(NULL)
-      }
-      data <- data[, has_variance]
-      data <- scale(data)  # Scale the data if required
-    }
-
-    set.seed(2023)  # for reproducibility
-    pca_result <- stats::prcomp(data, scale. = scaleData)
-
-    # Perform clustering
-    clusters <-
-      stats::kmeans(data, centers = min(nrow(dplyr::distinct(data)), runPCAClusters))
-    plot_data <-
-      data.frame(PC1 = pca_result$x[, 1],
-                 PC2 = pca_result$x[, 2],
-                 Cluster = clusters$cluster)
-    # Generate PCA plot
-    pcaPlot <-
-      ggplot2::ggplot(plot_data, ggplot2::aes(
-        x = PC1,
-        y = PC2,
-        color = as.factor(Cluster)
-      )) +
-      ggplot2::geom_point() +
-      ggplot2::theme_minimal() +
-      ggplot2::labs(color = "Cluster")
-    # Optionally identify and remove outliers
-    if (removeOutliers) {
-      scores <- pca_result$x
-      std_devs <- apply(scores, 2, sd)
-      outliers <-
-        apply(scores, 1, function(x)
-          any(abs(x) > (std_devs * stdDevThreshold)))
-      data <- data[!outliers,]
-      printCustomMessage("Removing outliers ...")
-    }
-
-    return(list(filteredData = data, pcaPlot = pcaPlot))
-  }
-
-
-
+#' @title Function for creating matrix for the heatmap which will be shown in shiny
+#'
+#' @param data data object returned by CohortContrast function
+#' @param targetCohortId Target cohort id
+#' @param prevalenceCutOff numeric > if set, removes all of the concepts which are not present (in target) more than prevalenceCutOff times
+#' @param presenceFilter numeric > if set, removes all features represented less than the given percentage
+#' @param complementaryMappingTable Mappingtable for mapping concept_ids if present
+#' @keywords internal
 createTargetMatrixForHeatmap <- function(data,
                                          targetCohortId,
                                          prevalenceCutOff,
                                          presenceFilter,
-                                         cdmSchema,
-                                         connection,
                                          complementaryMappingTable = FALSE) {
   # Extracting and joining concepts
   concepts <- dplyr::filter(
@@ -136,7 +88,7 @@ createTargetMatrixForHeatmap <- function(data,
   target_df =  dplyr::distinct(dplyr::summarise(dplyr::group_by(target_df, CONCEPT_NAME, HERITAGE),
                                              CONCEPT_ID = dplyr::first(CONCEPT_ID),
                                              PREVALENCE_DIFFERENCE_RATIO = sum(PREVALENCE_DIFFERENCE_RATIO, na.rm = T),
-                                             across(starts_with("PID_"),
+                                             dplyr::across(tidyr::starts_with("PID_"),
                                                     function(x) ifelse(sum(x, na.rm = TRUE) > 0, 1, 0), # Use explicit function definition
                                                     .names = "{.col}"),
                                              .groups = 'drop'
@@ -144,10 +96,10 @@ createTargetMatrixForHeatmap <- function(data,
   target_df$CONCEPT_ID <- as.character(target_df$CONCEPT_ID)
 
   target_row_annotation = dplyr::select(tibble::column_to_rownames(as.data.frame(target_df), "CONCEPT_ID"),
-                                        -starts_with("PID_"))
+                                        -tidyr::starts_with("PID_"))
   target_matrix = as.matrix(dplyr::select(
     tibble::column_to_rownames(as.data.frame(target_df), "CONCEPT_ID"),
-    starts_with("PID_")
+    tidyr::starts_with("PID_")
   ))
 
   person_data <- data$data_person
@@ -180,23 +132,25 @@ createTargetMatrixForHeatmap <- function(data,
   )
 }
 
+#' Function for creating the heatmap which will be shown in shiny
+#'
+#' @param data data object returned by CohortContrast function
+#' @param cohortDefinitionId Target cohort id
+#' @param prevalenceRatioThreshold numeric > if set, removes all of the concepts which are not present (in target) more than prevalenceCutOff times
+#' @param prevalenceThreshold numeric > if set, removes all features represented less than the given percentage
+#' @param complementaryMappingTable Mappingtable for mapping concept_ids if present
+#' @keywords internal
 createHeatmap <-
   function(data,
            cohortDefinitionId,
            prevalenceRatioThreshold,
            prevalenceThreshold,
-           cdmSchema,
-           connection,
            complementaryMappingTable = NULL) {
     heatmapData <- createTargetMatrixForHeatmap(
       data = data,
       targetCohortId = cohortDefinitionId,
       prevalenceCutOff = prevalenceRatioThreshold,
-      # Example threshold
       presenceFilter = prevalenceThreshold,
-      # Example threshold
-      cdmSchema = cdmSchema,
-      connection = connection,
       complementaryMappingTable = complementaryMappingTable
     )
     target_matrix = heatmapData$target_matrix
@@ -230,15 +184,6 @@ createHeatmap <-
     tm_gaps = cumsum(purrr::map_int(reordering$MATRIX, nrow))
 
     rownames(tm) = target_row_annotation[rownames(tm),]$CONCEPT_NAME
-    # # Create target matrix for heatmap
-    # targetMatrix <- data %>%
-    #   filter(COHORT_DEFINITION_ID == cohortDefinitionId) %>%
-    #   select(-COHORT_DEFINITION_ID) %>%
-    #   left_join(concepts, by = c("CONCEPT_ID", "CONCEPT_NAME")) %>%
-    #   pivot_wider(names_from = PERSON_ID, values_from = PRESENT, values_fill = list(PRESENT = 0))
-    #
-    # # Fetch and process demographic data for column annotations
-    # personData <- fetchPersonData(cdmSchema, connection)
 
     # Create the heatmap
     heatmapPlot <- pheatmap::pheatmap(
@@ -267,17 +212,3 @@ createHeatmap <-
       personData = person
     ))
   }
-
-# Function to fetch and process person demographic data
-fetchPersonData <- function(cdmSchema, connection) {
-  sqlQuery <-
-    paste("SELECT person_id, gender_concept_id, year_of_birth FROM",
-          cdmSchema,
-          ".person;")
-  personData <- dbGetQuery(connection, sqlQuery)
-
-  # Process personData as necessary
-  # This might include renaming columns, converting IDs to factors, etc.
-
-  return(personData)
-}

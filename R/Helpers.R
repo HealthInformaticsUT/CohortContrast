@@ -4,49 +4,6 @@
 #
 ################################################################################
 
-
-#' Load and translate SQL file or an explicit SQL query to desired dialect.
-#'
-#' @param sql SQL file name or SQL query
-#' @param warnOnMissingParameters Should a warning be raised when parameters provided to this function do not appear in the parameterized SQL that is being rendered? By default, this is TRUE.
-#' @param output Should there be a .sql file created of the result
-#' @param outputFile Name of the output file
-#' @keywords internal
-loadRenderTranslateSql <- function(sql,
-                                   dbms = "postgresql",
-                                   warnOnMissingParameters = TRUE,
-                                   output = FALSE,
-                                   outputFile,
-                                   ...) {
-  if (grepl('.sql', sql)) {
-    pathToSql <- paste("inst/SQL/", sql, sep = "")
-    parameterizedSql <-
-      readChar(pathToSql, file.info(pathToSql)$size)[1]
-  }
-  else {
-    parameterizedSql <- sql
-  }
-  renderedSql <-
-    SqlRender::render(sql = parameterizedSql, warnOnMissingParameters = warnOnMissingParameters, ...)
-  renderedSql <-
-    SqlRender::translate(sql = renderedSql, targetDialect = dbms)
-
-  if (output == TRUE) {
-    SqlRender::writeSql(renderedSql, outputFile)
-    writeLines(paste("Created file '", outputFile, "'", sep = ""))
-  }
-
-  return(renderedSql)
-}
-
-#' Function for finding NaN values in a data.frame object
-#'
-#' @param data SQL data.frame object
-#' @keywords internal
-is.nan.data.frame <- function(data) {
-  do.call(cbind, lapply(data, is.nan))
-}
-
 #' Function for saving summary tables to path
 #'
 #' @param object Object to save
@@ -73,85 +30,24 @@ idExists <- function(data, id) {
   return(FALSE)
 }
 
-#' Function for deleting temporary tables from user's db
-#'
-#' @param connection Connection to the database (package DatabaseConnector)
-#' @param dbms Database dialect
-#' @param schema Schema in which the targeted table resides
-#' @param relationName Name of the targeted table which will be dropped
+#' Function to ensure that the path to results exists, creating mandatory subdirectories if necessary
+#' @param pathToResults The path where results will be stored
 #' @keywords internal
-dropRelation <-
-  function(connection,
-           dbms = "postgresql",
-           schema = "",
-           relationName) {
-    ParallelLogger::logInfo(paste(
-      "Start execution of: DROP TABLE IF EXISTS ",
-      ifelse(
-        schema == "",
-        relationName,
-        paste(schema,
-              ".",
-              relationName, sep = "")
-      ),
-      " !",
-      sep = ""
-    ))
-    if (schema == "") {
-      DatabaseConnector::executeSql(connection,
-                                    SqlRender::translate(
-                                      targetDialect = dbms,
-                                      sql = SqlRender::render(sql = "IF OBJECT_ID('table', 'U') IS NOT NULL DROP TABLE @relationName;",
-                                                              relationName = relationName)
-                                    ))
-    }
-    else {
-      DatabaseConnector::executeSql(connection,
-                                    SqlRender::translate(
-                                      targetDialect = dbms,
-                                      sql = SqlRender::render(
-                                        sql = "IF OBJECT_ID('table', 'U') IS NOT NULL DROP TABLE @cdmTmpSchema.@relationName;",
-                                        cdmTmpSchema = schema,
-                                        relationName = relationName
-                                      )
-                                    ))
-    }
-
-    ParallelLogger::logInfo(paste("DROP TABLE ",
-                                  schema,
-                                  ".",
-                                  relationName,
-                                  " EXECUTED!",
-                                  sep = ""))
+createPathToResults <- function(pathToResults) {
+  # Check if the main directory exists
+  if (!dir.exists(pathToResults)) {
+    # If it doesn't exist, create the directory along with any necessary subdirectories
+    dir.create(pathToResults, recursive = TRUE)
+    print(paste("Created the directory:", pathToResults))
+  } else {
+    print(paste("Directory already exists:", pathToResults))
   }
-
-#' Function which converts text formatted JSON to digestible JSON
-#'
-#' @param input Text formatted JSON which needs conversion to digestible JSON
-#' @keywords internal
-.toJSON <- function(input, pretty = FALSE) {
-  return(RJSONIO::toJSON(
-    x = input,
-    digits = 23,
-    pretty = pretty
-  ))
 }
 
-#' Function which creates mandatory subdirectories and files to the pathToResults directory
+#' # Function to normalize and scale a vector
 #'
-#' @param pathToResults Path to the package results
+#' @param x Array of numeric
 #' @keywords internal
-createMandatorySubDirs <- function(pathToResults) {
-  dir.create(file.path(pathToResults, "tmp"), showWarnings = FALSE)
-  dir.create(file.path(paste(pathToResults, '/tmp', sep = ""), 'datasets'), showWarnings = FALSE)
-
-  dir.create(file.path(pathToResults, "inst"), showWarnings = FALSE)
-  dir.create(file.path(paste(pathToResults, '/inst', sep = ""), 'JSON'), showWarnings = FALSE)
-  dir.create(file.path(paste(pathToResults, '/inst', sep = ""), 'CSV'), showWarnings = FALSE)
-}
-
-
-# Function to normalize and scale a vector
 scale_to_1_0 <- function(x) {
   # Normalize to 0-1
   #x_norm <- (x - min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
@@ -160,7 +56,11 @@ scale_to_1_0 <- function(x) {
   return(x_norm)
 }
 
-
+#' Function for logging prints
+#'
+#' @param message Message to show
+#'
+#' @keywords internal
 printCustomMessage <- function(message) {
   # Calculate the length of the message to dynamically create the border
   border <- paste(rep("-", nchar(message)), collapse = "")
@@ -176,23 +76,11 @@ printCustomMessage <- function(message) {
   cat("\n") # Print a new line
 }
 
-
-customSQLRender <- function(sql, dbms) {
-  if (dbms == 'sqlite' && startsWith(sql, "SELECT * INTO")) {
-    # Pattern to match "schemaName.tableName"
-    pattern <-
-      "SELECT \\* INTO\\s+([a-zA-Z0-9_@]+)\\.([a-zA-Z0-9_]+)\\s+FROM"
-
-
-    # Replacement template for SQLite
-    replacementTemplate <- "CREATE TABLE \\1.\\2 AS SELECT * FROM"
-
-    # Use gsub to replace based on the captured groups in the pattern
-    sql <- gsub(pattern, replacementTemplate, sql, perl = TRUE)
-  }
-  return(sql)
-}
-
+#' Function for creating the complementary mapping table which can be used in CohortContrast execution function
+#'
+#' @param conceptIds Array of concept ids to use
+#' @param conceptNames Matching array of concept names to use
+#' @keywords internal
 createComplementaryMappingTable <-
   function(conceptIds, conceptNames) {
     # Check if vectors are of the same length
@@ -224,7 +112,10 @@ createComplementaryMappingTable <-
     return(complementaryMappingTable)
   }
 
-
+#'Function for loading all of the study names saved in ./tmp/datasets
+#'
+#' @param pathToResults Path to the results folder, can be project's working directory
+#' @keywords internal
 get_study_names <- function(pathToResults) {
   # List all files in the specified directory
   tmpdir = paste(pathToResults,'/tmp/datasets/', sep = "" )
@@ -234,13 +125,19 @@ get_study_names <- function(pathToResults) {
   study_name_pattern <- "(?<=/)([^/]+)(?=_CC_medData\\.rdata$)"
 
   # Extract study names from the filenames
-  study_names <- str_extract(files, study_name_pattern)
+  study_names <- stringr::str_extract(files, study_name_pattern)
 
   # Return the unique study names
   return(unique(study_names))
 }
 
-# Function to calculate inverse dates
+#'Function for calculating inverse dates
+#'
+#' @param observation_period_start_date Observation period start date
+#' @param observation_period_end_date Observation period end date
+#' @param cohort_start_date Cohort inclusion period start date
+#' @param cohort_end_date Cohort inclusion end date
+#' @keywords internal
 calculate_inverse_dates <- function(observation_period_start_date, observation_period_end_date, cohort_start_date, cohort_end_date) {
   inverse_date_ranges <- list()
 
@@ -262,54 +159,6 @@ calculate_inverse_dates <- function(observation_period_start_date, observation_p
 }
 
 
-# Main function to update cohort table
-update_cohort_table <- function(connection, cdmTmpSchema, studyName, cdmSchema) {
-  # Query data from @cdmTmpSchema.@cohortTable where cohort_definition_id = 2
-  sql_select <- SqlRender::translate(
-    targetDialect = dbms,
-    sql = SqlRender::render(
-      sql = "SELECT c.subject_id, o.observation_period_start_date, o.observation_period_end_date, c.cohort_start_date, c.cohort_end_date
-             FROM @cdmTmpSchema.@cohortTable c
-             JOIN @cdmSchema.observation_period o ON c.subject_id = o.person_id
-             WHERE c.cohort_definition_id = 2;",
-      cdmTmpSchema = cdmTmpSchema,
-      cohortTable = studyName,
-      cdmSchema = cdmSchema
-    )
-  )
-
-  data <- DatabaseConnector::querySql(connection, sql_select)
-
-
-  # Iterate over each row, calculate inverse dates, and insert new rows
-  for (i in 1:nrow(data)) {
-    subject_id <- data[i, "SUBJECT_ID"]
-    observation_period_start_date <- data[i, "OBSERVATION_PERIOD_START_DATE"]
-    observation_period_end_date <- data[i, "OBSERVATION_PERIOD_END_DATE"]
-    cohort_start_date <- data[i, "COHORT_START_DATE"]
-    cohort_end_date <- data[i, "COHORT_END_DATE"]
-
-    inverse_date_ranges <- calculate_inverse_dates(observation_period_start_date, observation_period_end_date, cohort_start_date, cohort_end_date)
-    # Insert new rows with cohort_definition_id = 1
-    for (date_range in inverse_date_ranges) {
-      inverse_start_date <- date_range[[1]]
-      inverse_end_date <- date_range[[2]]
-
-      sql_insert <- SqlRender::translate(
-        targetDialect = dbms,
-        sql = SqlRender::render(
-          sql = paste0("INSERT INTO @cdmTmpSchema.@cohortTable (cohort_definition_id, subject_id, cohort_start_date, cohort_end_date) VALUES
-                        (1, ", subject_id, ", '", inverse_start_date, "', '", inverse_end_date, "');"),
-          cdmTmpSchema = cdmTmpSchema,
-          cohortTable = studyName
-        )
-      )
-
-      DatabaseConnector::executeSql(connection, sql_insert)
-      printCustomMessage("Updated cohort table for inverse control!")
-    }
-  }
-}
 
 #' Function to sanitize a single string
 #' @param input_string A  state label name
@@ -329,5 +178,48 @@ sanitize_single <- function(input_string) {
 sanitize <- function(input_strings) {
   # Apply the sanitization function to each element of the vector
   sapply(input_strings, sanitize_single)
+}
+
+#' Function to check if target and control schemas and tables are defined sufficiently
+#' @param targetTableName Name of the table where target cohort is defined
+#' @param controlTableName Name of the table where control cohort is defined
+#' @param targetTableSchemaName Name of the schema where target cohort table is defined
+#' @param controlTableSchemaName Name of the schema where control cohort table is defined
+#' @param cohortsTableSchemaName Name of the schema where cohorts' table is defined
+#' @param cohortsTableName Name of the table where cohorts are defined
+#' @param targetCohortId The id for target cohort in cohorts' table
+#' @param controlCohortId The id for control cohort in cohorts' table
+#' @param pathToCohortsCSVFile The path to a CSV file that has data table for cohorts
+#' @keywords internal
+checkForCorrectRelationDefinitions <- function(
+    targetTableName = NULL,
+    controlTableName = NULL,
+    targetTableSchemaName = NULL,
+    controlTableSchemaName = NULL,
+    cohortsTableSchemaName = NULL,
+    cohortsTableName = NULL,
+    targetCohortId = NULL,
+    controlCohortId = NULL,
+    pathToCohortsCSVFile = NULL
+) {
+
+  # Check if target definitions are provided
+  if (!is.null(targetTableName) && !is.null(targetTableSchemaName)) {
+    targetDefined <- TRUE
+  } else if ((!is.null(cohortsTableSchemaName) && !is.null(cohortsTableName) && !is.null(targetCohortId)) || (!is.null(targetCohortId) && !is.null(pathToCohortsCSVFile)))  {
+    targetDefined <- TRUE
+  } else {
+    printCustomMessage("ERROR: Target definitions are missing. Check your target cohort schema and relation names!
+                       At least targetTableName and targetTableSchemaName OR cohortsTableSchemaName, cohortsTableName and targetCohortId OR pathToCohortsCSVFile and targetCohortId must be defined!")
+    targetDefined <- FALSE
+  }
+
+  # Check if control definitions are provided
+  if (is.null(controlTableName) || is.null(controlTableSchemaName)) {
+    if (is.null(controlCohortId)) {
+      printCustomMessage("WARNING: Control definitions are missing. Inverse controls or patient matching will be used.")
+    }
+  }
+  return(targetDefined)
 }
 

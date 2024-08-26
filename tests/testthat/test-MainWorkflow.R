@@ -1,67 +1,60 @@
 library(testthat)
-library(Eunomia)
 library(CohortContrast)
 
-test_that("Created cohort table is with correct.", {
-  studyName = "TestCohortContrast"
-  pathToResults <<- dirname(dirname(getwd())) #pathToResults = paste(getwd(), "/tests",sep="")
+test_that("Created features table is correct.", {
+  pathToResults <<- getwd() #pathToResults = paste(getwd(), "/tests",sep="")
 
   ################################################################################
   #
   # Database credentials
   #
   ################################################################################
-  pathToDriver <- './Drivers'
 
-  cdmSchema <- "main"  # Schema which contains the OHDSI Common Data Model
-  cdmTmpSchema <- "main" # Schema for temporary tables, will be deleted # should be ohdsi_temp
-  cdmResultsSchema <- "main" # Schema which will contain the final results
-  cdmVocabSchema <- "main"
+  control <- readr::read_csv('./inst/CSV/control/control.csv')
+  target <- readr::read_csv('./inst/CSV/target/target.csv')
+  con <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+  DBI::dbExecute(con, "CREATE SCHEMA IF NOT EXISTS testthat")
+  DBI::dbWriteTable(con,   DBI::SQL('"testthat"."target_mock"'), target)
+  DBI::dbWriteTable(con,   DBI::SQL('"testthat"."control_mock"'), control)
 
-  baseUrl <- NULL  # WebAPI URL is not needed when jsons' are already imported
+  cdm <- CDMConnector::cdm_from_con(con, cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
 
-
-  ################################################################################
-  #
-  # Initiate the database connection
-  #
-  ################################################################################
-  connectionDetails <- Eunomia::getEunomiaConnectionDetails()
-  conn <- DatabaseConnector::connect(connectionDetails)
-  Eunomia::createCohorts(connectionDetails)
-
+  cdm <- createCohortContrastCohorts(
+    cdm,
+    con,
+    targetTableName = 'target_mock',
+    controlTableName = 'control_mock',
+    targetTableSchemaName = 'testthat',
+    controlTableSchemaName = 'testthat',
+    nudgeTarget = FALSE,
+    nudgeControl = FALSE,
+    useInverseControls = FALSE,
+    useTargetMatching = FALSE
+  )
 
   ################################################################################
   #
   # Run the study
   #
   ################################################################################
-
   data = CohortContrast(
-    connection = conn,
-    connectionDetails,
-    cdmSchema,
-    cdmVocabSchema,
-    cdmTmpSchema,
-    pathToResults,
-    studyName,
-    domainsIncluded =  c("Drug"),
-    generateTables = TRUE,
-    readFromCSV = FALSE,
+    cdm = cdm,
+    pathToResults =getwd(), #paste(getwd(), '/tests/testthat', sep = ''),
+    domainsIncluded = c("Drug"),
     prevalenceCutOff = 0,
-    topDogs =10,
-    presenceFilter = FALSE,
-    complementaryMappingTable = FALSE,
-    nudgeTarget = 30,
-    nudgeControl = FALSE,
-    createC2TInput = FALSE
-  )
-  expect_equal(length(data$resultList$selectedFeatures$CONCEPT_NAME) ==10, TRUE)
-})
-#> Test passed 🥇
+    topK = 10, # Number of features to export
+    presenceFilter = FALSE, # 0-1, percentage of people who must have the chosen feature present
+    complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
+    createC2TInput = TRUE,
+    runZTests = FALSE,
+    runLogitTests = FALSE,
+    createOutputFiles = FALSE)
 
-# test_that("danazol target count.", {
-#   print(head(data$data_features))
-#   expect_equal(data$data_features[data$data_features$CONCEPT_NAME == "danazol", 4] == 1, TRUE)
-# })
+  expect_equal(length(data$resultList$selectedFeatures$CONCEPT_NAME) == 10, TRUE)
+  expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 3]) == 2, TRUE)
+  expect_equal(nrow(data$resultList$trajectoryData) == 41, TRUE)
+  expect_equal(nrow(data$data_initial) == 10, TRUE)
+  expect_equal(nrow(data$data_person) == 2694, TRUE)
+  expect_equal(nrow(data$data_patients) == 34, TRUE)
+})
 #> Test passed 🥇
