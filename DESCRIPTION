@@ -1,11 +1,11 @@
 Package: CohortContrast
 Type: Package
 Title: CohortContrast: Package for cohorts' trajectory feature selection 
-Version: 1.0.0
+Version: 0.0.0.900
 Author: Markus Haug
 Maintainer: Markus Haug <markus.haug@ut.ee>
-Description: After defining a target cohort (cohort we are intrested in) and a control cohort (cohort we use for general population or for comparison) the package workflow extracts medical interventions which are over-represented in the target cohort over observation period. The are different argument values users can experiment with such as topDogs (max number of exported eligible features), presenceFilter (% of people must have the intervention), prevalenceCutOff (if prevalence odds are less than the given value, the feature will not be extracted). This is a workflow for medical proccess investigation and feature extraction.
-License: Apache 2.0
+Description: After defining a target cohort (cohort we are intrested in) and a control cohort (cohort we use for general population or for comparison) the package workflow extracts medical interventions which are over-represented in the target cohort over observation period. The are different argument values users can experiment with such as topK (max number of exported eligible features), presenceFilter (% of people must have the intervention), prevalenceCutOff (if prevalence odds are less than the given value, the feature will not be extracted). This is a workflow for medical proccess investigation and feature extraction.
+License: Apache License (>= 2) | file LICENSE
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.2.3
@@ -18,18 +18,21 @@ Imports:
     ggplot2,
     stringr,
     stats,
+    scales,
     utils,
-    RJSONIO,
-    patchwork
+    patchwork,
+    CDMConnector,
+    CohortConstructor,
+    omopgenerics,
+    shiny,
+    lubridate,
 Suggests: 
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    PatientProfiles (>= 1.1.0),
+    duckdb,
+    DBI (>= 1.2.0),
+    readr
 Remotes:
-    OHDSI/CirceR,
-    OHDSI/CohortGenerator,
-    OHDSI/DatabaseConnector,
-    OHDSI/SqlRender,
-    OHDSI/Eunomia,
-    Appsilon/shiny.fluent
-LinkingTo:
-    Rcpp
+    Appsilon/shiny.fluent,
 Config/testthat/edition: 3
+Config/testthat/parallel: true

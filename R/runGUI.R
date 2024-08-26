@@ -7,12 +7,10 @@
 #' This function initiates the connection with database and starts Shiny application
 #'
 #' @param pathToResults Path to target directory where results will be saved
-#' @param cdmResultsSchema Schema which has the information about the cohorts created in Atlas
-#' @example man/examples/runGUI.R
-#'
+#' @import ggplot2
+#' @import patchwork
 #' @export
-runGUI <- function(pathToResults = NULL,
-                   studyName = "Cohort2Trajectory") {
+runCohortContrastGUI <- function(pathToResults = NULL) {
   ################################################################################
   #
   # Creating global variables
@@ -23,16 +21,15 @@ runGUI <- function(pathToResults = NULL,
     pathToResults <<- pathToResults
   }
   else {
-    pathToResults <<- paste(getwd(), "/tmp", sep = "")
+    printCustomMessage("ERROR: pathToResults variable not defined!")
   }
-  studyName <<- studyName
   ###############################################################################
   #
   # Creating mandatory directories if they do not exist
   #
   ###############################################################################
 
-  createMandatorySubDirs(pathToResults)
+  createPathToResults(pathToResults)
 
   ################################################################################
   #
@@ -40,6 +37,11 @@ runGUI <- function(pathToResults = NULL,
   #
   ################################################################################
 
-  shiny::runApp("./shiny")
+  appDir <- system.file("shiny", package = "CohortContrast")
+  if (appDir == "") {
+    stop("Could not find Shiny app directory. Try re-installing the package.", call. = FALSE)
+  }
+
+  shiny::runApp(appDir)
 
 }
