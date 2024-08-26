@@ -2,8 +2,7 @@ library(testthat)
 library(CohortContrast)
 
 test_that("Created features table is correct.", {
-  studyName = "TestCohortContrast"
-  pathToResults <<- dirname(dirname(getwd())) #pathToResults = paste(getwd(), "/tests",sep="")
+  pathToResults <<- getwd() #pathToResults = paste(getwd(), "/tests",sep="")
 
   ################################################################################
   #
@@ -11,8 +10,28 @@ test_that("Created features table is correct.", {
   #
   ################################################################################
 
+  control <- readr::read_csv('./inst/CSV/control/control.csv')
+  target <- readr::read_csv('./inst/CSV/target/target.csv')
   con <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+  DBI::dbExecute(con, "CREATE SCHEMA IF NOT EXISTS testthat")
+  DBI::dbWriteTable(con,   DBI::SQL('"testthat"."target_mock"'), target)
+  DBI::dbWriteTable(con,   DBI::SQL('"testthat"."control_mock"'), control)
+
   cdm <- CDMConnector::cdm_from_con(con, cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
+
+  cdm <- createCohortContrastCohorts(
+    cdm,
+    con,
+    targetTableName = 'target_mock',
+    controlTableName = 'control_mock',
+    targetTableSchemaName = 'testthat',
+    controlTableSchemaName = 'testthat',
+    nudgeTarget = FALSE,
+    nudgeControl = FALSE,
+    useInverseControls = FALSE,
+    useTargetMatching = FALSE
+  )
+
   ################################################################################
   #
   # Run the study
@@ -21,25 +40,21 @@ test_that("Created features table is correct.", {
   data = CohortContrast(
     cdm = cdm,
     pathToResults =getwd(), #paste(getwd(), '/tests/testthat', sep = ''),
-    studyName = studyName,
     domainsIncluded = c("Drug"),
-    readFromCSV = FALSE,
     prevalenceCutOff = 0,
-    topDogs = 10, # Number of features to export
+    topK = 10, # Number of features to export
     presenceFilter = FALSE, # 0-1, percentage of people who must have the chosen feature present
     complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
-    nudgeTarget = FALSE, # nudge target cohort start date (days)
-    nudgeControl = FALSE,# nudge control cohort start date (days)
     createC2TInput = TRUE,
-    useInverseControls = FALSE,
     runZTests = FALSE,
-    runLogitTests = FALSE)
+    runLogitTests = FALSE,
+    createOutputFiles = FALSE)
 
   expect_equal(length(data$resultList$selectedFeatures$CONCEPT_NAME) == 10, TRUE)
   expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 3]) == 2, TRUE)
-  expect_equal(nrow(data$resultList$trajectoryData) == 37, TRUE)
-  expect_equal(nrow(data$data_initial) == 646, TRUE)
+  expect_equal(nrow(data$resultList$trajectoryData) == 41, TRUE)
+  expect_equal(nrow(data$data_initial) == 10, TRUE)
   expect_equal(nrow(data$data_person) == 2694, TRUE)
-  expect_equal(nrow(data$data_patients) == 818, TRUE)
+  expect_equal(nrow(data$data_patients) == 34, TRUE)
 })
 #> Test passed 🥇

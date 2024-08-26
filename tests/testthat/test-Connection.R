@@ -1,7 +1,6 @@
 library(testthat)
 
-studyName = "TestCohortContrast"
-pathToResults <<- dirname(dirname(getwd())) #pathToResults = paste(getwd(), "/tests",sep="")
+pathToResults <<- getwd()
 
 ################################################################################
 #

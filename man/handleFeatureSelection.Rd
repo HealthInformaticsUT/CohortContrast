@@ -6,18 +6,21 @@
 \usage{
 handleFeatureSelection(
   data,
-  studyName,
-  topDogs,
+  pathToResults,
+  topK,
   prevalenceCutOff,
   targetCohortId,
   runZTests,
-  runLogitTests
+  runLogitTests,
+  createOutputFiles = FALSE
 )
 }
 \arguments{
 \item{data}{Data list object}
 
-\item{topDogs}{numeric > if set, keeps this number of features in the analysis, top n prevalence difference}
+\item{pathToResults}{Path to the results folder, can be project's working directory}
+
+\item{topK}{numeric > if set, keeps this number of features in the analysis. Maximum number of features exported.}
 
 \item{prevalenceCutOff}{numeric > if set, removes all of the concepts which are not present (in target) more than prevalenceCutOff times}
 
@@ -26,6 +29,8 @@ handleFeatureSelection(
 \item{runZTests}{boolean for Z-tests}
 
 \item{runLogitTests}{boolean for logit-tests}
+
+\item{createOutputFiles}{Boolean for creating output files, the default value is TRUE}
 }
 \description{
 Function for handling feature selection

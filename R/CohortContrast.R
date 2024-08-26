@@ -1,28 +1,89 @@
-#' @title Get data from OMOP CDM specified in imported JSON files
-#'
+#' @title CohortContrast analysis function
+#' After running this function on your CDM instance successfully you can either use the extracted outputs or run the CohortContrast shiny app.
 #' @param cdm Connection to database
 #' @param pathToResults Path to the results folder, can be project's working directory
-#' @param studyName Customized name for the study
 #' @param domainsIncluded list of CDM domains to include
-#' @param readFromCSV boolean > if TRUE file from ./inst/CSV will be used as cohort data, otherwise JSONs will be used.
 #' @param prevalenceCutOff numeric > if set, removes all of the concepts which are not present (in target) more than prevalenceCutOff times
-#' @param topDogs numeric > if set, keeps this number of features in the analysis, top n prevalence difference
+#' @param topK numeric > if set, keeps this number of features in the analysis. Maximum number of features exported.
 #' @param presenceFilter numeric > if set, removes all features represented less than the given percentage
-#' @param nudgeTarget number of days you would like to nudge the target cohort start day
-#' @param nudgeControl number of days you would like to nudge the control cohort start day
 #' @param complementaryMappingTable Mappingtable for mapping concept_ids if present
 #' @param createC2TInput Boolean for creating Cohort2Trajectory input dataframe
-#' @param useInverseControls Boolean for using inverse controls (target cohort's observation period which is not included)
-#' @param useTargetMatching Boolean for using patient matching for controls
 #' @param runZTests boolean for Z-tests
 #' @param runLogitTests boolean for logit-tests
+#' @param createOutputFiles Boolean for creating output files, the default value is TRUE
 #'
 #' @importFrom dplyr %>%
 #'
 #' @keywords external
+#'
+#' @examples
+#' # Example of setting up CohortContrast tables with a dummy database
+#' control <- data.frame(
+#'   cohort_definition_id = c(1, 1, 1, 1, 1),
+#'   subject_id = c(5325, 3743, 2980, 1512, 2168),
+#'   cohort_start_date = as.Date(c("1982-06-02", "1997-03-23",
+#'    "2004-09-29", "2006-08-11", "1977-06-25")),
+#'   cohort_end_date = as.Date(c("2019-03-17", "2018-10-07",
+#'    "2018-04-01", "2017-11-29", "2018-11-22"))
+#' )
+#'
+#' target <- data.frame(
+#'   cohort_definition_id = c(1, 1, 1, 1, 1),
+#'   subject_id = c(4804, 4861, 1563, 2830, 1655),
+#'   cohort_start_date = as.Date(c("1997-03-23", "1982-06-02",
+#'    "1977-06-25", "2006-08-11", "2004-09-29")),
+#'   cohort_end_date = as.Date(c("2018-10-29", "2019-05-23",
+#'    "2019-04-20", "2019-01-14", "2019-05-24"))
+#' )
+#'
+#' control$cohort_definition_id = 100
+#' target$cohort_definition_id = 500
+#'
+#' cohort = rbind(control, target)
+#'
+#' con <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+#' DBI::dbExecute(con, "CREATE SCHEMA IF NOT EXISTS example")
+#' DBI::dbWriteTable(con,   DBI::SQL('"example"."cohort"'), cohort)
+#'
+#' cdm <- CDMConnector::cdm_from_con(con, cdm_name = "eunomia",
+#'  cdm_schema = "main", write_schema = "main")
+#'
+#' cdm <- createCohortContrastCohorts(
+#'   cdm,
+#'   con,
+#'   targetTableName = NULL,
+#'   controlTableName = NULL,
+#'   targetTableSchemaName = NULL,
+#'   controlTableSchemaName = NULL,
+#'   cohortsTableSchemaName = 'example',
+#'   cohortsTableName = 'cohort',
+#'   targetCohortId = 500,
+#'   controlCohortId = 100,
+#'   nudgeTarget = FALSE,
+#'   nudgeControl = FALSE,
+#'   useInverseControls = FALSE,
+#'   useTargetMatching = FALSE
+#' )
+#'
+#' pathToResults = getwd()
+#'
+#' data = CohortContrast(
+#' cdm,
+#' pathToResults,
+#' domainsIncluded = c(
+#'  "Drug"
+#' ),
+#' prevalenceCutOff = 2,
+#' topK = FALSE,
+# 'presenceFilter = 0.005,
+#' complementaryMappingTable = FALSE,
+#' createC2TInput = FALSE,
+#' runZTests = TRUE,
+#' runLogitTests = FALSE,
+#' createOutputFiles = FALSE
+#' )
 CohortContrast <- function(cdm,
                            pathToResults,
-                           studyName,
                            domainsIncluded = c(
                              "Drug",
                              "Condition",
@@ -32,46 +93,34 @@ CohortContrast <- function(cdm,
                              "Visit",
                              "Visit detail"
                            ),
-                           readFromCSV = TRUE,
                            prevalenceCutOff = 10,
-                           topDogs = FALSE,
+                           topK = FALSE,
                            presenceFilter = 0.005,
-                           nudgeControl = FALSE,
-                           nudgeTarget = FALSE,
                            complementaryMappingTable = FALSE,
                            createC2TInput = FALSE,
-                           useInverseControls = FALSE,
-                           useTargetMatching = FALSE,
                            runZTests = TRUE,
-                           runLogitTests = TRUE) {
-  printCustomMessage("Creating mandatory subdirectories ...")
-  createMandatorySubDirs(pathToResults)
-  targetCohortId = 2
+                           runLogitTests = TRUE,
+                           createOutputFiles = TRUE) {
 
+  targetCohortId = 2
 
   data = generateTables(
     cdm = cdm,
-    pathToResults = pathToResults,
-    studyName = studyName,
-    readFromCSV = readFromCSV,
     domainsIncluded = domainsIncluded,
-    nudgeControl = nudgeControl,
-    nudgeTarget = nudgeTarget,
-    useInverseControls = useInverseControls,
-    useTargetMatching = useTargetMatching
   )
 
   if (is.data.frame(complementaryMappingTable)) {
     data = handleMapping(data, complementaryMappingTable)
   }
 
-  data = createDataFeatures(data, topDogs)
+  data = createDataFeatures(data, topK)
   data = handleTests(data,
                      targetCohortId,
                      presenceFilter,
                      runZTests,
                      runLogitTests)
-  data = handleFeatureSelection(data, studyName, topDogs, prevalenceCutOff, targetCohortId, runZTests, runLogitTests)
+
+  data = handleFeatureSelection(data = data, pathToResults = pathToResults, topK = topK, prevalenceCutOff = prevalenceCutOff, targetCohortId = targetCohortId, runZTests = runZTests, runLogitTests = runLogitTests,createOutputFiles = createOutputFiles)
 
   # Maybe create separate. function for this
   data = createC2TInput(data,
@@ -79,7 +128,10 @@ CohortContrast <- function(cdm,
                         createC2TInput,
                         complementaryMappingTable)
 
-  data = saveResult(data, pathToResults, studyName)
+  if (createOutputFiles){
+    createPathToResults(pathToResults = pathToResults)
+    saveResult(data, pathToResults)
+  }
 
   return(data)
 }
@@ -95,7 +147,6 @@ CohortContrast <- function(cdm,
 queryHeritageData <-
   function(dataPatient,
            cdm,
-           studyName,
            split_data,
            complementaryMappingTable = FALSE) {
     results_list <- lapply(names(split_data), function(heritage) {
@@ -179,8 +230,6 @@ queryHeritageData <-
       concept_map[[concept_string]] <-
         as.character(concept_map[['CONCEPT_ID']]) # Ensure consistent data type
       colnames(concept_map) <- c(concept_string, "CONCEPT_NAME")
-      # concept_map$CONCEPT_NAME <-
-      #   substr(concept_map$CONCEPT_NAME, 1, 20)
       # Before applying the mapping, check if query_result is not empty and has 'CONCEPT_ID'
       if (nrow(query_result) > 0 &&
           concept_string %in% names(query_result)) {
@@ -546,12 +595,12 @@ handleMapping <- function(data, complementaryMappingTable) {
 
 #' Function for extracting n features
 #' @param data Data list object
-#' @param topDogs numeric > if set, keeps this number of features in the analysis, top n prevalence difference
+#' @param topK numeric > if set, keeps this number of features in the analysis. Maximum number of features exported.
 #'
 #' @keywords internal
-createDataFeatures <- function(data, topDogs) {
+createDataFeatures <- function(data, topK) {
   printCustomMessage("Get top n features ...")
-  data$data_features = calculate_data_features(data, topDogs)
+  data$data_features = calculate_data_features(data, topK)
   data$data_patients <-
     data$data_patients %>% dplyr::filter(CONCEPT_ID %in% unique(data$data_features$CONCEPT_ID))
   return(data)
@@ -624,21 +673,25 @@ handleTests <-
 
 #' Function for handling feature selection
 #' @param data Data list object
+#' @param pathToResults Path to the results folder, can be project's working directory
 #' @param targetCohortId Target cohort id
-#' @param topDogs numeric > if set, keeps this number of features in the analysis, top n prevalence difference
+#' @param topK numeric > if set, keeps this number of features in the analysis. Maximum number of features exported.
 #' @param prevalenceCutOff numeric > if set, removes all of the concepts which are not present (in target) more than prevalenceCutOff times
 #' @param runZTests boolean for Z-tests
 #' @param runLogitTests boolean for logit-tests
+#' @param createOutputFiles Boolean for creating output files, the default value is TRUE
 #'
 #' @keywords internal
 handleFeatureSelection <-
   function(data,
-           studyName,
-           topDogs,
+           pathToResults,
+           topK,
            prevalenceCutOff,
            targetCohortId,
            runZTests,
-           runLogitTests) {
+           runLogitTests,
+           createOutputFiles = FALSE
+           ) {
     data_features = NULL
     if (!(runZTests | runLogitTests)) {
     data_features = data$data_features
@@ -649,7 +702,7 @@ handleFeatureSelection <-
     n_features_left = nrow(data_features)
     resultList = list()
 
-    # Now, significant_concepts_data contains only the concepts significantly overrepresented in cohort 2
+    # Now, significant_concepts_data contains only the concepts significantly overrepresented in target cohort
     if (n_features_left == 0) {
       printCustomMessage("No features left. Perhaps use more lenient filters! Exiting ...")
       printCustomMessage("Running analysis END!")
@@ -659,18 +712,14 @@ handleFeatureSelection <-
       #
       ################################################################################
 
-      filePath = paste(pathToResults,
-                       "/tmp/datasets/",
-                       studyName,
-                       "_CC_medData.rdata",
-                       sep = "")
-      save_object(data, path = filePath)
-      printCustomMessage(paste("Saved the result to ", filePath, sep = ""))
+      if (createOutputFiles){
+        createPathToResults(pathToResults = pathToResults)
+        saveResult(data, pathToResults)      }
       return(data)
     }
 
 
-    if (topDogs == FALSE) {
+    if (topK == FALSE) {
       features = dplyr::filter(data_features,
                                PREVALENCE_DIFFERENCE_RATIO > prevalenceCutOff)
       n_features_left = nrow(features)
@@ -689,13 +738,13 @@ handleFeatureSelection <-
       topNFeatures <-
         dplyr::pull(dplyr::slice(dplyr::arrange(
           data_features, dplyr::desc(PREVALENCE_DIFFERENCE_RATIO)
-        ), 1:topDogs), CONCEPT_ID)
+        ), 1:topK), CONCEPT_ID)
       features = dplyr::filter(data_features, CONCEPT_ID %in% topNFeatures)
       n_features_left = nrow(features)
       printCustomMessage(
         paste(
           "After filtering for top ",
-          topDogs,
+          topK,
           " features, there are ",
           n_features_left,
           " features left!",
@@ -755,7 +804,6 @@ createC2TInput <-
         HERITAGE
       )
       # Creating target cohort & eligible patients dataset
-      #
       data_target = dplyr::mutate(
         dplyr::filter(
           data$data_initial,
@@ -789,7 +837,6 @@ createC2TInput <-
           "COHORT_END_DATE")
 
       data$resultList$trajectoryData = rbind(data_target, data_states)
-      #data$resultList$trajectoryData$COHORT_DEFINITION_ID = trimws(data$resultList$trajectoryData$COHORT_DEFINITION_ID)
     }
     # Convert from int64 to integer
     data$resultList$trajectoryData$SUBJECT_ID = as.integer(data$resultList$trajectoryData$SUBJECT_ID)
@@ -800,16 +847,13 @@ createC2TInput <-
 #' This function saves the resulting data object
 #' @param data Data list object
 #' @param pathToResults Path to the results folder, can be project's working directory
-#' @param studyName Customized name for the study
 #'
 #' @keywords internal
-saveResult <- function(data, pathToResults, studyName) {
-  filePath = paste(pathToResults,
-                   "/tmp/datasets/",
-                   studyName,
-                   "_CC_medData.rdata",
-                   sep = "")
+saveResult <- function(data, pathToResults) {
+  # Generate a timestamp
+  timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+  # Create the full file path with the timestamp included in the filename
+  filePath <- file.path(pathToResults, paste0("CohortContrast_", timestamp, ".rdata"))
   save_object(data, path = filePath)
   printCustomMessage(paste("Saved the result to ", filePath, sep = ""))
-  return(data)
 }

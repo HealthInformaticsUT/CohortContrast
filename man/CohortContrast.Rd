@@ -2,26 +2,22 @@
 % Please edit documentation in R/CohortContrast.R
 \name{CohortContrast}
 \alias{CohortContrast}
-\title{Get data from OMOP CDM specified in imported JSON files}
+\title{CohortContrast analysis function
+After running this function on your CDM instance successfully you can either use the extracted outputs or run the CohortContrast shiny app.}
 \usage{
 CohortContrast(
   cdm,
   pathToResults,
-  studyName,
   domainsIncluded = c("Drug", "Condition", "Measurement", "Observation", "Procedure",
     "Visit", "Visit detail"),
-  readFromCSV = TRUE,
   prevalenceCutOff = 10,
-  topDogs = FALSE,
+  topK = FALSE,
   presenceFilter = 0.005,
-  nudgeControl = FALSE,
-  nudgeTarget = FALSE,
   complementaryMappingTable = FALSE,
   createC2TInput = FALSE,
-  useInverseControls = FALSE,
-  useTargetMatching = FALSE,
   runZTests = TRUE,
-  runLogitTests = TRUE
+  runLogitTests = TRUE,
+  createOutputFiles = TRUE
 )
 }
 \arguments{
@@ -29,35 +25,92 @@ CohortContrast(
 
 \item{pathToResults}{Path to the results folder, can be project's working directory}
 
-\item{studyName}{Customized name for the study}
-
 \item{domainsIncluded}{list of CDM domains to include}
-
-\item{readFromCSV}{boolean > if TRUE file from ./inst/CSV will be used as cohort data, otherwise JSONs will be used.}
 
 \item{prevalenceCutOff}{numeric > if set, removes all of the concepts which are not present (in target) more than prevalenceCutOff times}
 
-\item{topDogs}{numeric > if set, keeps this number of features in the analysis, top n prevalence difference}
+\item{topK}{numeric > if set, keeps this number of features in the analysis. Maximum number of features exported.}
 
 \item{presenceFilter}{numeric > if set, removes all features represented less than the given percentage}
-
-\item{nudgeControl}{number of days you would like to nudge the control cohort start day}
-
-\item{nudgeTarget}{number of days you would like to nudge the target cohort start day}
 
 \item{complementaryMappingTable}{Mappingtable for mapping concept_ids if present}
 
 \item{createC2TInput}{Boolean for creating Cohort2Trajectory input dataframe}
 
-\item{useInverseControls}{Boolean for using inverse controls (target cohort's observation period which is not included)}
-
-\item{useTargetMatching}{Boolean for using patient matching for controls}
-
 \item{runZTests}{boolean for Z-tests}
 
 \item{runLogitTests}{boolean for logit-tests}
+
+\item{createOutputFiles}{Boolean for creating output files, the default value is TRUE}
 }
 \description{
-Get data from OMOP CDM specified in imported JSON files
+CohortContrast analysis function
+After running this function on your CDM instance successfully you can either use the extracted outputs or run the CohortContrast shiny app.
+}
+\examples{
+# Example of setting up CohortContrast tables with a dummy database
+control <- data.frame(
+  cohort_definition_id = c(1, 1, 1, 1, 1),
+  subject_id = c(5325, 3743, 2980, 1512, 2168),
+  cohort_start_date = as.Date(c("1982-06-02", "1997-03-23",
+   "2004-09-29", "2006-08-11", "1977-06-25")),
+  cohort_end_date = as.Date(c("2019-03-17", "2018-10-07",
+   "2018-04-01", "2017-11-29", "2018-11-22"))
+)
+
+target <- data.frame(
+  cohort_definition_id = c(1, 1, 1, 1, 1),
+  subject_id = c(4804, 4861, 1563, 2830, 1655),
+  cohort_start_date = as.Date(c("1997-03-23", "1982-06-02",
+   "1977-06-25", "2006-08-11", "2004-09-29")),
+  cohort_end_date = as.Date(c("2018-10-29", "2019-05-23",
+   "2019-04-20", "2019-01-14", "2019-05-24"))
+)
+
+control$cohort_definition_id = 100
+target$cohort_definition_id = 500
+
+cohort = rbind(control, target)
+
+con <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+DBI::dbExecute(con, "CREATE SCHEMA IF NOT EXISTS example")
+DBI::dbWriteTable(con,   DBI::SQL('"example"."cohort"'), cohort)
+
+cdm <- CDMConnector::cdm_from_con(con, cdm_name = "eunomia",
+ cdm_schema = "main", write_schema = "main")
+
+cdm <- createCohortContrastCohorts(
+  cdm,
+  con,
+  targetTableName = NULL,
+  controlTableName = NULL,
+  targetTableSchemaName = NULL,
+  controlTableSchemaName = NULL,
+  cohortsTableSchemaName = 'example',
+  cohortsTableName = 'cohort',
+  targetCohortId = 500,
+  controlCohortId = 100,
+  nudgeTarget = FALSE,
+  nudgeControl = FALSE,
+  useInverseControls = FALSE,
+  useTargetMatching = FALSE
+)
+
+pathToResults = getwd()
+
+data = CohortContrast(
+cdm,
+pathToResults,
+domainsIncluded = c(
+ "Drug"
+),
+prevalenceCutOff = 2,
+topK = FALSE,
+complementaryMappingTable = FALSE,
+createC2TInput = FALSE,
+runZTests = TRUE,
+runLogitTests = FALSE,
+createOutputFiles = FALSE
+)
 }
 \keyword{external}

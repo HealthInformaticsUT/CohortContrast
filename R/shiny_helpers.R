@@ -16,7 +16,6 @@ if (!requireNamespace("patchwork", quietly = TRUE)) {
 #'
 #' @param object CohortContrast returned object
 #' @param pathToResults Path to the results folder, can be project's working directory
-#' @param studyName Customized name for the study
 #' @param autoScaleRate Boolean for scaling the prevalences
 #' @param applyInverseTarget Boolean for applying inverse target
 #' @param applyZTest Boolean for applying Z tests
@@ -24,7 +23,7 @@ if (!requireNamespace("patchwork", quietly = TRUE)) {
 #'
 #' @keywords internal
 format_results <- function(
-    object, pathToResults, studyName, autoScaleRate, applyInverseTarget, applyZTest, applyLogitTest) {
+    object, pathToResults, autoScaleRate, applyInverseTarget, applyZTest, applyLogitTest) {
 
   # Calculate the number of patients in target and control groups
   n_patients <- object$data_initial %>%
@@ -429,8 +428,6 @@ plot_heatmap = function(filtered_target){
     PREVALENCE = grDevices::colorRampPalette(c("white", "purple"))(length(unique(annotation_row$PREVALENCE)))
   )
 
-  # tm2 <- tm2[order(rownames(tm2), decreasing = TRUE), ]
-  # annotation_row
 
   annotation_row <- annotation_row %>%
     tibble::rownames_to_column("CONCEPT_NAME") %>%

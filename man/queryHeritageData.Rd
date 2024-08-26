@@ -7,7 +7,6 @@
 queryHeritageData(
   dataPatient,
   cdm,
-  studyName,
   split_data,
   complementaryMappingTable = FALSE
 )
