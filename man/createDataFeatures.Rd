@@ -4,12 +4,12 @@
 \alias{createDataFeatures}
 \title{Function for extracting n features}
 \usage{
-createDataFeatures(data, topDogs)
+createDataFeatures(data, topK)
 }
 \arguments{
 \item{data}{Data list object}
 
-\item{topDogs}{numeric > if set, keeps this number of features in the analysis, top n prevalence difference}
+\item{topK}{numeric > if set, keeps this number of features in the analysis. Maximum number of features exported.}
 }
 \description{
 Function for extracting n features

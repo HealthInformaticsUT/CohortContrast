@@ -7,12 +7,10 @@
 #' This function initiates the connection with database and starts Shiny application
 #'
 #' @param pathToResults Path to target directory where results will be saved
-#' @param studyName The study to load first in the GUI
 #' @import ggplot2
 #' @import patchwork
 #' @export
-runGUI <- function(pathToResults = NULL,
-                   studyName = "CohortContrast") {
+runCohortContrastGUI <- function(pathToResults = NULL) {
   ################################################################################
   #
   # Creating global variables
@@ -23,16 +21,15 @@ runGUI <- function(pathToResults = NULL,
     pathToResults <<- pathToResults
   }
   else {
-    pathToResults <<- paste(getwd(), "/tmp", sep = "")
+    printCustomMessage("ERROR: pathToResults variable not defined!")
   }
-  studyName <<- studyName
   ###############################################################################
   #
   # Creating mandatory directories if they do not exist
   #
   ###############################################################################
 
-  createMandatorySubDirs(pathToResults)
+  createPathToResults(pathToResults)
 
   ################################################################################
   #

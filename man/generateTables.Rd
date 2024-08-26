@@ -8,34 +8,14 @@ Create relations of cohorts (target and control) to the database}
 generateTables(
   cdm,
   pathToResults = getwd(),
-  studyName = "SampleStudy",
   domainsIncluded = c("Drug", "Condition", "Measurement", "Observation", "Procedure",
-    "Visit", "Visit detail"),
-  readFromCSV = FALSE,
-  nudgeTarget = FALSE,
-  nudgeControl = FALSE,
-  useInverseControls = FALSE,
-  useTargetMatching = FALSE
+    "Visit", "Visit detail")
 )
 }
 \arguments{
 \item{cdm}{CDMConnector object: connection to the database}
 
-\item{pathToResults}{Path to the mandatory subdirectories such as 'inst'}
-
-\item{studyName}{Name of the study being run, will be used in file and relation names}
-
 \item{domainsIncluded}{list of CDM domains to include}
-
-\item{readFromCSV}{boolean > if TRUE file from ./inst/CSV will be used as cohort data, otherwise JSONs will be used.}
-
-\item{nudgeTarget}{number of days you would like to nudge the target cohort start day}
-
-\item{nudgeControl}{number of days you would like to nudge the control cohort start day}
-
-\item{useInverseControls}{Boolean for using inverse controls (target cohort's observation period which is not included)}
-
-\item{useTargetMatching}{Boolean for using patient matching for controls}
 }
 \value{
 object of dataframes and updated cdm object

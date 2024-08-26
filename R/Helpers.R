@@ -30,17 +30,18 @@ idExists <- function(data, id) {
   return(FALSE)
 }
 
-#' Function which creates mandatory subdirectories and files to the pathToResults directory
-#'
-#' @param pathToResults Path to the package results
+#' Function to ensure that the path to results exists, creating mandatory subdirectories if necessary
+#' @param pathToResults The path where results will be stored
 #' @keywords internal
-createMandatorySubDirs <- function(pathToResults) {
-  dir.create(file.path(pathToResults, "tmp"), showWarnings = FALSE)
-  dir.create(file.path(paste(pathToResults, '/tmp', sep = ""), 'datasets'), showWarnings = FALSE)
-
-  dir.create(file.path(pathToResults, "inst"), showWarnings = FALSE)
-  dir.create(file.path(paste(pathToResults, '/inst', sep = ""), 'JSON'), showWarnings = FALSE)
-  dir.create(file.path(paste(pathToResults, '/inst', sep = ""), 'CSV'), showWarnings = FALSE)
+createPathToResults <- function(pathToResults) {
+  # Check if the main directory exists
+  if (!dir.exists(pathToResults)) {
+    # If it doesn't exist, create the directory along with any necessary subdirectories
+    dir.create(pathToResults, recursive = TRUE)
+    print(paste("Created the directory:", pathToResults))
+  } else {
+    print(paste("Directory already exists:", pathToResults))
+  }
 }
 
 #' # Function to normalize and scale a vector
@@ -177,5 +178,48 @@ sanitize_single <- function(input_string) {
 sanitize <- function(input_strings) {
   # Apply the sanitization function to each element of the vector
   sapply(input_strings, sanitize_single)
+}
+
+#' Function to check if target and control schemas and tables are defined sufficiently
+#' @param targetTableName Name of the table where target cohort is defined
+#' @param controlTableName Name of the table where control cohort is defined
+#' @param targetTableSchemaName Name of the schema where target cohort table is defined
+#' @param controlTableSchemaName Name of the schema where control cohort table is defined
+#' @param cohortsTableSchemaName Name of the schema where cohorts' table is defined
+#' @param cohortsTableName Name of the table where cohorts are defined
+#' @param targetCohortId The id for target cohort in cohorts' table
+#' @param controlCohortId The id for control cohort in cohorts' table
+#' @param pathToCohortsCSVFile The path to a CSV file that has data table for cohorts
+#' @keywords internal
+checkForCorrectRelationDefinitions <- function(
+    targetTableName = NULL,
+    controlTableName = NULL,
+    targetTableSchemaName = NULL,
+    controlTableSchemaName = NULL,
+    cohortsTableSchemaName = NULL,
+    cohortsTableName = NULL,
+    targetCohortId = NULL,
+    controlCohortId = NULL,
+    pathToCohortsCSVFile = NULL
+) {
+
+  # Check if target definitions are provided
+  if (!is.null(targetTableName) && !is.null(targetTableSchemaName)) {
+    targetDefined <- TRUE
+  } else if ((!is.null(cohortsTableSchemaName) && !is.null(cohortsTableName) && !is.null(targetCohortId)) || (!is.null(targetCohortId) && !is.null(pathToCohortsCSVFile)))  {
+    targetDefined <- TRUE
+  } else {
+    printCustomMessage("ERROR: Target definitions are missing. Check your target cohort schema and relation names!
+                       At least targetTableName and targetTableSchemaName OR cohortsTableSchemaName, cohortsTableName and targetCohortId OR pathToCohortsCSVFile and targetCohortId must be defined!")
+    targetDefined <- FALSE
+  }
+
+  # Check if control definitions are provided
+  if (is.null(controlTableName) || is.null(controlTableSchemaName)) {
+    if (is.null(controlCohortId)) {
+      printCustomMessage("WARNING: Control definitions are missing. Inverse controls or patient matching will be used.")
+    }
+  }
+  return(targetDefined)
 }
 

@@ -3,55 +3,18 @@
 #' @title Generate analysis tables
 #' Create relations of cohorts (target and control) to the database
 #' @param cdm CDMConnector object: connection to the database
-#' @param pathToResults Path to the mandatory subdirectories such as 'inst'
-#' @param studyName Name of the study being run, will be used in file and relation names
 #' @param domainsIncluded list of CDM domains to include
-#' @param readFromCSV boolean > if TRUE file from ./inst/CSV will be used as cohort data, otherwise JSONs will be used.
-#' @param nudgeTarget number of days you would like to nudge the target cohort start day
-#' @param nudgeControl number of days you would like to nudge the control cohort start day
-#' @param useInverseControls Boolean for using inverse controls (target cohort's observation period which is not included)
-#' @param useTargetMatching Boolean for using patient matching for controls
 #'
 #' @return object of dataframes and updated cdm object
 #'
 #' @keywords internal
 generateTables <- function(cdm,
                            pathToResults = getwd(),
-                           studyName = "SampleStudy",
-                           domainsIncluded = c("Drug", "Condition", "Measurement", "Observation", "Procedure", "Visit", "Visit detail"),
-                           readFromCSV = FALSE,
-                           nudgeTarget = FALSE,
-                           nudgeControl = FALSE,
-                           useInverseControls = FALSE,
-                           useTargetMatching = FALSE
+                           domainsIncluded = c("Drug", "Condition", "Measurement", "Observation", "Procedure", "Visit", "Visit detail")
                            ) {
-    # loading settings
-    settings <- loadJsons(studyName, pathToResults)
-    if (readFromCSV) {
-      # Read the CSV file and return inverseControl value
-      cdm = processCSVData(cdm, useInverseControls, useTargetMatching, insertedCSVTarget = settings$targetCohortDataframe, insertedCSVControl = settings$controlCohortDataframe, nudgeTarget, nudgeControl)
-      printCustomMessage("Cohort generation from CSV files was successful")
-    }
-    else {
-      cdm = processJSONData(cdm, useInverseControls, useTargetMatching, insertedJSONTarget = settings$targetCohortSet, insertedJSONControl = settings$controlCohortSet, nudgeTarget, nudgeControl)
-      printCustomMessage("Cohort generation from JSON files was successful")
-    }
-    # Combine the target and control tables
-    cdm$target <- cdm$target %>% dplyr::mutate(cohort_definition_id = as.integer(2))
-    cdm$control <- cdm$control %>% dplyr::mutate(cohort_definition_id = as.integer(1))
-    cohortcontrast_cohorts <- dplyr::bind_rows(cdm$target %>% as.data.frame(), cdm$control %>% as.data.frame())
-
-    cdm <- omopgenerics::insertTable(cdm = cdm,
-                                     name = "cohortcontrast_cohorts",
-                                     table = cohortcontrast_cohorts,
-                                     overwrite = T)
-
-    cohort_size <- cdm$cohortcontrast_cohorts %>%
-      dplyr::group_by(cohort_definition_id) %>%
-      dplyr::summarize(total_count = dplyr::n_distinct(subject_id), .groups = 'drop')
-
-    # TODO: remove dead code
-    ####################################
+   cohort_size <- cdm$cohortcontrast_cohorts %>%
+    dplyr::group_by(cohort_definition_id) %>%
+    dplyr::summarize(total_count = dplyr::n_distinct(subject_id), .groups = 'drop')
 
     # Drug Exposure Patient Prevalence
     patient_drug_prevalence_table <- cdm$cohortcontrast_cohorts %>%
@@ -241,7 +204,6 @@ generateTables <- function(cdm,
 
   # aggregate rows in case of multiple observation periods in same cohort + remove void concepts
 
-
   printCustomMessage("Querying initial data from database ...")
 
   data_initial <- cdm$cohortcontrast_cohorts %>% as.data.frame()
@@ -259,202 +221,10 @@ generateTables <- function(cdm,
   # Setting names for each list element
   return(
     list(
-  #data_features = data_features,
       data_patients = data_patients,
       data_initial = data_initial,
       data_person = data_person,
       cdm = cdm
     )
   )
-}
-
-#' This function creates target and control tables into the CDMConnector instance from the CSV files
-#' @param cdm Connection to database (CDMConnector object)
-#' @param insertedCSVTarget The dataframe for target cohort
-#' @param insertedCSVControl The dataframe for control cohort
-#' @param nudgeTarget number of days you would like to nudge the target cohort start day
-#' @param nudgeControl number of days you would like to nudge the control cohort start day
-#' @param useInverseControls Boolean for using inverse controls (target cohort's observation period which is not included)
-#' @param useTargetMatching Boolean for using patient matching for controls
-#'
-#' @keywords internal
-processCSVData <- function(cdm, useInverseControls = FALSE, useTargetMatching = FALSE, insertedCSVTarget, insertedCSVControl, nudgeTarget, nudgeControl) {
-
-  if(is.null(insertedCSVTarget))
-  {
-    printCustomMessage("Target cohort CSV import unsuccessful! Please check target cohort configuration!")
-    return(NULL)
-  }
-  else{
-  cdm <- omopgenerics::insertTable(cdm = cdm,
-                                   name = "target",
-                                   table = insertedCSVTarget,
-                                   overwrite = T)
-  cdm$target <- omopgenerics::newCohortTable(cdm$target)
-  }
-  if (is.null(insertedCSVControl) | useInverseControls | useTargetMatching) {
-    if(useInverseControls & useTargetMatching) {
-      printCustomMessage('WARNING: Both useInverseControls & useTargetMatching are marked as TRUE. Using useInverseControls as default!')
-    }
-    if(useInverseControls){
-      printCustomMessage("Inverse control cohort creation initiated ...")
-      cdm <- createControlCohortInverse(cdm)
-    }
-    else {
-      printCustomMessage("Control cohort CSV import unsuccessful! Automatic control cohort creation initiated ...")
-      cdm <- createControlCohortMatching(cdm)
-    }
-  }
-  else {
-    cdm <- omopgenerics::insertTable(cdm = cdm,
-                                     name = "control",
-                                     table = insertedCSVControl,
-                                     overwrite = T)
-    cdm$control <- omopgenerics::newCohortTable(cdm$control)
-  }
-
-  nudgeCohorts(cdm, nudgeTarget, nudgeControl)
-
-  printCustomMessage("Cohort import from CSV successful!")
-
-  return(cdm)
-}
-
-#' Function to nudge cohorts
-#'
-#' This function outputs a dataframe with columns SUBJECT_ID, COHORT_DEFINITION_ID, COHORT_START_DATE, COHORT_END_DATE
-#' @param cdm Connection to database
-#' @param nudgeTarget number of days you would like to nudge the target cohort start day
-#' @param nudgeControl number of days you would like to nudge the control cohort start day
-#'
-#' @keywords internal
-nudgeCohorts <- function(cdm, nudgeTarget, nudgeControl) {
-  if (nudgeTarget != FALSE) {
-    cdm$target <-  cdm$target |>
-      dplyr::mutate(cohort_start_date + nudgeTarget)
-    printCustomMessage("Nudging target cohort EXECUTED!")
-  }
-  if (nudgeControl != FALSE) {
-    cdm$control <-  cdm$control |>
-      dplyr::mutate(cohort_start_date + nudgeTarget)
-    printCustomMessage("Nudging control cohort EXECUTED!")
-  }
-}
-
-#' This function creates target and control tables into the CDMConnector instance from the JSON files
-#' @param cdm Connection to database (CDMConnector object)
-#' @param insertedJSONTarget The JSON representation for target cohort
-#' @param insertedJSONControl The JSON representation  for control cohort
-#' @param nudgeTarget number of days you would like to nudge the target cohort start day
-#' @param nudgeControl number of days you would like to nudge the control cohort start day
-#' @param useInverseControls Boolean for using inverse controls (target cohort's observation period which is not included)
-#' @param useTargetMatching Boolean for using patient matching for controls
-#'
-#' @keywords internal
-processJSONData <- function(cdm, useInverseControls = FALSE, useTargetMatching = FALSE, insertedJSONTarget, insertedJSONControl, nudgeTarget, nudgeControl) {
-  if(is.null(insertedJSONTarget))
-  {
-    printCustomMessage("Target cohort JSON import unsuccessful! Please check target cohort configuration!")
-    return(NULL)
-  }
-  else{
-    printCustomMessage("Generating target cohort from JSON ...")
-    cdm = CDMConnector::generateCohortSet(
-      cdm,
-      cohortSet = insertedJSONTarget,
-      name = "target",
-      computeAttrition = TRUE,
-      overwrite = TRUE
-    )
-  cdm$target <- omopgenerics::newCohortTable(cdm$target)
-  }
-  if (is.null(insertedJSONControl) | useInverseControls | useTargetMatching) {
-    if(useInverseControls & useTargetMatching) {
-      printCustomMessage('WARNING: Both useInverseControls & useTargetMatching are marked as TRUE. Using useInverseControls as default!')
-    }
-    if(useInverseControls){
-      printCustomMessage("Inverse control cohort creation initiated ...")
-      cdm <- createControlCohortInverse(cdm)
-    }
-    else {
-      printCustomMessage("Control cohort JSON import unsuccessful! Automatic control cohort creation initiated ...")
-      cdm <- createControlCohortMatching(cdm)
-    }
-  }
-  else {
-    printCustomMessage("Generating control cohort from JSON ...")
-    cdm = CDMConnector::generateCohortSet(
-      cdm,
-      cohortSet = insertedJSONControl,
-      name = "control",
-      computeAttrition = TRUE,
-      overwrite = TRUE
-    )
-    cdm$control <- omopgenerics::newCohortTable(cdm$control)
-  }
-  nudgeCohorts(cdm, nudgeTarget, nudgeControl)
-
-  return(cdm)
-}
-
-#' Function for creating automatic matches based on age and sex
-#'
-#' @param cdm Connection to the database (package CDMConnector)
-#' @param ratio ratio for the number of matches generated
-#' @keywords internal
-createControlCohortMatching <- function(cdm, ratio = 1) {
-  # 1. Create a match cohort of the target cohort based on all the people in the database ----
-  cdm$control <-
-    CohortConstructor::matchCohorts(cdm$target, ratio = ratio, name = "control")
-  # 2. Restrict the people in the matched cohort to those in the control cohort ----
-  # cdi_control <-
-  #   omopgenerics::getCohortId(cdm$control, cohortName = "cohort_2_matched")
-  cdm$control <- cdm$control |>
-    # Filter to people in the matched cohort
-    dplyr::filter(cohort_definition_id == 2) |>
-    dplyr::select(-cluster_id)
-  printCustomMessage("Automatic control cohort creation completed")
-  return(cdm)
-}
-
-#' Function for creating automatic matches based on inverse control logic
-#'
-#' @param cdm Connection to the database (package CDMConnector)
-#' @keywords internal
-createControlCohortInverse <- function(cdm) {
-  # Left join with observation periods
-  result <- cdm$target %>%
-    dplyr::left_join(cdm$observation_period, by = c("subject_id" = "person_id")) %>%
-    dplyr::mutate(
-      start_period = paste(observation_period_start_date, cohort_start_date, sep = " "),
-      end_period = paste(cohort_end_date, observation_period_end_date, sep = " ")
-    ) %>%
-    dplyr::select(cohort_definition_id, subject_id, start_period, end_period) %>%
-    as.data.frame() # We have to create a dataframe because of the usage of separate_rows func
-
-  # Create table for inverse dates used in the target cohort
-  long_result <- result %>%
-    tidyr::pivot_longer(
-      cols = c(start_period, end_period),
-      names_to = "period_type",
-      values_to = "period"
-    ) %>%
-    tidyr::separate_rows(period, sep = " ") %>%
-    dplyr::group_by(cohort_definition_id, subject_id, period_type) %>%
-    dplyr::summarize(
-      cohort_start_date = as.Date(dplyr::first(period)),
-      cohort_end_date = as.Date(dplyr::last(period)),
-      .groups = 'drop'
-    ) %>% dplyr::select(-period_type) %>%
-    dplyr::filter(cohort_start_date < cohort_end_date)
-
-  cdm <- omopgenerics::insertTable(
-    cdm = cdm,
-    name = "control",
-    table = long_result,
-    overwrite = T
-  )
-  cdm$control <- omopgenerics::newCohortTable(cdm$control)
-  printCustomMessage("Inverse control cohort creation completed")
-  return(cdm)
 }

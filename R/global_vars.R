@@ -88,7 +88,8 @@ utils::globalVariables(
     'SCALED_PREVALENCE',
     'TARGET_SUBJECT_COUNT',
     'TARGET_SUBJECT_PREVALENCE',
-    'TEMP'
+    'TEMP',
+    '.data'
 
   )
 )

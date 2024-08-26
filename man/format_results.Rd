@@ -7,7 +7,6 @@
 format_results(
   object,
   pathToResults,
-  studyName,
   autoScaleRate,
   applyInverseTarget,
   applyZTest,
@@ -18,8 +17,6 @@ format_results(
 \item{object}{CohortContrast returned object}
 
 \item{pathToResults}{Path to the results folder, can be project's working directory}
-
-\item{studyName}{Customized name for the study}
 
 \item{autoScaleRate}{Boolean for scaling the prevalences}
 

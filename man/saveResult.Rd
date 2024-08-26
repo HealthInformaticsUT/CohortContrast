@@ -4,14 +4,12 @@
 \alias{saveResult}
 \title{This function saves the resulting data object}
 \usage{
-saveResult(data, pathToResults, studyName)
+saveResult(data, pathToResults)
 }
 \arguments{
 \item{data}{Data list object}
 
 \item{pathToResults}{Path to the results folder, can be project's working directory}
-
-\item{studyName}{Customized name for the study}
 }
 \description{
 This function saves the resulting data object
