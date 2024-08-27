@@ -70,6 +70,8 @@
 #'   useInverseControls = FALSE,
 #'   useTargetMatching = FALSE
 #' )
+#'
+#' DBI::dbDisconnect(con)
 createCohortContrastCohorts <- function(cdm,
                                         db,
                                         targetTableName = NULL,

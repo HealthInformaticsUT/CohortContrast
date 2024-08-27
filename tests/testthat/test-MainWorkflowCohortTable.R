@@ -62,5 +62,7 @@ test_that("Created features table is correct.", {
   expect_equal(nrow(data$data_initial) == 10, TRUE)
   expect_equal(nrow(data$data_person) == 2694, TRUE)
   expect_equal(nrow(data$data_patients) == 61, TRUE)
+
+  DBI::dbDisconnect(con)
 })
 #> Test passed 🥇

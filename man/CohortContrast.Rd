@@ -112,5 +112,7 @@ runZTests = TRUE,
 runLogitTests = FALSE,
 createOutputFiles = FALSE
 )
+
+DBI::dbDisconnect(con)
 }
 \keyword{external}

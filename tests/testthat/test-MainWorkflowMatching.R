@@ -53,6 +53,7 @@ test_that("Created features table is correct with JSON & patient matching", {
   expect_equal(nrow(data$data_initial) == 10, TRUE)
   expect_equal(nrow(data$data_person) == 2694, TRUE)
 #  expect_equal(nrow(data$data_patients) == 60, TRUE)
+  DBI::dbDisconnect(con)
 })
 #> Test passed 🥇
 test_that("Created features table is correct with Cohorts table & patient matching.", {
@@ -117,6 +118,7 @@ test_that("Created features table is correct with Cohorts table & patient matchi
   expect_equal(nrow(data$data_initial) == 10, TRUE)
   expect_equal(nrow(data$data_person) == 2694, TRUE)
 #  expect_equal(nrow(data$data_patients) == 57, TRUE)
+  DBI::dbDisconnect(con)
 })
 #> Test passed 🥇
 

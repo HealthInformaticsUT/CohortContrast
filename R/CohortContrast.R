@@ -82,6 +82,8 @@
 #' runLogitTests = FALSE,
 #' createOutputFiles = FALSE
 #' )
+#'
+#' DBI::dbDisconnect(con)
 CohortContrast <- function(cdm,
                            pathToResults,
                            domainsIncluded = c(

@@ -109,5 +109,7 @@ cdm <- createCohortContrastCohorts(
   useInverseControls = FALSE,
   useTargetMatching = FALSE
 )
+
+DBI::dbDisconnect(con)
 }
 \keyword{internal}
