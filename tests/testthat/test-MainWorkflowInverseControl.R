@@ -117,6 +117,7 @@ expect_equal(nrow(data$resultList$trajectoryData) == 141, TRUE)
 expect_equal(nrow(data$data_initial) == 10, TRUE)
 expect_equal(nrow(data$data_person) == 2694, TRUE)
 expect_equal(nrow(data$data_patients) == 59, TRUE)
+DBI::dbDisconnect(con)
 })
 #> Test passed 🥇
 
