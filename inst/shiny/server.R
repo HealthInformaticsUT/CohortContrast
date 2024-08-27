@@ -32,8 +32,9 @@ server = function(input, output, session) {
   load_study_data <- function() {
     names_and_rows <- list()
     study_names <- get_study_names(pathToResults)
+    print(study_names)
     for (study_name in study_names) {
-      file_path <- str_c(pathToResults, "/tmp/datasets/", study_name, "_CC_medData.rdata")
+      file_path <- str_c(pathToResults, "/", study_name, ".rdata")
 
       if (file.exists(file_path)) {
         load(file_path)
@@ -64,7 +65,7 @@ server = function(input, output, session) {
     req(input$studyName)
     split_name <- unlist(strsplit(input$studyName, " ", fixed = TRUE))
     correct_study_name <- split_name[1]
-    file_path <- str_c(pathToResults, "/tmp/datasets/", correct_study_name, "_CC_medData.rdata")
+    file_path <- str_c(pathToResults, "/", correct_study_name, ".rdata")
     studyName(correct_study_name)
 
     if (file.exists(file_path)) {
@@ -217,13 +218,13 @@ server = function(input, output, session) {
   # Save data to file on button press
   observeEvent(input$save_btn, {
     # Create the base file path
-    file_base <- str_c(pathToResults, "/tmp/datasets/", studyName(), "_Snapshot")
-    file_path <- str_c(file_base, "_CC_medData.rdata")
+    file_base <- str_c(pathToResults, "/", studyName(), "_Snapshot")
+    file_path <- str_c(file_base, ".rdata")
     counter <- 1
 
     # Check if file exists and append increasing numbers if necessary
     while (file.exists(file_path)) {
-      file_path <- str_c(file_base, "_", counter, "_CC_medData.rdata")
+      file_path <- str_c(file_base, "_", counter, ".rdata")
       counter <- counter + 1
     }
     # Extract the data from the reactive

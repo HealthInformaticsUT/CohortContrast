@@ -46,7 +46,7 @@ cdmResultsSchema <-
   Sys.getenv("OHDSI_RESULTS") #TODO # Schema which will contain the final results
 writeSchema <-
   Sys.getenv("OHDSI_WRITE") #TODO # Schema for temporary tables, will be deleted
-writePrefix <- paste("cc_", tolower(studyName), "_", sep = "")
+writePrefix <- "cc_"
 
 targetTableName = NULL
 controlTableName = NULL
@@ -120,13 +120,13 @@ data = CohortContrast::CohortContrast(
   topDogs = FALSE, # Number of features to export
   presenceFilter = 0.2, # 0-1, percentage of people who must have the chosen feature present
   complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
-  createC2TInput = TRUE,
+  createC2TInput = FALSE,
   runZTests = TRUE,
-  runLogitTests = FALSE)
+  runLogitTests = FALSE,
+  createOutputFiles = TRUE)
   
  CohortContrast::runCohortContrastGUI(
- pathToResults = pathToResults,
- studyName = studyName
+ pathToResults = pathToResults
 )
  ```
 

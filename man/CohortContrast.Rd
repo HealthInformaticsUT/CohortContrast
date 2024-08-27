@@ -99,18 +99,19 @@ cdm <- createCohortContrastCohorts(
 pathToResults = getwd()
 
 data = CohortContrast(
-cdm,
-pathToResults,
-domainsIncluded = c(
- "Drug"
-),
-prevalenceCutOff = 2,
-topK = FALSE,
-complementaryMappingTable = FALSE,
-createC2TInput = FALSE,
-runZTests = TRUE,
-runLogitTests = FALSE,
-createOutputFiles = FALSE
+  cdm,
+  pathToResults,
+  domainsIncluded = c(
+    "Drug"
+  ),
+  prevalenceCutOff = 0.1,
+  topK = FALSE,
+  presenceFilter = 0.005,
+  complementaryMappingTable = FALSE,
+  createC2TInput = FALSE,
+  runZTests = FALSE,
+  runLogitTests = FALSE,
+  createOutputFiles = FALSE
 )
 
 DBI::dbDisconnect(con)
