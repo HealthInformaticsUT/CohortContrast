@@ -11,26 +11,17 @@ test_that("Created features table is correct.", {
   ################################################################################
   pathToCSV <- paste(pathToResults, '/inst/CSV/cohort/cohort.csv', sep = '')
 
-  con <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+  db <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
 
-  cdm <- CDMConnector::cdm_from_con(con, cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
+  cdm <- CDMConnector::cdm_from_con(db, cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
 
-  cdm <- createCohortContrastCohorts(
-    cdm,
-    con,
-    targetTableName = NULL,
-    controlTableName = NULL,
-    targetTableSchemaName = NULL,
-    controlTableSchemaName = NULL,
-    cohortsTableSchemaName = NULL,
-    cohortsTableName = NULL,
-    targetCohortId = 1,
-    controlCohortId = 2,
-    pathToCohortsCSVFile = pathToCSV,
-    nudgeTarget = FALSE,
-    nudgeControl = FALSE,
-    useInverseControls = FALSE,
-    useTargetMatching = FALSE
+  targetTable <- cohortFromCSV(pathToCsv = pathToCSV, cohortId = 1)
+  controlTable <- cohortFromCSV(pathToCsv = pathToCSV, cohortId = 2)
+
+  cdm <- createCohortContrastCdm(
+    cdm = cdm,
+    targetTable = targetTable,
+    controlTable = controlTable
   )
   ################################################################################
   #
@@ -57,6 +48,6 @@ test_that("Created features table is correct.", {
   expect_equal(nrow(data$data_person) == 2694, TRUE)
   expect_equal(nrow(data$data_patients) == 61, TRUE)
 
-  DBI::dbDisconnect(con)
+  DBI::dbDisconnect(db)
 })
 #> Test passed 🥇

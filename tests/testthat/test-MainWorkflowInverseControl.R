@@ -11,23 +11,19 @@ test_that("Created features table is correct with JSON inverseControl.", {
   ################################################################################
 
   target <- readr::read_csv('./inst/CSV/target/target.csv')
-  con <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
-  DBI::dbExecute(con, "CREATE SCHEMA IF NOT EXISTS testthat")
-  DBI::dbWriteTable(con,   DBI::SQL('"testthat"."target_mock"'), target)
+  db  <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+  DBI::dbExecute(db , "CREATE SCHEMA IF NOT EXISTS testthat")
+  DBI::dbWriteTable(db ,   DBI::SQL('"testthat"."target_mock"'), target)
 
-  cdm <- CDMConnector::cdm_from_con(con, cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
+  cdm <- CDMConnector::cdm_from_con(db , cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
 
-  cdm <- createCohortContrastCohorts(
-    cdm,
-    con,
-    targetTableName = 'target_mock',
-    controlTableName = NULL,
-    targetTableSchemaName = 'testthat',
-    controlTableSchemaName = NULL,
-    nudgeTarget = FALSE,
-    nudgeControl = FALSE,
-    useInverseControls = TRUE,
-    useTargetMatching = FALSE
+  targetTable <- cohortFromCohortTable(cdm = cdm, db = db, tableName = "target_mock", schemaName = 'testthat')
+  controlTable <- createControlCohortInverse(cdm = cdm, targetTable = targetTable)
+
+  cdm <- createCohortContrastCdm(
+    cdm = cdm,
+    targetTable = targetTable,
+    controlTable = controlTable
   )
   ################################################################################
   #
@@ -71,27 +67,19 @@ target$cohort_definition_id = 500
 
 cohort = rbind(control, target)
 
-con <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
-DBI::dbExecute(con, "CREATE SCHEMA IF NOT EXISTS testthat")
-DBI::dbWriteTable(con,   DBI::SQL('"testthat"."cohort"'), cohort)
+db  <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+DBI::dbExecute(db , "CREATE SCHEMA IF NOT EXISTS testthat")
+DBI::dbWriteTable(db ,   DBI::SQL('"testthat"."cohort"'), cohort)
 
-cdm <- CDMConnector::cdm_from_con(con, cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
+cdm <- CDMConnector::cdm_from_con(db , cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
 
-cdm <- createCohortContrastCohorts(
-  cdm,
-  con,
-  targetTableName = NULL,
-  controlTableName = NULL,
-  targetTableSchemaName = NULL,
-  controlTableSchemaName = NULL,
-  cohortsTableSchemaName = 'testthat',
-  cohortsTableName = 'cohort',
-  targetCohortId = 500,
-  controlCohortId = NULL,
-  nudgeTarget = FALSE,
-  nudgeControl = FALSE,
-  useInverseControls = TRUE,
-  useTargetMatching = FALSE
+targetTable <- cohortFromCohortTable(cdm = cdm, db = db, tableName = "cohort", schemaName = 'testthat', cohortId = 500)
+controlTable <- createControlCohortInverse(cdm = cdm, targetTable = targetTable)
+
+cdm <- createCohortContrastCdm(
+  cdm = cdm,
+  targetTable = targetTable,
+  controlTable = controlTable
 )
 ################################################################################
 #
@@ -117,7 +105,7 @@ expect_equal(nrow(data$resultList$trajectoryData) == 141, TRUE)
 expect_equal(nrow(data$data_initial) == 10, TRUE)
 expect_equal(nrow(data$data_person) == 2694, TRUE)
 expect_equal(nrow(data$data_patients) == 59, TRUE)
-DBI::dbDisconnect(con)
+DBI::dbDisconnect(db)
 })
 #> Test passed 🥇
 
