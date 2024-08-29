@@ -20,7 +20,7 @@
 #'
 #' @return object of dataframes and updated cdm object
 #'
-#' @keywords internal
+#' @export
 #'
 #' @examples
 #' # Example usage of createCohortContrastCohorts
@@ -70,8 +70,6 @@
 #'   useInverseControls = FALSE,
 #'   useTargetMatching = FALSE
 #' )
-#'
-#' DBI::dbDisconnect(con)
 createCohortContrastCohorts <- function(cdm,
                                         db,
                                         targetTableName = NULL,
@@ -121,15 +119,15 @@ createCohortContrastCohorts <- function(cdm,
     } else{
       printCustomMessage("Creating target cohort table based on cohorts' id ...")
       if ((!is.null(targetCohortId) && !is.null(cohortsTableName))){
-      targetTable <-
-        dplyr::tbl(db,
-                   CDMConnector::in_schema(cohortsTableSchemaName, cohortsTableName))
-      targetTable = targetTable %>% dplyr::filter(.data$cohort_definition_id == targetCohortId) %>% as.data.frame()
+        targetTable <-
+          dplyr::tbl(db,
+                     CDMConnector::in_schema(cohortsTableSchemaName, cohortsTableName))
+        targetTable = targetTable %>% dplyr::filter(.data$cohort_definition_id == targetCohortId) %>% as.data.frame()
       }
       else{
         printCustomMessage("Reading target data from cohort CSV ...")
-      cohortTable = readr::read_csv(pathToCohortsCSVFile)
-      targetTable = cohortTable %>% dplyr::filter(.data$cohort_definition_id == targetCohortId)
+        cohortTable = readr::read_csv(pathToCohortsCSVFile)
+        targetTable = cohortTable %>% dplyr::filter(.data$cohort_definition_id == targetCohortId)
       }
       cdm <- omopgenerics::insertTable(cdm = cdm,
                                        name = "target",
@@ -228,6 +226,7 @@ createCohortContrastCohorts <- function(cdm,
 #' @param nudgeControl number of days you would like to nudge the control cohort start day
 #'
 #' @keywords internal
+
 nudgeCohorts <- function(cdm, nudgeTarget, nudgeControl) {
   if (nudgeTarget != FALSE) {
     cdm$target <-  cdm$target |>
@@ -246,6 +245,7 @@ nudgeCohorts <- function(cdm, nudgeTarget, nudgeControl) {
 #' @param cdm Connection to the database (package CDMConnector)
 #' @param ratio ratio for the number of matches generated
 #' @keywords internal
+
 createControlCohortMatching <- function(cdm, ratio = 1) {
   # 1. Create a match cohort of the target cohort based on all the people in the database ----
   cdm$control <-
@@ -263,6 +263,7 @@ createControlCohortMatching <- function(cdm, ratio = 1) {
 #'
 #' @param cdm Connection to the database (package CDMConnector)
 #' @keywords internal
+
 createControlCohortInverse <- function(cdm) {
   # Left join with observation periods
   result <- cdm$target %>%

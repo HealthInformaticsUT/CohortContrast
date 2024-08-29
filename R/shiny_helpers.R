@@ -22,6 +22,7 @@ if (!requireNamespace("patchwork", quietly = TRUE)) {
 #' @param applyLogitTest Boolean for applying Logit tests
 #'
 #' @keywords internal
+
 format_results <- function(
     object, pathToResults, autoScaleRate, applyInverseTarget, applyZTest, applyLogitTest) {
 
@@ -226,6 +227,7 @@ format_results <- function(
 #' @param removeUntreated Boolean for removing untreated patients
 #'
 #' @keywords internal
+
 filter_target = function(target, prevalence_thereshold = 0.01, prevalence_ratio_threshold = 1, domain, removeUntreated){
   res = target
   res$target_row_annotation = res$target_row_annotation %>%
@@ -248,12 +250,13 @@ filter_target = function(target, prevalence_thereshold = 0.01, prevalence_ratio_
 #' @param filtered_target filtered target object
 #'
 #' @keywords internal
+
 plot_prevalence = function(filtered_target){
   # Check if the input is NULL or empty
   if (is.null(filtered_target) || nrow(filtered_target$target_row_annotation) == 0) {
     return(ggplot2::ggplot() +
              ggplot2::annotate("text", x = 0.5, y = 0.5, label = "After filtering there are no concepts left",
-                      hjust = 0.5, vjust = 0.5, size = 20, fontface = "bold", color = "black") +
+                               hjust = 0.5, vjust = 0.5, size = 20, fontface = "bold", color = "black") +
              ggplot2::theme_void())
   }
   # TODO: IF nrow(filtered_target$target_matrix) is NULL print some relevant wanring message, it means too harsh filters 0 people will remain
@@ -361,16 +364,17 @@ plot_prevalence = function(filtered_target){
 #' @param filtered_target filtered target object
 #'
 #' @keywords internal
+
 plot_heatmap = function(filtered_target){
   # Check if the input is NULL or empty
   if (is.null(filtered_target) || nrow(filtered_target$target_row_annotation) == 0) {
     return(ggplot2::ggplot() +
              ggplot2::annotate("text", x = 0.5, y = 0.5, label = "After filtering there are no concepts left",
-                      hjust = 0.5, vjust = 0.5, size = 12, fontface = "bold", color = "black") +
+                               hjust = 0.5, vjust = 0.5, size = 12, fontface = "bold", color = "black") +
              ggplot2::theme_void())
   }
   # Patient clustering
-  col_clustering = stats::hclust(dist(t(filtered_target$target_matrix)))
+  col_clustering = stats::hclust(stats::dist(t(filtered_target$target_matrix)))
 
   # Row reordering
   reordering = filtered_target$target_row_annotation %>%
@@ -382,7 +386,7 @@ plot_heatmap = function(filtered_target){
       MATRIX,
       function(x){
         if(nrow(x) > 1){
-          x = x[stats::hclust(dist(x))$order, ]
+          x = x[stats::hclust(stats::dist(x))$order, ]
         }
 
         return(x)
@@ -459,6 +463,7 @@ plot_heatmap = function(filtered_target){
 #' @param scaled_prev scaled prev
 #'
 #' @keywords internal
+
 update_features <- function(features, scaled_prev) {
   scaled_prev <- scaled_prev %>% dplyr::group_by(CONCEPT_ID, COHORT_DEFINITION_ID) %>%
     dplyr::summarise(AVG_SCALED_PREVALENCE = stats::median(SCALED_PREVALENCE, na.rm = TRUE)) %>%

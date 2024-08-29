@@ -14,7 +14,7 @@
 #'
 #' @importFrom dplyr %>%
 #'
-#' @keywords external
+#' @export
 #'
 #' @examples
 #' # Example of setting up CohortContrast tables with a dummy database
@@ -146,6 +146,7 @@ CohortContrast <- function(cdm,
 #' @param complementaryMappingTable Mappingtable for mapping concept_ids if present
 #'
 #' @keywords internal
+
 queryHeritageData <-
   function(dataPatient,
            cdm,
@@ -286,6 +287,7 @@ queryHeritageData <-
 #' @param presenceFilter Presence filter 0-1, if 0.1 then feature has to be present for at least 10 percent of patients
 #'
 #' @keywords internal
+
 performPrevalenceAnalysis <- function(data_patients,
            data_initial,
            targetCohortId,
@@ -340,7 +342,7 @@ performPrevalenceAnalysis <- function(data_patients,
         next
       } else {
         test_result <-
-          prop.test(
+          stats::prop.test(
             c(prevalence_cohort_1, prevalence_cohort_2),
             c(sample_1_n, sample_2_n),
             conf.level = 0.95
@@ -369,6 +371,7 @@ performPrevalenceAnalysis <- function(data_patients,
 #' @param presenceFilter Presence filter 0-1, if 0.1 then feature has to be present for at least 10 percent of patients
 #'
 #' @keywords internal
+
 performPrevalenceAnalysisLogistic <-
   function(data_patients,
            data_initial,
@@ -429,12 +432,12 @@ performPrevalenceAnalysisLogistic <-
 
       # Perform logistic regression
       model <-
-        glm(TARGET ~ PREVALENCE, data = concept_data, family = binomial)
+        stats::glm(TARGET ~ PREVALENCE, data = concept_data, family = stats::binomial)
       summary_model <- summary(model)
 
       # Check if the presence of the concept is significant
       p_value <- summary_model$coefficients[2, 4]
-      odds_ratio <- exp(coef(model)[2])
+      odds_ratio <- exp(stats::coef(model)[2])
 
       if (!is.na(p_value) && p_value < alpha) {
         significant_concepts <- rbind(
@@ -457,6 +460,7 @@ performPrevalenceAnalysisLogistic <-
 #' @importFrom dplyr %>%
 #'
 #' @keywords internal
+
 calculate_data_features <-
   function(data, nHighestPrevalenceDifference) {
     # Calculate number of patients per cohort
@@ -512,6 +516,7 @@ calculate_data_features <-
 #' @param complementaryMappingTable Mappingtable for mapping concept_ids if present
 #'
 #' @keywords internal
+
 handleMapping <- function(data, complementaryMappingTable) {
   printCustomMessage("Mapping according to predefined complementaryMappingTable...")
   # Join the dataframes on CONCEPT_ID
@@ -600,6 +605,7 @@ handleMapping <- function(data, complementaryMappingTable) {
 #' @param topK numeric > if set, keeps this number of features in the analysis. Maximum number of features exported.
 #'
 #' @keywords internal
+
 createDataFeatures <- function(data, topK) {
   printCustomMessage("Get top n features ...")
   data$data_features = calculate_data_features(data, topK)
@@ -616,6 +622,7 @@ createDataFeatures <- function(data, topK) {
 #' @param runLogitTests boolean for logit-tests
 #'
 #' @keywords internal
+
 handleTests <-
   function(data,
            targetCohortId,
@@ -684,6 +691,7 @@ handleTests <-
 #' @param createOutputFiles Boolean for creating output files, the default value is TRUE
 #'
 #' @keywords internal
+
 handleFeatureSelection <-
   function(data,
            pathToResults,
@@ -788,6 +796,7 @@ handleFeatureSelection <-
 #' @param complementaryMappingTable Mappingtable for mapping concept_ids if present
 #'
 #' @keywords internal
+
 createC2TInput <-
   function(data,
            targetCohortId,
@@ -851,6 +860,7 @@ createC2TInput <-
 #' @param pathToResults Path to the results folder, can be project's working directory
 #'
 #' @keywords internal
+
 saveResult <- function(data, pathToResults) {
   # Generate a timestamp
   timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")

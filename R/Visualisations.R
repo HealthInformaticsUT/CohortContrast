@@ -8,6 +8,7 @@
 #' @param presenceFilter numeric > if set, removes all features represented less than the given percentage
 #' @param complementaryMappingTable Mappingtable for mapping concept_ids if present
 #' @keywords internal
+
 createTargetMatrixForHeatmap <- function(data,
                                          targetCohortId,
                                          prevalenceCutOff,
@@ -140,6 +141,7 @@ createTargetMatrixForHeatmap <- function(data,
 #' @param prevalenceThreshold numeric > if set, removes all features represented less than the given percentage
 #' @param complementaryMappingTable Mappingtable for mapping concept_ids if present
 #' @keywords internal
+
 createHeatmap <-
   function(data,
            cohortDefinitionId,
@@ -156,7 +158,7 @@ createHeatmap <-
     target_matrix = heatmapData$target_matrix
     person = heatmapData$demographics
     target_row_annotation = heatmapData$target_row_annotation
-    col_clustering = stats::hclust(dist(t(target_matrix)))
+    col_clustering = stats::hclust(stats::dist(t(target_matrix)))
 
 
     # Row reordering
@@ -174,7 +176,7 @@ createHeatmap <-
       MATRIX = purrr::map(MATRIX,
                           function(x) {
                             if (nrow(x) > 1) {
-                              x = x[hclust(dist(x))$order,]
+                              x = x[stats::hclust(stats::dist(x))$order,]
                             }
                             return(x)
                           })
