@@ -1,270 +1,71 @@
-#' @importFrom dplyr %>%
-
-#' @title Generate cohort tables for CohortContrast analysis
-#' Create relations of cohorts (target and control) to the database. If this function is run successfully, then CohortContrast package can be run.
-#' @param cdm CDMConnector object
-#' @param db Database instance (DBI)
-#' @param targetTableName Name of the table where target cohort is defined
-#' @param controlTableName Name of the table where control cohort is defined
-#' @param targetTableSchemaName Name of the schema where target cohort table is defined
-#' @param controlTableSchemaName Name of the schema where control cohort table is defined
-#' @param cohortsTableSchemaName Name of the schema where cohorts' table is defined
-#' @param cohortsTableName Name of the table where cohorts are defined
-#' @param targetCohortId The id for target cohort in cohorts' table
-#' @param controlCohortId The id for control cohort in cohorts' table
-#' @param pathToCohortsCSVFile The path to a CSV file that has data table for cohorts
-#' @param nudgeTarget number of days you would like to nudge the target cohort start day
-#' @param nudgeControl number of days you would like to nudge the control cohort start day
-#' @param useInverseControls Boolean for using inverse controls (target cohort's observation period which is not included)
-#' @param useTargetMatching Boolean for using patient matching for controls
+#' #' Function to nudge cohorts
+#' #'
+#' #' This function outputs a dataframe with columns SUBJECT_ID, COHORT_DEFINITION_ID, COHORT_START_DATE, COHORT_END_DATE
+#' #' @param cdm Connection to database
+#' #' @param nudgeTarget number of days you would like to nudge the target cohort start day
+#' #' @param nudgeControl number of days you would like to nudge the control cohort start day
+#' #'
+#' #' @keywords internal
 #'
-#' @return object of dataframes and updated cdm object
-#'
-#' @export
-#'
-#' @examples
-#' # Example usage of createCohortContrastCohorts
-#' control <- data.frame(
-#'   cohort_definition_id = c(1, 1, 1, 1, 1),
-#'   subject_id = c(5325, 3743, 2980, 1512, 2168),
-#'   cohort_start_date = as.Date(c("1982-06-02", "1997-03-23",
-#'    "2004-09-29", "2006-08-11", "1977-06-25")),
-#'   cohort_end_date = as.Date(c("2019-03-17", "2018-10-07",
-#'    "2018-04-01", "2017-11-29", "2018-11-22"))
-#' )
-#'
-#' target <- data.frame(
-#'   cohort_definition_id = c(1, 1, 1, 1, 1),
-#'   subject_id = c(4804, 4861, 1563, 2830, 1655),
-#'   cohort_start_date = as.Date(c("1997-03-23", "1982-06-02",
-#'    "1977-06-25", "2006-08-11", "2004-09-29")),
-#'   cohort_end_date = as.Date(c("2018-10-29", "2019-05-23",
-#'    "2019-04-20", "2019-01-14", "2019-05-24"))
-#' )
-#'
-#' control$cohort_definition_id = 100
-#' target$cohort_definition_id = 500
-#'
-#' cohort = rbind(control, target)
-#'
-#' con <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
-#' DBI::dbExecute(con, "CREATE SCHEMA IF NOT EXISTS testthat")
-#' DBI::dbWriteTable(con,   DBI::SQL('"testthat"."cohort"'), cohort)
-#'
-#' cdm <- CDMConnector::cdm_from_con(con, cdm_name = "eunomia",
-#'  cdm_schema = "main", write_schema = "main")
-#'
-#' cdm <- createCohortContrastCohorts(
-#'   cdm,
-#'   con,
-#'   targetTableName = NULL,
-#'   controlTableName = NULL,
-#'   targetTableSchemaName = NULL,
-#'   controlTableSchemaName = NULL,
-#'   cohortsTableSchemaName = 'testthat',
-#'   cohortsTableName = 'cohort',
-#'   targetCohortId = 500,
-#'   controlCohortId = 100,
-#'   nudgeTarget = FALSE,
-#'   nudgeControl = FALSE,
-#'   useInverseControls = FALSE,
-#'   useTargetMatching = FALSE
-#' )
-createCohortContrastCohorts <- function(cdm,
-                                        db,
-                                        targetTableName = NULL,
-                                        controlTableName = NULL,
-                                        targetTableSchemaName = NULL,
-                                        controlTableSchemaName = NULL,
-                                        cohortsTableSchemaName = NULL,
-                                        cohortsTableName = NULL,
-                                        targetCohortId = NULL,
-                                        controlCohortId = NULL,
-                                        pathToCohortsCSVFile = NULL,
-                                        nudgeTarget = FALSE,
-                                        nudgeControl = FALSE,
-                                        useInverseControls = FALSE,
-                                        useTargetMatching = FALSE) {
-  areRelationsDefined <- checkForCorrectRelationDefinitions(targetTableName = targetTableName,
-                                                            controlTableName = controlTableName,
-                                                            targetTableSchemaName = targetTableSchemaName,
-                                                            controlTableSchemaName = controlTableSchemaName,
-                                                            cohortsTableSchemaName = cohortsTableSchemaName,
-                                                            cohortsTableName = cohortsTableName,
-                                                            targetCohortId = targetCohortId,
-                                                            controlCohortId = controlCohortId,
-                                                            pathToCohortsCSVFile = pathToCohortsCSVFile)
-  if(!areRelationsDefined) {
-    printCustomMessage("Incorrect target and control cohort inputs, exiting ...")
-    return(cdm)
-  }
-
-  targetTable = NULL
-  cohortTable = NULL
-
-  if (!is.null(targetTableName) ||
-      (!is.null(targetCohortId) && !is.null(cohortsTableName)) || (!is.null(targetCohortId) && !is.null(pathToCohortsCSVFile))) {
-    # Creating target cohort table
-    if (!is.null(targetTableName)) {
-      printCustomMessage("Creating target cohort table based on target cohort's table ...")
-      targetTable <-
-        dplyr::tbl(db,
-                   CDMConnector::in_schema(targetTableSchemaName, targetTableName)) %>% as.data.frame()
-      cdm <- omopgenerics::insertTable(cdm = cdm,
-                                       name = "target",
-                                       table = targetTable,
-                                       overwrite = T)
-      cdm$target = omopgenerics::newCohortTable(cdm$target)
-
-    } else{
-      printCustomMessage("Creating target cohort table based on cohorts' id ...")
-      if ((!is.null(targetCohortId) && !is.null(cohortsTableName))){
-        targetTable <-
-          dplyr::tbl(db,
-                     CDMConnector::in_schema(cohortsTableSchemaName, cohortsTableName))
-        targetTable = targetTable %>% dplyr::filter(.data$cohort_definition_id == targetCohortId) %>% as.data.frame()
-      }
-      else{
-        printCustomMessage("Reading target data from cohort CSV ...")
-        cohortTable = readr::read_csv(pathToCohortsCSVFile)
-        targetTable = cohortTable %>% dplyr::filter(.data$cohort_definition_id == targetCohortId)
-      }
-      cdm <- omopgenerics::insertTable(cdm = cdm,
-                                       name = "target",
-                                       table = targetTable,
-                                       overwrite = T)
-      cdm$target = omopgenerics::newCohortTable(cdm$target)
-    }
-    # Creating control cohort table
-    if (!is.null(controlTableName)) {
-      printCustomMessage("Creating control cohort table based on control cohort's table ...")
-      controlTable <-
-        dplyr::tbl(db,
-                   CDMConnector::in_schema(controlTableSchemaName, controlTableName)) %>% as.data.frame()
-      cdm <- omopgenerics::insertTable(cdm = cdm,
-                                       name = "control",
-                                       table = controlTable,
-                                       overwrite = T)
-      cdm$control = omopgenerics::newCohortTable(cdm$control)
-
-    }
-    else if ((!is.null(controlCohortId) &&
-              !is.null(cohortsTableName))) {
-      printCustomMessage("Creating control cohort table based on cohorts' id ...")
-      controlTable <-
-        dplyr::tbl(db,
-                   CDMConnector::in_schema(cohortsTableSchemaName, cohortsTableName)) %>% as.data.frame()
-      controlTable = controlTable %>% dplyr::filter(.data$cohort_definition_id == controlCohortId)
-      cdm <- omopgenerics::insertTable(cdm = cdm,
-                                       name = "control",
-                                       table = controlTable,
-                                       overwrite = T)
-      cdm$control = omopgenerics::newCohortTable(cdm$control)
-    }
-    else if (!is.null(controlCohortId) && !is.null(pathToCohortsCSVFile)){
-      printCustomMessage("Reading control data from cohort CSV ...")
-      controlTable = cohortTable %>% dplyr::filter(.data$cohort_definition_id == controlCohortId)
-      cdm <- omopgenerics::insertTable(cdm = cdm,
-                                       name = "control",
-                                       table = controlTable,
-                                       overwrite = T)
-      cdm$control = omopgenerics::newCohortTable(cdm$control)
-    }
-    else {
-      if (useInverseControls & useTargetMatching) {
-        printCustomMessage(
-          'WARNING: Both useInverseControls & useTargetMatching are marked as TRUE. Using useInverseControls as default!'
-        )
-      }
-      if (useInverseControls) {
-        printCustomMessage("Inverse control cohort creation initiated ...")
-        cdm <- createControlCohortInverse(cdm)
-      }
-      else {
-        printCustomMessage("Matching (based on AGE and SEX) control cohort creation initiated ...")
-        cdm <- createControlCohortMatching(cdm)
-      }
-    }
-
-  }
-  else {
-    printCustomMessage(
-      "ERROR: Something went wrong during cohorts' initiation, check your cohort tables configuration!"
-    )
-  }
-  # # Combine the target and control tables
-  cdm$target <-
-    cdm$target %>% dplyr::mutate(cohort_definition_id = as.integer(2))
-  cdm$control <-
-    cdm$control %>% dplyr::mutate(cohort_definition_id = as.integer(1))
-
-  if(is.numeric(nudgeTarget) | is.numeric(nudgeControl)){
-    nudgeCohorts(cdm = cdm, nudgeTarget = nudgeTarget, nudgeControl = nudgeControl)
-  }
-
-  cohortcontrast_cohorts <-
-    dplyr::bind_rows(cdm$target %>% as.data.frame(),
-                     cdm$control %>% as.data.frame())
-
-  cdm <- omopgenerics::insertTable(
-    cdm = cdm,
-    name = "cohortcontrast_cohorts",
-    table = cohortcontrast_cohorts,
-    overwrite = T
-  )
-
-  printCustomMessage("Cohort table initiation successful! You can now execute CohortContrast")
-
-  return(cdm)
-}
-
-#' Function to nudge cohorts
-#'
-#' This function outputs a dataframe with columns SUBJECT_ID, COHORT_DEFINITION_ID, COHORT_START_DATE, COHORT_END_DATE
-#' @param cdm Connection to database
-#' @param nudgeTarget number of days you would like to nudge the target cohort start day
-#' @param nudgeControl number of days you would like to nudge the control cohort start day
-#'
-#' @keywords internal
-
-nudgeCohorts <- function(cdm, nudgeTarget, nudgeControl) {
-  if (nudgeTarget != FALSE) {
-    cdm$target <-  cdm$target |>
-      dplyr::mutate(cohort_start_date + nudgeTarget)
-    printCustomMessage("Nudging target cohort EXECUTED!")
-  }
-  if (nudgeControl != FALSE) {
-    cdm$control <-  cdm$control |>
-      dplyr::mutate(cohort_start_date + nudgeTarget)
-    printCustomMessage("Nudging control cohort EXECUTED!")
-  }
-}
+#' nudgeCohorts <- function(cdm, nudgeTarget, nudgeControl) {
+#'   if (nudgeTarget != FALSE) {
+#'     cdm$target <-  cdm$target |>
+#'       dplyr::mutate(cohort_start_date + nudgeTarget)
+#'     printCustomMessage("Nudging target cohort EXECUTED!")
+#'   }
+#'   if (nudgeControl != FALSE) {
+#'     cdm$control <-  cdm$control |>
+#'       dplyr::mutate(cohort_start_date + nudgeTarget)
+#'     printCustomMessage("Nudging control cohort EXECUTED!")
+#'   }
+#' }
 
 #' Function for creating automatic matches based on age and sex
 #'
 #' @param cdm Connection to the database (package CDMConnector)
 #' @param ratio ratio for the number of matches generated
-#' @keywords internal
+#' @param targetTable A cohort tibble which contains subjects' cohort data
+#' @export
+#' @examples
+#' \dontrun{createControlCohortMatching(cdm = cdm, targetTable = targetTable, ratio = 2))}
+createControlCohortMatching <-
+  function(cdm, targetTable, ratio = 1) {
+    cdm <- omopgenerics::insertTable(
+      cdm = cdm,
+      name = "target",
+      table = targetTable %>% as.data.frame(),
+      overwrite = T
+    )
+    cdm$target = omopgenerics::newCohortTable(cdm$target)
+    # 1. Create a match cohort of the target cohort based on all the people in the database ----
+    cdm$control <-
+      CohortConstructor::matchCohorts(cdm$target, ratio = ratio, name = "control")
+    # 2. Restrict the people in the matched cohort to those in the control cohort ----
+    cdm$control <- cdm$control |>
+      # Filter to people in the matched cohort
+      dplyr::filter(cohort_definition_id == 2) |>
+      dplyr::select(-cluster_id)
+    result <- cdm$control %>% as.data.frame()
+    return(result)
+  }
 
-createControlCohortMatching <- function(cdm, ratio = 1) {
-  # 1. Create a match cohort of the target cohort based on all the people in the database ----
-  cdm$control <-
-    CohortConstructor::matchCohorts(cdm$target, ratio = ratio, name = "control")
-  # 2. Restrict the people in the matched cohort to those in the control cohort ----
-  cdm$control <- cdm$control |>
-    # Filter to people in the matched cohort
-    dplyr::filter(cohort_definition_id == 2) |>
-    dplyr::select(-cluster_id)
-  printCustomMessage("Automatic control cohort creation completed")
-  return(cdm)
-}
 
 #' Function for creating automatic matches based on inverse control logic
 #'
 #' @param cdm Connection to the database (package CDMConnector)
-#' @keywords internal
+#' @param targetTable A cohort tibble which contains subjects' cohort data
+#' @export
+#' @examples
+#' \dontrun{createControlCohortInverse(cdm = cdm, targetTable = targetTable)}
 
-createControlCohortInverse <- function(cdm) {
+createControlCohortInverse <- function(cdm, targetTable) {
+  cdm <- omopgenerics::insertTable(
+    cdm = cdm,
+    name = "target",
+    table = targetTable %>% as.data.frame(),
+    overwrite = T
+  )
+  cdm$target = omopgenerics::newCohortTable(cdm$target)
   # Left join with observation periods
   result <- cdm$target %>%
     dplyr::left_join(cdm$observation_period, by = c("subject_id" = "person_id")) %>%
@@ -276,7 +77,7 @@ createControlCohortInverse <- function(cdm) {
     as.data.frame() # We have to create a dataframe because of the usage of separate_rows func
 
   # Create table for inverse dates used in the target cohort
-  long_result <- result %>%
+  result <- result %>%
     tidyr::pivot_longer(
       cols = c(start_period, end_period),
       names_to = "period_type",
@@ -290,14 +91,177 @@ createControlCohortInverse <- function(cdm) {
       .groups = 'drop'
     ) %>% dplyr::select(-period_type) %>%
     dplyr::filter(cohort_start_date < cohort_end_date)
+  return(result)
+}
 
+#' @title Read cohort from database cohort table
+#' @param cdm CDMConnector object
+#' @param db Database instance (DBI)
+#' @param tableName Name of the table where the cohort is defined
+#' @param schemaName Name of the schema where the cohort table is defined
+#' @param cohortId The id for cohort in cohorts' table, if NULL whole table will be imported
+#'
+#' @return a tbl object for further CohortContrast usage
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' targetTable <- cohortFromCohortTable(cdm = cdm, db = db,
+#'  tableName = "cohort", schemaName = 'ohdsi_results', cohortId = 1389)
+#'}
+#' \dontrun{
+#' targetTable <- cohortFromCohortTable(cdm = cdm, db = db,
+#'  tableName = "asthma", schemaName = 'user_peter')
+#'}
+cohortFromCohortTable <- function(cdm,
+                                  db,
+                                  tableName = NULL,
+                                  schemaName = NULL,
+                                  cohortId = NULL) {
+  cohortTable <-
+    dplyr::tbl(db,
+               CDMConnector::in_schema(schemaName, tableName))
+  if (!is.null(cohortId)) {
+    cohortTable <-
+      dplyr::filter(cohortTable, cohort_definition_id == cohortId)
+  }
+  assertRequiredColumns(cohortTable)
+  return(cohortTable)
+}
+
+
+#' @title Read cohort from data.frame object
+#' @param data A data frame with cohort data
+#' @param cohortId The id for cohort in cohorts' table, if NULL whole table will be imported
+#'
+#' @return a tbl object for further CohortContrast usage
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' # Load necessary package
+#' library(tibble)
+#'
+#' # Create the dataframe
+#' data <- tribble(
+#'   ~cohort_definition_id, ~subject_id, ~cohort_start_date, ~cohort_end_date,
+#'   1, 4804, '1997-03-23', '2018-10-29',
+#'   1, 4861, '1982-06-02', '2019-05-23',
+#'   1, 1563, '1977-06-25', '2019-04-20',
+#'   1, 2830, '2006-08-11', '2019-01-14',
+#'   1, 1655, '2004-09-29', '2019-05-24',
+#'   2, 5325, '1982-06-02', '2019-03-17',
+#'   2, 3743, '1997-03-23', '2018-10-07',
+#'   2, 2980, '2004-09-29', '2018-04-01',
+#'   2, 1512, '2006-08-11', '2017-11-29',
+#'   2, 2168, '1977-06-25', '2018-11-22'
+#' )
+#' targetTable <- cohortFromDataTable(data = data, cohortId = 2)
+#'}
+cohortFromDataTable <- function(data, cohortId = NULL) {
+  cohortTable = data
+  if (!is.null(cohortId)) {
+    cohortTable <-
+      dplyr::filter(cohortTable, cohort_definition_id == cohortId)
+  }
+  cohortTable <- tibble::as_tibble(cohortTable)
+  assertRequiredColumns(cohortTable)
+  return(cohortTable)
+}
+
+
+#' @title Read cohort from CSV
+#' @param pathToCsv Path to the cohort data CSV file
+#' @param cohortId The id for cohort in cohorts' table, if NULL whole table will be imported
+#'
+#' @return a tbl object for further CohortContrast usage
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' pathToCsv = './cohorts.csv'
+#' targetTable <- cohortFromCSV(pathToCsv = pathToCsv, cohortId = 2)
+#'}
+cohortFromCSV <- function(pathToCsv, cohortId = NULL) {
+  cohortTable = readr::read_csv(pathToCsv)
+  if (!is.null(cohortId)) {
+    cohortTable <-
+      dplyr::filter(cohortTable, cohort_definition_id == cohortId)
+  }
+  cohortTable <- tibble::as_tibble(cohortTable)
+  assertRequiredColumns(cohortTable)
+  return(cohortTable)
+}
+
+#' @title Insert cohort tables to CDM instance, preparing them from CohortContrast analysis
+#' @param cdm CDMConnector object
+#' @param targetTable Table for target cohort (tbl)
+#' @param controlTable Table for control cohort (tbl)
+#'
+#' @return object of dataframes and updated cdm object
+#'
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' user <- Sys.getenv("DB_USERNAME") #TODO
+#' pw <- Sys.getenv("DB_PASSWORD") #TODO
+#' server <- stringr::str_c(Sys.getenv("DB_HOST"), "/", Sys.getenv("DB_NAME")) #TODO
+#' port <- Sys.getenv("DB_PORT") #TODO
+#
+#' cdmSchema <-
+#'   Sys.getenv("OHDSI_CDM")
+#' cdmVocabSchema <-
+#'   Sys.getenv("OHDSI_VOCAB")
+#' cdmResultsSchema <-
+#'   Sys.getenv("OHDSI_RESULTS")
+#' writeSchema <-
+#'   Sys.getenv("OHDSI_WRITE")
+#' writePrefix <- "cc_"
+#'
+#' db = DBI::dbConnect(
+#'   RPostgres::Postgres(),
+#'   dbname = Sys.getenv("DB_NAME"),
+#'   host = Sys.getenv("DB_HOST"),
+#'   user = Sys.getenv("DB_USERNAME"),
+#'   password = Sys.getenv("DB_PASSWORD"),
+#'   port  = port
+#' )
+#'
+#' cdm <- CDMConnector::cdmFromCon(
+#'   con = db,
+#'   cdmSchema = cdmSchema,
+#'   achillesSchema = cdmResultsSchema,
+#'   writeSchema = c(schema = writeSchema, prefix = writePrefix),
+#' )
+#'
+#'
+#' targetTable <- cohortFromCohortTable(cdm = cdm, db = db,
+#'  tableName = "cohort", schemaName = cdmResultsSchema, cohortId = 1)
+#' controlTable <- cohortFromCohortTable(cdm = cdm, db = db,
+#'  tableName = "cohort", schemaName = cdmResultsSchema, cohortId = 2)
+#'
+#' cdm <- createCohortContrastCdm(cdm = cdm, targetTable = targetTable, controlTable = controlTable)
+#' }
+#'
+createCohortContrastCdm <- function(cdm,
+                                    targetTable = NULL,
+                                    controlTable = NULL) {
+  # TODO: assert tbl for  targetTable and controlTable
+  targetTable <-
+    targetTable %>% as.data.frame() %>% dplyr::mutate(cohort_definition_id = 2)
+  controlTable <-
+    controlTable %>% as.data.frame() %>% dplyr::mutate(cohort_definition_id = 1)
+  cohortcontrast_cohorts <-
+    dplyr::bind_rows(targetTable,
+                     controlTable)
   cdm <- omopgenerics::insertTable(
     cdm = cdm,
-    name = "control",
-    table = long_result,
+    name = "cohortcontrast_cohorts",
+    table = cohortcontrast_cohorts,
     overwrite = T
   )
-  cdm$control <- omopgenerics::newCohortTable(cdm$control)
-  printCustomMessage("Inverse control cohort creation completed")
+
+  cdm$cohortcontrast_cohorts = omopgenerics::newCohortTable(cdm$cohortcontrast_cohorts)
   return(cdm)
 }

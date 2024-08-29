@@ -4,12 +4,16 @@
 \alias{createControlCohortInverse}
 \title{Function for creating automatic matches based on inverse control logic}
 \usage{
-createControlCohortInverse(cdm)
+createControlCohortInverse(cdm, targetTable)
 }
 \arguments{
 \item{cdm}{Connection to the database (package CDMConnector)}
+
+\item{targetTable}{A cohort tibble which contains subjects' cohort data}
 }
 \description{
 Function for creating automatic matches based on inverse control logic
 }
-\keyword{internal}
+\examples{
+\dontrun{createControlCohortInverse(cdm = cdm, targetTable = targetTable)}
+}

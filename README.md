@@ -24,7 +24,6 @@ To use CohortContrast, follow these steps to configure your environment and inpu
 
 3. **Run the Study**: Execute the study by using the CohortContrast functions.
 ```
-studyName <- "ExampleCohortContrast"
 pathToResults = getwd()
 
 ################################################################################

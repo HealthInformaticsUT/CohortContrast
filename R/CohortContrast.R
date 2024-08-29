@@ -48,21 +48,15 @@
 #' cdm <- CDMConnector::cdm_from_con(con, cdm_name = "eunomia",
 #'  cdm_schema = "main", write_schema = "main")
 #'
-#' cdm <- createCohortContrastCohorts(
-#'   cdm,
-#'   con,
-#'   targetTableName = NULL,
-#'   controlTableName = NULL,
-#'   targetTableSchemaName = NULL,
-#'   controlTableSchemaName = NULL,
-#'   cohortsTableSchemaName = 'example',
-#'   cohortsTableName = 'cohort',
-#'   targetCohortId = 500,
-#'   controlCohortId = 100,
-#'   nudgeTarget = FALSE,
-#'   nudgeControl = FALSE,
-#'   useInverseControls = FALSE,
-#'   useTargetMatching = FALSE
+#'  targetTable <- cohortFromCohortTable(cdm = cdm, db = con,
+#'   tableName = "cohort", schemaName = 'example', cohortId = 500)
+#' controlTable <- cohortFromCohortTable(cdm = cdm, db = con,
+#'  tableName = "cohort", schemaName = 'example', cohortId = 100)
+#'
+#' cdm <- createCohortContrastCdm(
+#'   cdm = cdm,
+#'   targetTable = targetTable,
+#'   controlTable = controlTable
 #' )
 #'
 #' pathToResults = getwd()

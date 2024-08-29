@@ -12,24 +12,20 @@ test_that("Created features table is correct.", {
 
   control <- readr::read_csv('./inst/CSV/control/control.csv')
   target <- readr::read_csv('./inst/CSV/target/target.csv')
-  con <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
-  DBI::dbExecute(con, "CREATE SCHEMA IF NOT EXISTS testthat")
-  DBI::dbWriteTable(con,   DBI::SQL('"testthat"."target_mock"'), target)
-  DBI::dbWriteTable(con,   DBI::SQL('"testthat"."control_mock"'), control)
+  db <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+  DBI::dbExecute(db , "CREATE SCHEMA IF NOT EXISTS testthat")
+  DBI::dbWriteTable(db ,   DBI::SQL('"testthat"."target_mock"'), target)
+  DBI::dbWriteTable(db ,   DBI::SQL('"testthat"."control_mock"'), control)
 
-  cdm <- CDMConnector::cdm_from_con(con, cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
+  cdm <- CDMConnector::cdm_from_con(db , cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
 
-  cdm <- createCohortContrastCohorts(
-    cdm,
-    con,
-    targetTableName = 'target_mock',
-    controlTableName = 'control_mock',
-    targetTableSchemaName = 'testthat',
-    controlTableSchemaName = 'testthat',
-    nudgeTarget = FALSE,
-    nudgeControl = FALSE,
-    useInverseControls = FALSE,
-    useTargetMatching = FALSE
+  targetTable <- cohortFromCohortTable(cdm = cdm, db = db, tableName = "target_mock", schemaName = 'testthat')
+  controlTable <- cohortFromCohortTable(cdm = cdm, db = db, tableName = "control_mock", schemaName = 'testthat')
+
+  cdm <- createCohortContrastCdm(
+    cdm = cdm,
+    targetTable = targetTable,
+    controlTable = controlTable
   )
 
   ################################################################################
@@ -57,6 +53,6 @@ test_that("Created features table is correct.", {
   expect_equal(nrow(data$data_person) == 2694, TRUE)
   expect_equal(nrow(data$data_patients) == 34, TRUE)
 
-  DBI::dbDisconnect(con)
+  DBI::dbDisconnect(db)
 })
 #> Test passed 🥇

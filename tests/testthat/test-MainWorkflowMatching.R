@@ -11,24 +11,21 @@ test_that("Created features table is correct with JSON & patient matching", {
   ################################################################################
 
   target <- readr::read_csv('./inst/CSV/target/target.csv')
-  con <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
-  DBI::dbExecute(con, "CREATE SCHEMA IF NOT EXISTS testthat")
-  DBI::dbWriteTable(con,   DBI::SQL('"testthat"."target_mock"'), target)
+  db  <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+  DBI::dbExecute(db , "CREATE SCHEMA IF NOT EXISTS testthat")
+  DBI::dbWriteTable(db ,   DBI::SQL('"testthat"."target_mock"'), target)
 
-  cdm <- CDMConnector::cdm_from_con(con, cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
+  cdm <- CDMConnector::cdm_from_con(db , cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
 
-  cdm <- createCohortContrastCohorts(
-    cdm,
-    con,
-    targetTableName = 'target_mock',
-    controlTableName = NULL,
-    targetTableSchemaName = 'testthat',
-    controlTableSchemaName = NULL,
-    nudgeTarget = FALSE,
-    nudgeControl = FALSE,
-    useInverseControls = FALSE,
-    useTargetMatching = TRUE
+  targetTable <- cohortFromCohortTable(cdm = cdm, db = db, tableName = "target_mock", schemaName = 'testthat')
+  controlTable <- createControlCohortMatching(cdm = cdm, targetTable = targetTable, ratio = 1)
+
+  cdm <- createCohortContrastCdm(
+    cdm = cdm,
+    targetTable = targetTable,
+    controlTable = controlTable
   )
+
   ################################################################################
   #
   # Run the study
@@ -53,7 +50,7 @@ test_that("Created features table is correct with JSON & patient matching", {
   expect_equal(nrow(data$data_initial) == 10, TRUE)
   expect_equal(nrow(data$data_person) == 2694, TRUE)
 #  expect_equal(nrow(data$data_patients) == 60, TRUE)
-  DBI::dbDisconnect(con)
+  DBI::dbDisconnect(db)
 })
 #> Test passed 🥇
 test_that("Created features table is correct with Cohorts table & patient matching.", {
@@ -72,27 +69,19 @@ test_that("Created features table is correct with Cohorts table & patient matchi
 
   cohort = rbind(control, target)
 
-  con <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
-  DBI::dbExecute(con, "CREATE SCHEMA IF NOT EXISTS testthat")
-  DBI::dbWriteTable(con,   DBI::SQL('"testthat"."cohort"'), cohort)
+  db  <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+  DBI::dbExecute(db , "CREATE SCHEMA IF NOT EXISTS testthat")
+  DBI::dbWriteTable(db ,   DBI::SQL('"testthat"."cohort"'), cohort)
 
-  cdm <- CDMConnector::cdm_from_con(con, cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
+  cdm <- CDMConnector::cdm_from_con(db , cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
 
-  cdm <- createCohortContrastCohorts(
-    cdm,
-    con,
-    targetTableName = NULL,
-    controlTableName = NULL,
-    targetTableSchemaName = NULL,
-    controlTableSchemaName = NULL,
-    cohortsTableSchemaName = 'testthat',
-    cohortsTableName = 'cohort',
-    targetCohortId = 500,
-    controlCohortId = NULL,
-    nudgeTarget = FALSE,
-    nudgeControl = FALSE,
-    useInverseControls = FALSE,
-    useTargetMatching = TRUE
+  targetTable <- cohortFromCohortTable(cdm = cdm, db = db, tableName = "cohort", schemaName = 'testthat', cohortId = 500)
+  controlTable <- cohortFromCohortTable(cdm = cdm, db = db, tableName = "cohort", schemaName = 'testthat', cohortId = 100)
+
+  cdm <- createCohortContrastCdm(
+    cdm = cdm,
+    targetTable = targetTable,
+    controlTable = controlTable
   )
   ################################################################################
   #
@@ -118,7 +107,7 @@ test_that("Created features table is correct with Cohorts table & patient matchi
   expect_equal(nrow(data$data_initial) == 10, TRUE)
   expect_equal(nrow(data$data_person) == 2694, TRUE)
 #  expect_equal(nrow(data$data_patients) == 57, TRUE)
-  DBI::dbDisconnect(con)
+  DBI::dbDisconnect(db)
 })
 #> Test passed 🥇
 
