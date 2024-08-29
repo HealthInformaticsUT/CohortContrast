@@ -9,6 +9,7 @@
 #' @param object Object to save
 #' @param path Path to the file saved
 #' @keywords internal
+
 save_object <- function(object, path) {
   if (is.data.frame(object)) {
     utils::write.csv(object, path, row.names = FALSE)
@@ -24,6 +25,7 @@ save_object <- function(object, path) {
 #' @param data A dataframe object with SUBJECT_ID values
 #' @param id The subject ID
 #' @keywords internal
+
 idExists <- function(data, id) {
   if (as.character(id) %in% unique(as.character(data$SUBJECT_ID)))
     return(TRUE)
@@ -33,6 +35,7 @@ idExists <- function(data, id) {
 #' Function to ensure that the path to results exists, creating mandatory subdirectories if necessary
 #' @param pathToResults The path where results will be stored
 #' @keywords internal
+
 createPathToResults <- function(pathToResults) {
   # Check if the main directory exists
   if (!dir.exists(pathToResults)) {
@@ -61,6 +64,7 @@ scale_to_1_0 <- function(x) {
 #' @param message Message to show
 #'
 #' @keywords internal
+
 printCustomMessage <- function(message) {
   # Calculate the length of the message to dynamically create the border
   border <- paste(rep("-", nchar(message)), collapse = "")
@@ -81,6 +85,7 @@ printCustomMessage <- function(message) {
 #' @param conceptIds Array of concept ids to use
 #' @param conceptNames Matching array of concept names to use
 #' @keywords internal
+
 createComplementaryMappingTable <-
   function(conceptIds, conceptNames) {
     # Check if vectors are of the same length
@@ -116,13 +121,17 @@ createComplementaryMappingTable <-
 #'
 #' @param pathToResults Path to the results folder, can be project's working directory
 #' @keywords internal
-get_study_names <- function(pathToResults) {
-  # List all files in the specified directory with .rdata extension
-  files <- list.files(pathToResults, full.names = TRUE, pattern = "\\.rdata$", ignore.case = TRUE)
 
-  # Extract study names by removing the path and .rdata extension
-  study_names <- basename(files) %>%
-    stringr::str_remove("\\.rdata$")
+get_study_names <- function(pathToResults) {
+  # List all files in the specified directory
+  tmpdir = paste(pathToResults,'/tmp/datasets/', sep = "" )
+  files <- list.files(tmpdir, full.names = TRUE, pattern = "_CC_medData\\.rdata$")
+
+  # Pattern to extract the study name from the filename
+  study_name_pattern <- "(?<=/)([^/]+)(?=_CC_medData\\.rdata$)"
+
+  # Extract study names from the filenames
+  study_names <- stringr::str_extract(files, study_name_pattern)
 
   # Return the unique study names
   return(unique(study_names))
@@ -135,6 +144,7 @@ get_study_names <- function(pathToResults) {
 #' @param cohort_start_date Cohort inclusion period start date
 #' @param cohort_end_date Cohort inclusion end date
 #' @keywords internal
+
 calculate_inverse_dates <- function(observation_period_start_date, observation_period_end_date, cohort_start_date, cohort_end_date) {
   inverse_date_ranges <- list()
 
@@ -160,6 +170,7 @@ calculate_inverse_dates <- function(observation_period_start_date, observation_p
 #' Function to sanitize a single string
 #' @param input_string A  state label name
 #' @keywords internal
+
 sanitize_single <- function(input_string) {
   safe_string <- gsub("[^A-Za-z0-9_.-]", "_", input_string)  # Corrected regex
   if (substr(safe_string, 1, 1) == '.') {
@@ -172,6 +183,7 @@ sanitize_single <- function(input_string) {
 #'
 #' @param input_strings A vector of state label names
 #' @keywords internal
+
 sanitize <- function(input_strings) {
   # Apply the sanitization function to each element of the vector
   sapply(input_strings, sanitize_single)
@@ -188,6 +200,7 @@ sanitize <- function(input_strings) {
 #' @param controlCohortId The id for control cohort in cohorts' table
 #' @param pathToCohortsCSVFile The path to a CSV file that has data table for cohorts
 #' @keywords internal
+
 checkForCorrectRelationDefinitions <- function(
     targetTableName = NULL,
     controlTableName = NULL,
@@ -219,4 +232,3 @@ checkForCorrectRelationDefinitions <- function(
   }
   return(targetDefined)
 }
-

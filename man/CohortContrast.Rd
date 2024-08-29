@@ -116,4 +116,3 @@ data = CohortContrast(
 
 DBI::dbDisconnect(con)
 }
-\keyword{external}

@@ -28,11 +28,35 @@ server = function(input, output, session) {
   data_patients <- reactiveVal(NULL)
   complementaryMappingTable <- reactiveVal(data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), stringsAsFactors = FALSE))
 
+  # Waiters
+  fullScreenWaiter <- waiter::Waiter$new(
+    html = tagList(
+      h4("Loading, please wait...", style = "color: white;"),
+      waiter::spin_3()
+    ),
+    color = "rgba(0, 0, 0, 0.75)"  # Semi-transparent black background
+  )
+  prevalencePlotWaiter <- waiter::Waiter$new(
+    id = "prevalence",  # Targeting the prevalence plot
+    html = tagList(
+      div(style = "color: white; font-size: 18px; text-align: center;", "Loading Prevalence Plot..."),
+      waiter::spin_3()
+    )
+  )
+
+  heatmapPlotWaiter <- waiter::Waiter$new(
+    id = "heatmap",  # Targeting the heatmap plot
+    html = tagList(
+      div(style = "color: white; font-size: 18px; text-align: center;", "Loading Heatmap Plot..."),
+      waiter::spin_3()
+    )
+  )
+
   # Function to load data and update study_info
   load_study_data <- function() {
     names_and_rows <- list()
+    printCustomMessage("EXECUTION: Loading studies from working directory ...")
     study_names <- get_study_names(pathToResults)
-    print(study_names)
     for (study_name in study_names) {
       file_path <- str_c(pathToResults, "/", study_name, ".rdata")
 
@@ -45,10 +69,11 @@ server = function(input, output, session) {
       }
     }
     study_info(names_and_rows)
+    printCustomMessage("COMPLETED: Loading studies from working directory")
   }
-
   # Initialize data on app start
   observe({
+    fullScreenWaiter$show()  # Show the loading screen
     load_study_data()
   })
 
@@ -65,9 +90,9 @@ server = function(input, output, session) {
     req(input$studyName)
     split_name <- unlist(strsplit(input$studyName, " ", fixed = TRUE))
     correct_study_name <- split_name[1]
+    printCustomMessage(paste("EXECUTION: Loading study", correct_study_name, "from working directory ...", sep = " "))
     file_path <- str_c(pathToResults, "/", correct_study_name, ".rdata")
     studyName(correct_study_name)
-
     if (file.exists(file_path)) {
       load(file_path)
       loaded_data(list(
@@ -92,21 +117,23 @@ server = function(input, output, session) {
       data_patients(object$data_patients)
       target_mod(object$data_features)
       if(!is.null(object$complementaryMappingTable)) complementaryMappingTable(object$complementaryMappingTable)
-      print("Data loaded")
+      printCustomMessage(paste("COMPLETED: Loading study", correct_study_name, "from working directory", sep = " "))
     } else {
       print("File not found")
+      fullScreenWaiter$hide()  # Hide the loading screen
     }
   })
 
   # Reactive expressions
   target <- reactive({
+    fullScreenWaiter$show()
     req(studyName(), pathToResults, loaded_data())
 
     autoScaleRate <- if (!is.null(input$scaleRate) && input$scaleRate) TRUE else FALSE
     applyInverseTarget <- if (!is.null(input$applyInverseTarget) && input$applyInverseTarget) TRUE else FALSE
     applyZTest <- if (!is.null(input$applyZTest) && input$applyZTest) TRUE else FALSE
     applyLogitTest <- if (!is.null(input$applyLogitTest) && input$applyLogitTest) TRUE else FALSE
-    format_results(
+    result <- format_results(
       object = loaded_data(),
       pathToResults = pathToResults,
       studyName = studyName(),
@@ -115,35 +142,46 @@ server = function(input, output, session) {
       applyZTest = applyZTest,
       applyLogitTest = applyLogitTest
     )
+    # fullScreenWaiter$hide()
+    result
   })
 
   target_filtered <- reactive({
-    filter_target(
+    # fullScreenWaiter$show()
+    result <- filter_target(
       target(),
       input$prevalence,
       input$prevalence_ratio,
       input$domain,
       removeUntreated = if (input$removeUntreated) TRUE else FALSE
     )
+    fullScreenWaiter$hide()
+    result
   })
 
   # Render plots
   output$prevalence <- renderPlot({
-    tryCatch({
+    prevalencePlotWaiter$show()
+    result <- tryCatch({
       plot_prevalence(target_filtered())
     }, error = function(e) {
       print(e)
       plot_prevalence(NULL)
     })
+    prevalencePlotWaiter$hide()
+    result
   }, height = 950)
 
   output$heatmap <- renderPlot({
-    tryCatch({
+    heatmapPlotWaiter$show()
+    result <- tryCatch({
       plot_heatmap(target_filtered())
     }, error = function(e) {
       print(e)
       plot_heatmap(NULL)
     })
+    heatmapPlotWaiter$hide()
+    result
   }, height = 950)
 
   # Mapping table related stuff
@@ -212,7 +250,7 @@ server = function(input, output, session) {
     target_mod(original_data()$data_features)
 
     data_features(data_features())
-    complementaryMappingTable(if (!is.null(object$complementaryMappingTable)) complementaryMappingTable(object$complementaryMappingTable) else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), stringsAsFactors = FALSE))
+    complementaryMappingTable(if (!is.null(original_data()$complementaryMappingTable)) complementaryMappingTable(original_data()$complementaryMappingTable) else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), stringsAsFactors = FALSE))
   })
 
   # Save data to file on button press

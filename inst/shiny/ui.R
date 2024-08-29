@@ -17,13 +17,16 @@ sidebar <- shinydashboard::dashboardSidebar(
 
 # Define the dashboard body
 body <- shinydashboard::dashboardBody(
+  waiter::use_waiter(),
   shinydashboard::tabItems(
     # Dashboard tab
     shinydashboard::tabItem(
       tabName = "dashboard",
       fluidRow(
         h3("Dashboard panel"),
-        selectInput("studyName", "Choose a study:", choices = NULL)
+        div(id = "studyName_container",  # Wrap selectInput in a div with an ID
+            selectInput("studyName", "Choose a study:", choices = NULL)
+        )
         # selectInput("studyName", "Choose a study:",
         #             choices = get_study_names(pathToResults))
       ),
@@ -61,7 +64,7 @@ body <- shinydashboard::dashboardBody(
             h3("Enrichment cutoff"),
             min = 1,
             max = 10,
-            value = 1,
+            value = 3,
             step = 0.05
           )
         ),
