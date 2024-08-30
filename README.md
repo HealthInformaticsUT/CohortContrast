@@ -8,19 +8,10 @@ To use CohortContrast, follow these steps to configure your environment and inpu
 
 1. **Credentials**: Make sure you can create a connection to your OHDS CDM instance using CDMConnector package.
 
-2a. **Cohort inputs from custom tables**:
-   - Populate a table with the target patients' cohort data. Register its schema and name as a variable.
-   - Populate a table with the control patients' cohort data. Register its schema and name as a variable.
-   
-   **OR**
-
-2b. **Cohorts from a cohort table**:
-   - Generate cohorts using CohortConstructor package or ATLAS tool. Register the cohorts' table schema and name as a variable. Make sure of the ids the cohorts have.
-   
-   **OR**
-
-2c. **Having only the target cohort**:
-   - Generate the target cohort as in 2a or 2b. The control cohort can be later automatically generated using the CohortContrast package with inverse controls or patient matching.
+2. **Create target and control tables** 
+    - Use functions `cohortFromCohortTable`, `cohortFromDataTable` or `cohortFromCSV` for indicating your target and control cohort tables.
+    - You can use `createControlCohortInverse` or `cohortFromCohortTable` for generating control tables.
+    - Finally use `createCohortContrastCdm` to prepare your cdm object for the analysis.
 
 3. **Run the Study**: Execute the study by using the CohortContrast functions.
 ```
@@ -46,11 +37,6 @@ cdmResultsSchema <-
 writeSchema <-
   Sys.getenv("OHDSI_WRITE") #TODO # Schema for temporary tables, will be deleted
 writePrefix <- "cc_"
-
-targetTableName = NULL
-controlTableName = NULL
-targetTableSchemaName = NULL
-controlTableSchemaName = NULL
 
 cohortsTableSchemaName = cdmResultsSchema
 cohortsTableName = 'cohort'
@@ -79,22 +65,16 @@ cdm <- CDMConnector::cdmFromCon(
 #
 ################################################################################
 
-cdm <- CohortContrast::createCohortContrastCohorts(
-  cdm,
-  db,
-  targetTableName = NULL,
-  controlTableName = NULL,
-  targetTableSchemaName = NULL,
-  controlTableSchemaName = NULL,
-  cohortsTableSchemaName = cdmResultsSchema,
-  cohortsTableName = cohortsTableName,
-  targetCohortId = targetCohortId,
-  controlCohortId = controlCohortId,
-  nudgeTarget = FALSE,
-  nudgeControl = FALSE,
-  useInverseControls = FALSE,
-  useTargetMatching = FALSE
-)
+targetTable <- CohortContrast::cohortFromCohortTable(cdm = cdm, db = db,
+   tableName = cohortsTableName, schemaName = cdmResultsSchema, cohortId = targetCohortId)
+ controlTable <- CohortContrast::cohortFromCohortTable(cdm = cdm, db = db,
+  tableName = cohortsTableName, schemaName = cdmResultsSchema, cohortId = controlCohortId)
+  
+ cdm <- CohortContrast::createCohortContrastCdm(
+   cdm = cdm,
+   targetTable = targetTable,
+   controlTable = controlTable
+ )
 
 ################################################################################
 #
@@ -105,7 +85,6 @@ cdm <- CohortContrast::createCohortContrastCohorts(
 data = CohortContrast::CohortContrast(
   cdm,
   pathToResults,
-  studyName,
   domainsIncluded = c(
     "Drug",
     "Condition",
@@ -116,7 +95,7 @@ data = CohortContrast::CohortContrast(
     "Visit detail"
   ),
   prevalenceCutOff = 2.5,
-  topDogs = FALSE, # Number of features to export
+  topK = FALSE, # Number of features to export
   presenceFilter = 0.2, # 0-1, percentage of people who must have the chosen feature present
   complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
   createC2TInput = FALSE,
@@ -133,8 +112,5 @@ data = CohortContrast::CohortContrast(
 
 The CohortContrast package generates the following outputs:
 
-1. **PCA Analysis Plot**: A principal component analysis plot to visualize the data dimensionality reduction.
-2. **Feature Prevalence Heatmap**: A heatmap showing the prevalence of selected features across the target cohort.
-3. **Selected Features**: A list of features selected for contrasting the cohorts.
-4. **Dataframe with Selected Features**: A dataframe containing the selected features, ready for further analysis or usage in the Cohort2Trajectory package.
-5. **Feature Prevalence Heatmap**: A heatmap showing the presence of selected features across the target cohort.****
+1. Running `CohortContrast` returns a list of tables (patient level summarised data for target and control) as well as saves the object. These can be analysed in the GUI.
+2. Using GUI with `runCohortContrastGUI` generates plots as well as saves the last state of your analysis in the GUI.
