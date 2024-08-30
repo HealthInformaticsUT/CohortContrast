@@ -860,6 +860,8 @@ saveResult <- function(data, pathToResults) {
   timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
   # Create the full file path with the timestamp included in the filename
   filePath <- file.path(pathToResults, paste0("CohortContrast_", timestamp, ".rdata"))
+  data$data_patients = dplyr::mutate(data$data_patients, COHORT_DEFINITION_ID = dplyr::if_else(COHORT_DEFINITION_ID == 2, "target", "control"))
+  data$data_patients = dplyr::mutate(data$data_initial, COHORT_DEFINITION_ID = dplyr::if_else(COHORT_DEFINITION_ID == 2, "target", "control"))
   save_object(data, path = filePath)
   printCustomMessage(paste("Saved the result to ", filePath, sep = ""))
 }

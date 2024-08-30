@@ -36,6 +36,20 @@ server = function(input, output, session) {
     ),
     color = "rgba(0, 0, 0, 0.75)"  # Semi-transparent black background
   )
+  snapshotWaiter <- waiter::Waiter$new(
+    html = tagList(
+      h4("Saving the snapshot, please wait...", style = "color: white;"),
+      waiter::spin_3()
+    ),
+    color = "rgba(0, 0, 0, 0.75)"  # Semi-transparent black background
+  )
+  combiningWaiter <- waiter::Waiter$new(
+    html = tagList(
+      h4("Combining concepts, please wait...", style = "color: white;"),
+      waiter::spin_3()
+    ),
+    color = "rgba(0, 0, 0, 0.75)"  # Semi-transparent black background
+  )
   prevalencePlotWaiter <- waiter::Waiter$new(
     id = "prevalence",  # Targeting the prevalence plot
     html = tagList(
@@ -64,7 +78,7 @@ server = function(input, output, session) {
         load(file_path)
         loaded_data(object)
         original_data(object)
-        rows <- nrow(distinct(select(filter(object$data_patients, COHORT_DEFINITION_ID == 2), PERSON_ID)))
+        rows <- nrow(distinct(select(filter(object$data_initial, COHORT_DEFINITION_ID == 'target'), SUBJECT_ID)))
         names_and_rows[[study_name]] <- rows
       }
     }
@@ -200,6 +214,7 @@ server = function(input, output, session) {
 
   # Combine concepts
   observeEvent(input$accept_btn, {
+    combiningWaiter$show()
     removeModal()
     new_concept_name <- input$new_concept_name
     combineSelectedConcepts(new_concept_name)
@@ -214,7 +229,7 @@ server = function(input, output, session) {
       target_row_annotation = loaded_data()$target_row_annotation,
       target_col_annotation = loaded_data()$target_col_annotation
     ))
-
+    combiningWaiter$hide()
   })
 
   observeEvent(input$combine_btn, {
@@ -255,6 +270,7 @@ server = function(input, output, session) {
 
   # Save data to file on button press
   observeEvent(input$save_btn, {
+    snapshotWaiter$show()
     # Create the base file path
     file_base <- str_c(pathToResults, "/", studyName(), "_Snapshot")
     file_path <- str_c(file_base, ".rdata")
@@ -271,7 +287,7 @@ server = function(input, output, session) {
 
     # Save the actual data to the file
     save(object, file = file_path)
-
+    snapshotWaiter$hide()
     # Notify the user
     showNotification(paste("Data saved to", file_path))
   })
@@ -290,8 +306,8 @@ server = function(input, output, session) {
       summarise(count = n(), .groups = 'drop') %>%
       spread(COHORT_DEFINITION_ID, count, fill = 0)
 
-    count_target <- n_patients$`2`
-    count_control <- n_patients$`1`
+    count_target <- n_patients$`target`
+    count_control <- n_patients$`control`
     selected_concept_ids <- as.numeric(target_mod()$CONCEPT_ID[selected_rows])
 
     representingConceptId <- selected_concept_ids[which.max(as.numeric(target_mod()$PREVALENCE_DIFFERENCE_RATIO[selected_rows]))]
@@ -323,8 +339,8 @@ server = function(input, output, session) {
     data_features <- data_patients %>%
       group_by(CONCEPT_ID, CONCEPT_NAME) %>%
       summarise(
-        TARGET_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 2 & PREVALENCE > 0),
-        CONTROL_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 1 & PREVALENCE > 0),
+        TARGET_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 'target' & PREVALENCE > 0),
+        CONTROL_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 'control' & PREVALENCE > 0),
         .groups = 'drop'
       ) %>%
       mutate(
