@@ -32,16 +32,16 @@ format_results <- function(
     dplyr::summarise(count = dplyr::n(), .groups = 'drop') %>%
     tidyr::pivot_wider(names_from = COHORT_DEFINITION_ID, values_from = count, values_fill = 0)
 
-  count_target <- n_patients$`2`
-  count_control <- n_patients$`1`
+  count_target <- n_patients$`target`
+  count_control <- n_patients$`control`
 
   # Update data features with prevalence calculations
   data_features_temp = object$data_features %>% dplyr::select(CONCEPT_ID, ZTEST, LOGITTEST)
   object$data_features <- object$data_patients %>%
     dplyr::group_by(CONCEPT_ID, CONCEPT_NAME) %>%
     dplyr::summarise(
-      TARGET_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 2 & PREVALENCE > 0),
-      CONTROL_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 1 & PREVALENCE > 0),
+      TARGET_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 'target' & PREVALENCE > 0),
+      CONTROL_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 'control' & PREVALENCE > 0),
       .groups = 'drop'
     ) %>%
     dplyr::mutate(
@@ -63,8 +63,8 @@ format_results <- function(
   }
   if (applyInverseTarget) {
     # Invert target and control groups
-    object$data_patients <- object$data_patients %>% dplyr::mutate(COHORT_DEFINITION_ID = dplyr::if_else(COHORT_DEFINITION_ID == 1, 2, 1))
-    object$data_initial <- object$data_initial %>% dplyr::mutate(COHORT_DEFINITION_ID = dplyr::if_else(COHORT_DEFINITION_ID == 1, 2, 1))
+    object$data_patients <- object$data_patients %>% dplyr::mutate(COHORT_DEFINITION_ID = dplyr::if_else(COHORT_DEFINITION_ID == 'control', 'target', 'control'))
+    object$data_initial <- object$data_initial %>% dplyr::mutate(COHORT_DEFINITION_ID = dplyr::if_else(COHORT_DEFINITION_ID == 'control', 'target', 'control'))
     object$data_features <- object$data_features %>%
       dplyr::mutate(
         TEMP = TARGET_SUBJECT_COUNT,
@@ -132,7 +132,7 @@ format_results <- function(
     dplyr::filter(!is.na(PREVALENCE_DIFFERENCE_RATIO))
 
   target <- object$data_patients %>%
-    dplyr::filter(COHORT_DEFINITION_ID == 2) %>%
+    dplyr::filter(COHORT_DEFINITION_ID == 'target') %>%
     dplyr::select(-COHORT_DEFINITION_ID) %>%
     dplyr::left_join(concepts, by = c("CONCEPT_ID", "CONCEPT_NAME", "HERITAGE")) %>%
     dplyr::filter(!is.na(PREVALENCE_DIFFERENCE_RATIO))
@@ -190,7 +190,7 @@ format_results <- function(
   target_col_annotation <- object$data_person %>%
     dplyr::inner_join(
       object$data_initial %>%
-        dplyr::filter(COHORT_DEFINITION_ID == 2) %>%
+        dplyr::filter(COHORT_DEFINITION_ID == 'target') %>%
         dplyr::group_by(SUBJECT_ID) %>%
         dplyr::filter(COHORT_START_DATE == min(COHORT_START_DATE)) %>%
         dplyr::select(PERSON_ID = SUBJECT_ID, COHORT_START_DATE),

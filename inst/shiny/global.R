@@ -22,16 +22,16 @@ format_results <- function(object, pathToResults, studyName, autoScaleRate, appl
     summarise(count = n(), .groups = 'drop') %>%
     pivot_wider(names_from = COHORT_DEFINITION_ID, values_from = count, values_fill = 0)
 
-  count_target <- n_patients$`2`
-  count_control <- n_patients$`1`
+  count_target <- n_patients$`target`
+  count_control <- n_patients$`control`
 
   # Update data features with prevalence calculations
   data_features_temp = object$data_features %>% dplyr::select(CONCEPT_ID, ZTEST, LOGITTEST)
   object$data_features <- object$data_patients %>%
     group_by(CONCEPT_ID, CONCEPT_NAME) %>%
     summarise(
-      TARGET_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 2 & PREVALENCE > 0),
-      CONTROL_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 1 & PREVALENCE > 0),
+      TARGET_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 'target' & PREVALENCE > 0),
+      CONTROL_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 'control' & PREVALENCE > 0),
       .groups = 'drop'
     ) %>%
     mutate(
@@ -53,8 +53,8 @@ format_results <- function(object, pathToResults, studyName, autoScaleRate, appl
   }
   if (applyInverseTarget) {
     # Invert target and control groups
-    object$data_patients <- object$data_patients %>% mutate(COHORT_DEFINITION_ID = ifelse(COHORT_DEFINITION_ID == 1, 2, 1))
-    object$data_initial <- object$data_initial %>% mutate(COHORT_DEFINITION_ID = ifelse(COHORT_DEFINITION_ID == 1, 2, 1))
+    object$data_patients <- object$data_patients %>% mutate(COHORT_DEFINITION_ID = ifelse(COHORT_DEFINITION_ID == 'control', 'target', 'control'))
+    object$data_initial <- object$data_initial %>% mutate(COHORT_DEFINITION_ID = ifelse(COHORT_DEFINITION_ID == 'control', 'target', 'control'))
     object$data_features <- object$data_features %>%
       mutate(
         TEMP = TARGET_SUBJECT_COUNT,
@@ -123,7 +123,7 @@ format_results <- function(object, pathToResults, studyName, autoScaleRate, appl
     filter(!is.na(PREVALENCE_DIFFERENCE_RATIO))
 
   target <- object$data_patients %>%
-    filter(COHORT_DEFINITION_ID == 2) %>%
+    filter(COHORT_DEFINITION_ID == 'target') %>%
     select(-COHORT_DEFINITION_ID) %>%
     left_join(concepts, by = c("CONCEPT_ID", "CONCEPT_NAME", "HERITAGE")) %>%
     filter(!is.na(PREVALENCE_DIFFERENCE_RATIO))
@@ -181,7 +181,7 @@ format_results <- function(object, pathToResults, studyName, autoScaleRate, appl
   target_col_annotation <- object$data_person %>%
     inner_join(
       object$data_initial %>%
-        filter(COHORT_DEFINITION_ID == 2) %>%
+        filter(COHORT_DEFINITION_ID == 'target') %>%
         group_by(SUBJECT_ID) %>%
         filter(COHORT_START_DATE == min(COHORT_START_DATE)) %>%
         select(PERSON_ID = SUBJECT_ID, COHORT_START_DATE),
@@ -451,10 +451,10 @@ update_features <- function(features, scaled_prev) {
     )
 
       # Replace NA with specific values to handle cases where a cohort might be missing
-  scaled_prev = scaled_prev %>%   replace_na(list(COHORT_1 = -1, COHORT_2 = -1)) %>%
+  scaled_prev = scaled_prev %>%   replace_na(list(COHORT_control = -1, COHORT_target = -1)) %>%
     # Calculate the ratio or set to -1 if any cohort data is missing
    dplyr:: mutate(
-      PREVALENCE_DIFFERENCE_RATIO = if_else(COHORT_1 == -1, COHORT_2 / 1, if_else(COHORT_2 == -1, 1/COHORT_1, COHORT_2 / COHORT_1)
+      PREVALENCE_DIFFERENCE_RATIO = if_else(COHORT_control == -1, COHORT_target / 1, if_else(COHORT_target == -1, 1/COHORT_control, COHORT_target / COHORT_control)
     )) %>%
     # Optionally, select relevant columns
     dplyr::select(CONCEPT_ID, PREVALENCE_DIFFERENCE_RATIO)
