@@ -193,6 +193,34 @@ cohortFromCSV <- function(pathToCsv, cohortId = NULL) {
   return(cohortTable)
 }
 
+
+#' @title Read cohort from JSON
+#' @param pathToJSON Path to the cohort data JSON file
+#' @param cdm  Connection to the database (package CDMConnector)
+#' @param cohortId The id for cohort in cohorts' table, if NULL whole table will be imported
+#'
+#' @return a tbl object for further CohortContrast usage
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' pathToJSON = './JSON/'
+#' targetTable <- cohortFromJSON(pathToJSON = pathToJSON, cdm, cohortId = 2)
+#'}
+cohortFromJSON <- function(pathToJSON, cdm, cohortId = NULL) {
+  cohortSet = CDMConnector::read_cohort_set(pathToJSON)
+  cdm = CDMConnector::generateCohortSet(cdm, cohortSet, "target")
+
+  cohortTable = cdm$target %>% as.data.frame()
+  if (!is.null(cohortId)) {
+    cohortTable <-
+      dplyr::filter(cohortTable, cohort_definition_id == cohortId)
+  }
+  cohortTable <- tibble::as_tibble(cohortTable)
+  assertRequiredColumns(cohortTable)
+  return(cohortTable)
+}
+
 #' @title Insert cohort tables to CDM instance, preparing them from CohortContrast analysis
 #' @param cdm CDMConnector object
 #' @param targetTable Table for target cohort (tbl)

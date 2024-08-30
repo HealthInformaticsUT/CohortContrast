@@ -9,7 +9,7 @@ To use CohortContrast, follow these steps to configure your environment and inpu
 1. **Credentials**: Make sure you can create a connection to your OHDS CDM instance using CDMConnector package.
 
 2. **Create target and control tables** 
-    - Use functions `cohortFromCohortTable`, `cohortFromDataTable` or `cohortFromCSV` for indicating your target and control cohort tables.
+    - Use functions `cohortFromCohortTable`, `cohortFromDataTable`, `cohortFromJSON` or `cohortFromCSV` for indicating your target and control cohort tables.
     - You can use `createControlCohortInverse` or `cohortFromCohortTable` for generating control tables.
     - Finally use `createCohortContrastCdm` to prepare your cdm object for the analysis.
 
