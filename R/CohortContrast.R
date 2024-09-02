@@ -1,6 +1,8 @@
 #' @title CohortContrast analysis function
 #' After running this function on your CDM instance successfully you can either use the extracted outputs or run the CohortContrast shiny app.
 #' @param cdm Connection to database
+#' @param targetTable Table for target cohort (tbl)
+#' @param controlTable Table for control cohort (tbl)
 #' @param pathToResults Path to the results folder, can be project's working directory
 #' @param domainsIncluded list of CDM domains to include
 #' @param prevalenceCutOff numeric > if set, removes all of the concepts which are not present (in target) more than prevalenceCutOff times
@@ -53,16 +55,13 @@
 #' controlTable <- cohortFromCohortTable(cdm = cdm, db = con,
 #'  tableName = "cohort", schemaName = 'example', cohortId = 100)
 #'
-#' cdm <- createCohortContrastCdm(
-#'   cdm = cdm,
-#'   targetTable = targetTable,
-#'   controlTable = controlTable
-#' )
 #'
 #' pathToResults = getwd()
 #'
 #' data = CohortContrast(
 #'   cdm,
+#'   targetTable = targetTable,
+#'   controlTable = controlTable,
 #'   pathToResults,
 #'   domainsIncluded = c(
 #'     "Drug"
@@ -79,6 +78,8 @@
 #'
 #' DBI::dbDisconnect(con)
 CohortContrast <- function(cdm,
+                           targetTable = NULL,
+                           controlTable = NULL,
                            pathToResults,
                            domainsIncluded = c(
                              "Drug",
@@ -98,6 +99,11 @@ CohortContrast <- function(cdm,
                            runLogitTests = TRUE,
                            createOutputFiles = TRUE) {
 
+  #TODO: remove resultslist from the .rds file saved and the return object. assert that all columns are existing
+
+  assertRequiredColumns(targetTable)
+  assertRequiredColumns(controlTable)
+  cdm <- createCohortContrastCdm(cdm = cdm, targetTable = targetTable, controlTable = controlTable)
   targetCohortId = 2
 
   data = generateTables(
@@ -116,13 +122,14 @@ CohortContrast <- function(cdm,
                      runZTests,
                      runLogitTests)
 
-  data = handleFeatureSelection(data = data, pathToResults = pathToResults, topK = topK, prevalenceCutOff = prevalenceCutOff, targetCohortId = targetCohortId, runZTests = runZTests, runLogitTests = runLogitTests,createOutputFiles = createOutputFiles)
+  data = handleFeatureSelection(data = data, pathToResults = pathToResults, topK = topK, prevalenceCutOff = prevalenceCutOff, targetCohortId = targetCohortId, runZTests = runZTests, runLogitTests = runLogitTests, createOutputFiles = createOutputFiles)
 
   # Maybe create separate. function for this
   data = createC2TInput(data,
                         targetCohortId,
                         createC2TInput,
                         complementaryMappingTable)
+  data = create_CohortContrast_object(data)
 
   if (createOutputFiles){
     createPathToResults(pathToResults = pathToResults)
@@ -281,82 +288,106 @@ queryHeritageData <-
 #' @param presenceFilter Presence filter 0-1, if 0.1 then feature has to be present for at least 10 percent of patients
 #'
 #' @keywords internal
-
 performPrevalenceAnalysis <- function(data_patients,
-           data_initial,
-           targetCohortId,
-           presenceFilter) {
-    # Aggregate the prevalence data for each concept within each cohort
-    agg_data <- dplyr::summarise(
-      dplyr::group_by(
-        dplyr::mutate(data_patients, PREVALENCE = dplyr::if_else(PREVALENCE > 0, 1, 0)),
-        COHORT_DEFINITION_ID,
-        CONCEPT_ID
-      ),
-      TOTAL_PREVALENCE = sum(PREVALENCE),
-      .groups = 'drop'
-    )
+                                      data_initial,
+                                      targetCohortId,
+                                      presenceFilter) {
+  # Aggregate the prevalence data for each concept within each cohort
+  agg_data <- dplyr::summarise(
+    dplyr::group_by(
+      dplyr::mutate(data_patients, PREVALENCE = dplyr::if_else(PREVALENCE > 0, 1, 0)),
+      COHORT_DEFINITION_ID,
+      CONCEPT_ID
+    ),
+    TOTAL_PREVALENCE = sum(PREVALENCE),
+    .groups = 'drop'
+  )
 
-    # Separate the data for each cohort for easier analysis
-    cohort_1 <-
-      dplyr::filter(agg_data, COHORT_DEFINITION_ID != targetCohortId)
-    cohort_2 <-
-      dplyr::filter(agg_data, COHORT_DEFINITION_ID == targetCohortId)
+  # Separate the data for each cohort for easier analysis
+  cohort_1 <-
+    dplyr::filter(agg_data, COHORT_DEFINITION_ID != targetCohortId)
+  cohort_2 <-
+    dplyr::filter(agg_data, COHORT_DEFINITION_ID == targetCohortId)
 
-    # Count of patients in each cohort
-    sample_1_n <-
-      nrow(dplyr::filter(data_initial, COHORT_DEFINITION_ID != targetCohortId))
-    sample_2_n <-
-      nrow(dplyr::filter(data_initial, COHORT_DEFINITION_ID == targetCohortId))
+  # Count of patients in each cohort
+  sample_1_n <-
+    nrow(dplyr::filter(data_initial, COHORT_DEFINITION_ID != targetCohortId))
+  sample_2_n <-
+    nrow(dplyr::filter(data_initial, COHORT_DEFINITION_ID == targetCohortId))
 
-    # Prepare a data frame to hold the results
-    significant_concepts <-
-      data.frame(CONCEPT_ID = integer(), P_VALUE = double())
+  # Prepare a data frame to hold the results
+  significant_concepts <-
+    data.frame(CONCEPT_ID = integer(), P_VALUE = double())
 
-    # We implement Bonferroni correction
-    printCustomMessage("Starting running Z-tests on data...")
-    alpha <- 0.05 / length(unique(agg_data$CONCEPT_ID))
+  # We implement Bonferroni correction
+  printCustomMessage("Starting running Z-tests on data...")
+  alpha <- 0.05 / length(unique(agg_data$CONCEPT_ID))
 
-    # Perform statistical test for each CONCEPT_ID
-    for (concept_id in unique(agg_data$CONCEPT_ID)) {
-      prevalence_cohort_1 <-
-        dplyr::filter(cohort_1, CONCEPT_ID == concept_id)$TOTAL_PREVALENCE
-      prevalence_cohort_2 <-
-        dplyr::filter(cohort_2, CONCEPT_ID == concept_id)$TOTAL_PREVALENCE
+  # Perform statistical test for each CONCEPT_ID
+  for (concept_id in unique(agg_data$CONCEPT_ID)) {
+    prevalence_cohort_1 <-
+      dplyr::filter(cohort_1, CONCEPT_ID == concept_id)$TOTAL_PREVALENCE
+    prevalence_cohort_2 <-
+      dplyr::filter(cohort_2, CONCEPT_ID == concept_id)$TOTAL_PREVALENCE
 
-      if (length(prevalence_cohort_1) == 0 ||
-          length(prevalence_cohort_2) == 0) {
-        next
-      } else if (prevalence_cohort_2 / sample_2_n < presenceFilter) {
-        next
-      } else if (prevalence_cohort_2 > sample_2_n ||
-                 prevalence_cohort_1 > sample_1_n) {
-        next
-      } else if (prevalence_cohort_2 == prevalence_cohort_1) {
-        next
-      } else {
-        test_result <-
-          stats::prop.test(
-            c(prevalence_cohort_1, prevalence_cohort_2),
-            c(sample_1_n, sample_2_n),
-            conf.level = 0.95
+    if ((length(prevalence_cohort_1) == 0 ||
+         length(prevalence_cohort_2) == 0) ||
+        (prevalence_cohort_2 / sample_2_n < presenceFilter) ||
+        (prevalence_cohort_2 > sample_2_n ||
+         prevalence_cohort_1 > sample_1_n)  ||
+        (prevalence_cohort_2 == prevalence_cohort_1)) {
+      significant_concepts <- rbind(
+        significant_concepts,
+        data.frame(
+          CONCEPT_ID = concept_id,
+          ZTEST = FALSE,
+          ZTEST_P_VALUE = 1
+        )
+      )
+    }  else {
+      test_result <-
+        stats::prop.test(
+          c(prevalence_cohort_1, prevalence_cohort_2),
+          c(sample_1_n, sample_2_n),
+          conf.level = 0.95
+        )
+      if (is.na(test_result$p.value)){
+        significant_concepts <- rbind(
+          significant_concepts,
+          data.frame(
+            CONCEPT_ID = concept_id,
+            ZTEST = FALSE,
+            ZTEST_P_VALUE = 1
           )
-        if (is.na(test_result$p.value)) {
-          next
-        }
-        if (test_result$p.value < alpha) {
-          significant_concepts <-
-            rbind(
-              significant_concepts,
-              data.frame(CONCEPT_ID = concept_id, P_VALUE = test_result$p.value)
-            )
-        }
+        )
       }
-    }
+      else if (test_result$p.value < alpha) {
+        significant_concepts <-
+          rbind(
+            significant_concepts,
+            data.frame(
+              CONCEPT_ID = concept_id,
+              ZTEST = TRUE,
+              ZTEST_P_VALUE = test_result$p.value
+            )
+          )
+      }   else {
+        significant_concepts <- rbind(
+          significant_concepts,
+          data.frame(
+            CONCEPT_ID = concept_id,
+            ZTEST = FALSE,
+            ZTEST_P_VALUE = test_result$p.value
+            #ODDS_RATIO = odds_ratio
+          )
+        )
+      }
 
-    return(significant_concepts)
+    }
   }
 
+  return(significant_concepts)
+}
 #' @title This function learns separate logistic regression models on the patient prevalence data target vs control
 #'
 #' @param data_patients Prevalence data for patients
@@ -421,6 +452,15 @@ performPrevalenceAnalysisLogistic <-
       prevalence_cohort_2 <-
         sum(concept_data$PREVALENCE[concept_data$TARGET == 1])
       if (prevalence_cohort_2 / sample_2_n < presenceFilter) {
+        significant_concepts <- rbind(
+          significant_concepts,
+          data.frame(
+            CONCEPT_ID = concept_id,
+            LOGITTEST = FALSE,
+            LOGITTEST_P_VALUE = 1,
+            #ODDS_RATIO = odds_ratio
+          )
+        )
         next
       }
 
@@ -438,11 +478,23 @@ performPrevalenceAnalysisLogistic <-
           significant_concepts,
           data.frame(
             CONCEPT_ID = concept_id,
-            P_VALUE = p_value,
-            ODDS_RATIO = odds_ratio
+            LOGITTEST = TRUE,
+            LOGITTEST_P_VALUE = p_value,
+            #ODDS_RATIO = odds_ratio
           )
         )
       }
+        else {
+          significant_concepts <- rbind(
+            significant_concepts,
+            data.frame(
+              CONCEPT_ID = concept_id,
+              LOGITTEST = FALSE,
+              LOGITTEST_P_VALUE = p_value,
+              #ODDS_RATIO = odds_ratio
+            )
+          )
+        }
     }
 
     return(significant_concepts)
@@ -633,17 +685,14 @@ handleTests <-
                                   data_initial,
                                   targetCohortId,
                                   presenceFilter)
-      data_features <- data_features %>%
-        dplyr::mutate(ZTEST = dplyr::if_else(
-          CONCEPT_ID %in% significant_concepts$CONCEPT_ID,
-          TRUE,
-          FALSE
-        ))
+      data_features <-
+        data_features <- data_features %>%
+        dplyr::left_join(significant_concepts, by = "CONCEPT_ID")
       printCustomMessage("Z-test on data executed!")
     }
     else {
       data_features <- data_features %>%
-        dplyr::mutate(ZTEST = FALSE)
+        dplyr::mutate(ZTEST = FALSE, ZTEST_P_VALUE = 1)
       printCustomMessage("Z-tests were disabled!")
     }
     # Logit test
@@ -655,17 +704,11 @@ handleTests <-
                                           presenceFilter)
       data_features <-
         data_features <- data_features %>%
-        dplyr::mutate(
-          LOGITTEST = dplyr::if_else(
-            CONCEPT_ID %in% significant_concepts$CONCEPT_ID,
-            TRUE,
-            FALSE
-          )
-        )
+        dplyr::left_join(significant_concepts, by = "CONCEPT_ID")
       printCustomMessage("Logit-test on data executed!")
     }  else {
       data_features <- data_features %>%
-        dplyr::mutate(LOGITTEST = FALSE)
+        dplyr::mutate(LOGITTEST = FALSE, LOGITTEST_P_VALUE = 1)
       printCustomMessage("Logit-tests were disabled!")
     }
 
@@ -704,12 +747,12 @@ handleFeatureSelection <-
     data_features = data$data_features %>% dplyr::filter(ZTEST | LOGITTEST)
     }
     n_features_left = nrow(data_features)
-    resultList = list()
+    trajectoryDataList = list()
 
     # Now, significant_concepts_data contains only the concepts significantly overrepresented in target cohort
     if (n_features_left == 0) {
-      printCustomMessage("No features left. Perhaps use more lenient filters! Exiting ...")
       printCustomMessage("Running analysis END!")
+      printCustomMessage("No features left. Perhaps use more lenient filters!")
       ################################################################################
       #
       # Save
@@ -718,7 +761,9 @@ handleFeatureSelection <-
 
       if (createOutputFiles){
         createPathToResults(pathToResults = pathToResults)
-        saveResult(data, pathToResults)      }
+        saveResult(data, pathToResults)
+      }
+      stop("No features left. Perhaps use more lenient filters! Exiting ...")
       return(data)
     }
 
@@ -776,10 +821,10 @@ handleFeatureSelection <-
     patients_data <-
       transformed_data[,-1] # Remove the first column (patient IDs)
     # export selected features
-    resultList$selectedFeatureNames = colnames(patients_data)
-    resultList$selectedFeatureIds = features$CONCEPT_ID
-    resultList$selectedFeatures = features
-    data$resultList = resultList
+    trajectoryDataList$selectedFeatureNames = colnames(patients_data)
+    trajectoryDataList$selectedFeatureIds = features$CONCEPT_ID
+    trajectoryDataList$selectedFeatures = features
+    data$trajectoryDataList = trajectoryDataList
     return(data)
   }
 
@@ -800,7 +845,7 @@ createC2TInput <-
       data_selected_patients = dplyr::select(
         dplyr::filter(
           data$data_patients,
-          CONCEPT_NAME %in% data$resultList$selectedFeatureNames,
+          CONCEPT_NAME %in% data$trajectoryDataList$selectedFeatureNames,
           COHORT_DEFINITION_ID == targetCohortId
         ),
         CONCEPT_ID,
@@ -841,10 +886,10 @@ createC2TInput <-
           "COHORT_START_DATE",
           "COHORT_END_DATE")
 
-      data$resultList$trajectoryData = rbind(data_target, data_states)
+      data$trajectoryDataList$trajectoryData = rbind(data_target, data_states)
     }
     # Convert from int64 to integer
-    data$resultList$trajectoryData$SUBJECT_ID = as.integer(data$resultList$trajectoryData$SUBJECT_ID)
+    data$trajectoryDataList$trajectoryData$SUBJECT_ID = as.integer(data$trajectoryDataList$trajectoryData$SUBJECT_ID)
     return(data)
   }
 
@@ -859,9 +904,9 @@ saveResult <- function(data, pathToResults) {
   # Generate a timestamp
   timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
   # Create the full file path with the timestamp included in the filename
-  filePath <- file.path(pathToResults, paste0("CohortContrast_", timestamp, ".rdata"))
+  filePath <- file.path(pathToResults, paste0("CohortContrast_", timestamp, ".rds"))
   data$data_patients = dplyr::mutate(data$data_patients, COHORT_DEFINITION_ID = dplyr::if_else(COHORT_DEFINITION_ID == 2, "target", "control"))
-  data$data_patients = dplyr::mutate(data$data_initial, COHORT_DEFINITION_ID = dplyr::if_else(COHORT_DEFINITION_ID == 2, "target", "control"))
+  data$data_initial = dplyr::mutate(data$data_initial, COHORT_DEFINITION_ID = dplyr::if_else(COHORT_DEFINITION_ID == 2, "target", "control"))
   save_object(data, path = filePath)
   printCustomMessage(paste("Saved the result to ", filePath, sep = ""))
 }

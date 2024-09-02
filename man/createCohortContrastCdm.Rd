@@ -61,3 +61,4 @@ cdm <- createCohortContrastCdm(cdm = cdm, targetTable = targetTable, controlTabl
 }
 
 }
+\keyword{internal}

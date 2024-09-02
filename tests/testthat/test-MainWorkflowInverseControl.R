@@ -20,11 +20,6 @@ test_that("Created features table is correct with JSON inverseControl.", {
   targetTable <- cohortFromCohortTable(cdm = cdm, db = db, tableName = "target_mock", schemaName = 'testthat')
   controlTable <- createControlCohortInverse(cdm = cdm, targetTable = targetTable)
 
-  cdm <- createCohortContrastCdm(
-    cdm = cdm,
-    targetTable = targetTable,
-    controlTable = controlTable
-  )
   ################################################################################
   #
   # Run the study
@@ -32,6 +27,8 @@ test_that("Created features table is correct with JSON inverseControl.", {
   ################################################################################
   data = CohortContrast(
     cdm = cdm,
+    targetTable = targetTable,
+    controlTable = controlTable,
     pathToResults = getwd(),
     domainsIncluded = c("Drug"),
     prevalenceCutOff = 0,
@@ -41,13 +38,13 @@ test_that("Created features table is correct with JSON inverseControl.", {
     createC2TInput = TRUE,
     runZTests = FALSE,
     runLogitTests = FALSE,
-    createOutputFiles = FALSE)
+    createOutputFiles = TRUE)
 
-  expect_equal(length(data$resultList$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
+  expect_equal(length(data$trajectoryDataList$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
   expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 3]) == 2, TRUE)
-  expect_equal(nrow(data$resultList$trajectoryData) == 141, TRUE)
+  expect_equal(nrow(data$trajectoryDataList$trajectoryData) == 141, TRUE)
   expect_equal(nrow(data$data_initial) == 10, TRUE)
-  expect_equal(nrow(data$data_person) == 2694, TRUE)
+  expect_equal(nrow(data$data_person) == 5, TRUE)
   expect_equal(nrow(data$data_patients) == 59, TRUE)
 })
 #> Test passed 🥇
@@ -75,12 +72,6 @@ cdm <- CDMConnector::cdm_from_con(db , cdm_name = "eunomia", cdm_schema = "main"
 
 targetTable <- cohortFromCohortTable(cdm = cdm, db = db, tableName = "cohort", schemaName = 'testthat', cohortId = 500)
 controlTable <- createControlCohortInverse(cdm = cdm, targetTable = targetTable)
-
-cdm <- createCohortContrastCdm(
-  cdm = cdm,
-  targetTable = targetTable,
-  controlTable = controlTable
-)
 ################################################################################
 #
 # Run the study
@@ -88,6 +79,8 @@ cdm <- createCohortContrastCdm(
 ################################################################################
 data = CohortContrast(
   cdm = cdm,
+  targetTable = targetTable,
+  controlTable = controlTable,
   pathToResults = getwd(),
   domainsIncluded = c("Drug"),
   prevalenceCutOff = 0,
@@ -99,11 +92,11 @@ data = CohortContrast(
   runLogitTests = FALSE,
   createOutputFiles = FALSE)
 
-expect_equal(length(data$resultList$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
+expect_equal(length(data$trajectoryDataList$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
 expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 3]) == 2, TRUE)
-expect_equal(nrow(data$resultList$trajectoryData) == 141, TRUE)
+expect_equal(nrow(data$trajectoryDataList$trajectoryData) == 141, TRUE)
 expect_equal(nrow(data$data_initial) == 10, TRUE)
-expect_equal(nrow(data$data_person) == 2694, TRUE)
+expect_equal(nrow(data$data_person) == 5, TRUE)
 expect_equal(nrow(data$data_patients) == 59, TRUE)
 DBI::dbDisconnect(db)
 })

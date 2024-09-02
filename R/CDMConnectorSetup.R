@@ -25,23 +25,60 @@
 #' @param cdm Connection to the database (package CDMConnector)
 #' @param ratio ratio for the number of matches generated
 #' @param targetTable A cohort tibble which contains subjects' cohort data
+#' @param max Maximum ratio to use
+#' @param min Minimum ratio to use
 #' @export
 #' @examples
 #' \dontrun{createControlCohortMatching(cdm = cdm, targetTable = targetTable, ratio = 2))}
 createControlCohortMatching <-
-  function(cdm, targetTable, ratio = 1) {
+  function(cdm, targetTable, ratio = 1, max = NULL, min = NULL) {
     cdm <- omopgenerics::insertTable(
       cdm = cdm,
       name = "target",
-      table = targetTable %>% as.data.frame(),
+      table = targetTable %>% as.data.frame() %>% dplyr::mutate(cohort_definition_id = 1),
       overwrite = T
     )
     cdm$target = omopgenerics::newCohortTable(cdm$target)
     # 1. Create a match cohort of the target cohort based on all the people in the database ----
+    if (is.null(max) && is.null(min)) {
     cdm$control <-
       CohortConstructor::matchCohorts(cdm$target, ratio = ratio, name = "control")
+    }
+    else {
+      cdm$control <-
+        CohortConstructor::matchCohorts(cdm$target, ratio = Inf, name = "control")
+      cdm$control <- dplyr::filter(cdm$control, cohort_definition_id == 2)
+      # TODO
+      # Group by person and filter by max and min criteria
+      matched_counts <- cdm$control %>%
+        dplyr::group_by(cluster_id) %>%
+        dplyr::summarise(match_count = dplyr::n()) %>% as.data.frame()
+
+      if (!is.null(min)) {
+        # Check if any person has fewer than min matches
+        insufficient_matches <- matched_counts %>% dplyr::filter(match_count < min)
+        if (nrow(insufficient_matches) > 0) {
+          stop("Some persons have fewer than the minimum required matches.")
+        }
+        cdm$control <- cdm$control %>%
+          dplyr::group_by(cluster_id) %>%
+          dplyr::mutate(row_number = dplyr::row_number()) %>%
+          dplyr::filter(row_number <= ratio) %>%
+          dplyr::select(-row_number)
+      }
+
+      if (!is.null(max)) {
+        # Limit the matches per person to the specified maximum
+        cdm$control <- cdm$control %>%
+          dplyr::group_by(cluster_id) %>%
+          dplyr::mutate(row_number = dplyr::row_number()) %>%
+          dplyr::filter(row_number <= max) %>%
+          dplyr::select(-row_number)
+      }
+    }
     # 2. Restrict the people in the matched cohort to those in the control cohort ----
     cdm$control <- cdm$control |>
+      dplyr::ungroup() |>
       # Filter to people in the matched cohort
       dplyr::filter(cohort_definition_id == 2) |>
       dplyr::select(-cluster_id)
@@ -228,7 +265,7 @@ cohortFromJSON <- function(pathToJSON, cdm, cohortId = NULL) {
 #'
 #' @return object of dataframes and updated cdm object
 #'
-#' @export
+#' @keywords internal
 #'
 #' @examples
 #' \dontrun{

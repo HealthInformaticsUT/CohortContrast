@@ -89,7 +89,9 @@ utils::globalVariables(
     'TARGET_SUBJECT_COUNT',
     'TARGET_SUBJECT_PREVALENCE',
     'TEMP',
-    '.data'
+    '.data',
+    'match_count',
+    'row_number'
 
   )
 )
