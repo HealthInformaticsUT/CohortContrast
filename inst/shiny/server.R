@@ -69,13 +69,13 @@ server = function(input, output, session) {
   # Function to load data and update study_info
   load_study_data <- function() {
     names_and_rows <- list()
-    printCustomMessage("EXECUTION: Loading studies from working directory ...")
+    CohortContrast:::printCustomMessage("EXECUTION: Loading studies from working directory ...")
     study_names <- get_study_names(pathToResults)
     for (study_name in study_names) {
-      file_path <- str_c(pathToResults, "/", study_name, ".rdata")
+      file_path <- str_c(pathToResults, "/", study_name, ".rds")
 
       if (file.exists(file_path)) {
-        load(file_path)
+        object <- readRDS(file_path)
         loaded_data(object)
         original_data(object)
         rows <- nrow(distinct(select(filter(object$data_initial, COHORT_DEFINITION_ID == 'target'), SUBJECT_ID)))
@@ -83,7 +83,7 @@ server = function(input, output, session) {
       }
     }
     study_info(names_and_rows)
-    printCustomMessage("COMPLETED: Loading studies from working directory")
+    CohortContrast:::printCustomMessage("COMPLETED: Loading studies from working directory")
   }
   # Initialize data on app start
   observe({
@@ -104,11 +104,11 @@ server = function(input, output, session) {
     req(input$studyName)
     split_name <- unlist(strsplit(input$studyName, " ", fixed = TRUE))
     correct_study_name <- split_name[1]
-    printCustomMessage(paste("EXECUTION: Loading study", correct_study_name, "from working directory ...", sep = " "))
-    file_path <- str_c(pathToResults, "/", correct_study_name, ".rdata")
+    CohortContrast:::printCustomMessage(paste("EXECUTION: Loading study", correct_study_name, "from working directory ...", sep = " "))
+    file_path <- str_c(pathToResults, "/", correct_study_name, ".rds")
     studyName(correct_study_name)
     if (file.exists(file_path)) {
-      load(file_path)
+      object <- readRDS(file_path)
       loaded_data(list(
         data_initial = object$data_initial,
         data_patients = object$data_patients,
@@ -131,7 +131,7 @@ server = function(input, output, session) {
       data_patients(object$data_patients)
       target_mod(object$data_features)
       if(!is.null(object$complementaryMappingTable)) complementaryMappingTable(object$complementaryMappingTable)
-      printCustomMessage(paste("COMPLETED: Loading study", correct_study_name, "from working directory", sep = " "))
+      CohortContrast:::printCustomMessage(paste("COMPLETED: Loading study", correct_study_name, "from working directory", sep = " "))
     } else {
       print("File not found")
       fullScreenWaiter$hide()  # Hide the loading screen
@@ -273,12 +273,12 @@ server = function(input, output, session) {
     snapshotWaiter$show()
     # Create the base file path
     file_base <- str_c(pathToResults, "/", studyName(), "_Snapshot")
-    file_path <- str_c(file_base, ".rdata")
+    file_path <- str_c(file_base, ".rds")
     counter <- 1
 
     # Check if file exists and append increasing numbers if necessary
     while (file.exists(file_path)) {
-      file_path <- str_c(file_base, "_", counter, ".rdata")
+      file_path <- str_c(file_base, "_", counter, ".rds")
       counter <- counter + 1
     }
     # Extract the data from the reactive

@@ -11,7 +11,6 @@ To use CohortContrast, follow these steps to configure your environment and inpu
 2. **Create target and control tables** 
     - Use functions `cohortFromCohortTable`, `cohortFromDataTable`, `cohortFromJSON` or `cohortFromCSV` for indicating your target and control cohort tables.
     - You can use `createControlCohortInverse` or `cohortFromCohortTable` for generating control tables.
-    - Finally use `createCohortContrastCdm` to prepare your cdm object for the analysis.
 
 3. **Run the Study**: Execute the study by using the CohortContrast functions.
 ```
@@ -67,15 +66,9 @@ cdm <- CDMConnector::cdmFromCon(
 
 targetTable <- CohortContrast::cohortFromCohortTable(cdm = cdm, db = db,
    tableName = cohortsTableName, schemaName = cdmResultsSchema, cohortId = targetCohortId)
+   
  controlTable <- CohortContrast::cohortFromCohortTable(cdm = cdm, db = db,
   tableName = cohortsTableName, schemaName = cdmResultsSchema, cohortId = controlCohortId)
-  
- cdm <- CohortContrast::createCohortContrastCdm(
-   cdm = cdm,
-   targetTable = targetTable,
-   controlTable = controlTable
- )
-
 ################################################################################
 #
 # Execute
@@ -84,7 +77,9 @@ targetTable <- CohortContrast::cohortFromCohortTable(cdm = cdm, db = db,
 
 data = CohortContrast::CohortContrast(
   cdm,
-  pathToResults,
+  targetTable = targetTable,
+  controlTable = controlTable,
+  pathToResults = getwd(),
   domainsIncluded = c(
     "Drug",
     "Condition",

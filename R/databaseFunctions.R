@@ -215,7 +215,7 @@ generateTables <- function(cdm,
   # Get person data
 
   data_person <-
-    cdm$person %>% dplyr::select(person_id, gender_concept_id, year_of_birth) %>% as.data.frame()
+    cdm$person %>% dplyr::select(person_id, gender_concept_id, year_of_birth) %>% dplyr::filter(person_id %in% data_initial$SUBJECT_ID) %>% as.data.frame()
   colnames(data_person) <- toupper(colnames(data_person))
 
   printCustomMessage("Data imported from the database!")

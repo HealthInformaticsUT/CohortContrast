@@ -15,7 +15,7 @@ save_object <- function(object, path) {
     utils::write.csv(object, path, row.names = FALSE)
   }
   else {
-    save(object, file = path)
+    base::saveRDS(object, file = path)
   }
 }
 
@@ -124,10 +124,10 @@ createComplementaryMappingTable <-
 
 get_study_names <- function(pathToResults) {
   # List all files in the specified directory
-  files <- list.files(pathToResults, full.names = TRUE, pattern = "\\.rdata$")
+  files <- list.files(pathToResults, full.names = TRUE, pattern = "\\.rds$")
 
   # Pattern to extract the study name from the filename
-  study_name_pattern <- "(?<=/)([^/]+)(?=\\.rdata$)"
+  study_name_pattern <- "(?<=/)([^/]+)(?=\\.rds$)"
 
   # Extract study names from the filenames
   study_names <- stringr::str_extract(files, study_name_pattern)
@@ -239,5 +239,75 @@ assertRequiredColumns <- function(data) {
   missing_columns <- setdiff(required_columns, colnames(data))
   if (length(missing_columns) > 0) {
     stop(paste("The following required columns are missing:", paste(missing_columns, collapse = ", ")))
+  }
+}
+
+#' @keywords internal
+create_CohortContrast_object <- function(data) {
+  obj <- list(
+    data_patients = data$data_patients,
+    data_initial = data$data_initial,
+    data_person = data$data_person,
+    data_features = data$data_features,
+    trajectoryDataList = data$trajectoryDataList
+  )
+
+  # Set the class
+  class(obj) <- "CohortContrastObject"
+
+  return(obj)
+}
+
+#' @export
+print.CohortContrastObject <- function(x, ...) {
+  cat("CohortContrastObject:\n\n")
+
+  if (!is.null(x$data_patients)) {
+    cat("data_patients (Data Frame): A dataframe with person-level data, data about concepts imported from CDM\n")
+    print(utils::head(x$data_patients))
+    cat("\n---\n")
+  }
+
+  if (!is.null(x$data_initial)) {
+    cat("data_initial (Data Frame): Cohort table for target and control patients\n")
+    print(utils::head(x$data_initial))
+    cat("\n---\n")
+  }
+
+  if (!is.null(x$data_person)) {
+    cat("data_person (Data Frame): Subjects' demographic data from CDM\n")
+    print(utils::head(x$data_person))
+    cat("\n---\n")
+  }
+
+  if (!is.null(x$data_features)) {
+    cat("data_features (Data Frame): Feature level data about concepts imported from CDM\n")
+    print(utils::head(x$data_features))
+    cat("\n---\n")
+  }
+
+  if (!is.null(x$trajectoryDataList)) {
+    cat("trajectoryDataList (List): Data that can be used for Cohort2Trajectory analysis\n")
+    for (name in names(x$trajectoryDataList)) {
+      cat(paste0(name, ":\n"))
+
+      item <- x$trajectoryDataList[[name]]
+
+      if (name == "selectedFeatureNames") {
+        cat("  Selected Feature Names (Character Vector):\n")
+        print(item)
+      } else if (name == "selectedFeatureIds") {
+        cat("  Selected Feature IDs (Integer Vector):\n")
+        print(item)
+     }
+       else if (name == "selectedFeatures") {
+        cat("  Selected Features (Data Frame):\n")
+        print(utils::head(item))
+      } else if (name == "trajectoryData") {
+        cat("  Trajectory Data (Data Frame or List):\n")
+        print(utils::head(item))
+      }
+      cat("\n---\n")
+    }
   }
 }

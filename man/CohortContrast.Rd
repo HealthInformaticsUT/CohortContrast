@@ -7,6 +7,8 @@ After running this function on your CDM instance successfully you can either use
 \usage{
 CohortContrast(
   cdm,
+  targetTable = NULL,
+  controlTable = NULL,
   pathToResults,
   domainsIncluded = c("Drug", "Condition", "Measurement", "Observation", "Procedure",
     "Visit", "Visit detail"),
@@ -22,6 +24,10 @@ CohortContrast(
 }
 \arguments{
 \item{cdm}{Connection to database}
+
+\item{targetTable}{Table for target cohort (tbl)}
+
+\item{controlTable}{Table for control cohort (tbl)}
 
 \item{pathToResults}{Path to the results folder, can be project's working directory}
 
@@ -84,16 +90,13 @@ cdm <- CDMConnector::cdm_from_con(con, cdm_name = "eunomia",
 controlTable <- cohortFromCohortTable(cdm = cdm, db = con,
  tableName = "cohort", schemaName = 'example', cohortId = 100)
 
-cdm <- createCohortContrastCdm(
-  cdm = cdm,
-  targetTable = targetTable,
-  controlTable = controlTable
-)
 
 pathToResults = getwd()
 
 data = CohortContrast(
   cdm,
+  targetTable = targetTable,
+  controlTable = controlTable,
   pathToResults,
   domainsIncluded = c(
     "Drug"

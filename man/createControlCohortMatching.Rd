@@ -11,7 +11,13 @@
 #'
 #' @keywords internal}
 \usage{
-createControlCohortMatching(cdm, targetTable, ratio = 1)
+createControlCohortMatching(
+  cdm,
+  targetTable,
+  ratio = 1,
+  max = NULL,
+  min = NULL
+)
 }
 \arguments{
 \item{cdm}{Connection to the database (package CDMConnector)}
@@ -19,6 +25,10 @@ createControlCohortMatching(cdm, targetTable, ratio = 1)
 \item{targetTable}{A cohort tibble which contains subjects' cohort data}
 
 \item{ratio}{ratio for the number of matches generated}
+
+\item{max}{Maximum ratio to use}
+
+\item{min}{Minimum ratio to use}
 }
 \description{
 nudgeCohorts <- function(cdm, nudgeTarget, nudgeControl) {

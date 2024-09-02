@@ -18,11 +18,6 @@ test_that("Created features table is correct.", {
   targetTable <- cohortFromJSON(pathToJSON = pathToJSON, cdm = cdm)
   controlTable <- createControlCohortInverse(cdm = cdm, targetTable = targetTable)
 
-  cdm <- createCohortContrastCdm(
-    cdm = cdm,
-    targetTable = targetTable,
-    controlTable = controlTable
-  )
   ################################################################################
   #
   # Run the study
@@ -30,6 +25,8 @@ test_that("Created features table is correct.", {
   ################################################################################
   data = CohortContrast(
     cdm = cdm,
+    targetTable = targetTable,
+    controlTable = controlTable,
     pathToResults =  getwd(),
     domainsIncluded = c("Drug"),
     prevalenceCutOff = 0,
@@ -41,11 +38,11 @@ test_that("Created features table is correct.", {
     runLogitTests = FALSE,
     createOutputFiles = FALSE)
 
-  expect_equal(length(data$resultList$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
+  expect_equal(length(data$trajectoryDataList$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
   expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "atorvastatin 80 MG Oral Tablet", 3]) == 19, TRUE)
-  expect_equal(nrow(data$resultList$trajectoryData) == 3332, TRUE)
+  expect_equal(nrow(data$trajectoryDataList$trajectoryData) == 3332, TRUE)
   expect_equal(nrow(data$data_initial) == 1660, TRUE)
-  expect_equal(nrow(data$data_person) == 2694, TRUE)
+  expect_equal(nrow(data$data_person) == 830, TRUE)
   expect_equal(nrow(data$data_patients) == 1041, TRUE)
 
   DBI::dbDisconnect(db)
