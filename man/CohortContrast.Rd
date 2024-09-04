@@ -19,7 +19,9 @@ CohortContrast(
   createC2TInput = FALSE,
   runZTests = TRUE,
   runLogitTests = TRUE,
-  createOutputFiles = TRUE
+  getAllAbstractions = FALSE,
+  createOutputFiles = TRUE,
+  complName = NULL
 )
 }
 \arguments{
@@ -39,7 +41,7 @@ CohortContrast(
 
 \item{presenceFilter}{numeric > if set, removes all features represented less than the given percentage}
 
-\item{complementaryMappingTable}{Mappingtable for mapping concept_ids if present}
+\item{complementaryMappingTable}{Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,}
 
 \item{createC2TInput}{Boolean for creating Cohort2Trajectory input dataframe}
 
@@ -47,7 +49,11 @@ CohortContrast(
 
 \item{runLogitTests}{boolean for logit-tests}
 
+\item{getAllAbstractions}{boolean for creating abstractions' levels for the imported data, this is useful when using GUI and exploring data}
+
 \item{createOutputFiles}{Boolean for creating output files, the default value is TRUE}
+
+\item{complName}{Name of the output file}
 }
 \description{
 CohortContrast analysis function

@@ -152,49 +152,49 @@ generateTables <- function(cdm,
         printCustomMessage("Querying visit occurrence data from database ...")
         data_to_add <- patient_visit_prevalence_table %>%
           dplyr::group_by(cohort_definition_id,subject_id,concept_id,concept_name,heritage) %>%
-          dplyr::summarize(prevalence = sum(prevalence), .groups = 'drop') %>% dplyr::filter(concept_id != 0)
+          dplyr::summarize(prevalence = sum(prevalence, na.rm = TRUE), .groups = 'drop') %>% dplyr::filter(concept_id != 0)
         data_patients <- rbind(data_patients, data_to_add %>% as.data.frame())
       }
       else if (domain == "Visit detail") {
         printCustomMessage("Querying visit detail data from database ...")
         data_to_add <- patient_visit_detail_prevalence_table %>%
           dplyr::group_by(cohort_definition_id,subject_id,concept_id,concept_name,heritage) %>%
-          dplyr::summarize(prevalence = sum(prevalence), .groups = 'drop') %>% dplyr::filter(concept_id != 0)
+          dplyr::summarize(prevalence = sum(prevalence, na.rm = TRUE), .groups = 'drop') %>% dplyr::filter(concept_id != 0)
         data_patients <- rbind(data_patients, data_to_add %>% as.data.frame())
       }
       else if (domain == "Drug") {
         printCustomMessage("Querying drug exposure data from database ...")
         data_to_add <- patient_drug_prevalence_table %>%
           dplyr::group_by(cohort_definition_id,subject_id,concept_id,concept_name,heritage) %>%
-          dplyr::summarize(prevalence = sum(prevalence), .groups = 'drop') %>% dplyr::filter(concept_id != 0)
+          dplyr::summarize(prevalence = sum(prevalence, na.rm = TRUE), .groups = 'drop') %>% dplyr::filter(concept_id != 0)
         data_patients <- rbind(data_patients, data_to_add %>% as.data.frame())
       }
       else if (domain == "Measurement") {
         printCustomMessage("Querying measurement data from database ...")
         data_to_add <- patient_measurement_prevalence_table %>%
           dplyr::group_by(cohort_definition_id,subject_id,concept_id,concept_name,heritage) %>%
-          dplyr::summarize(prevalence = sum(prevalence), .groups = 'drop') %>% dplyr::filter(concept_id != 0)
+          dplyr::summarize(prevalence = sum(prevalence, na.rm = TRUE), .groups = 'drop') %>% dplyr::filter(concept_id != 0)
         data_patients <- rbind(data_patients, data_to_add %>% as.data.frame())
       }
       else if (domain == "Procedure") {
         printCustomMessage("Querying procedure occurrence data from database ...")
         data_to_add <- patient_procedure_prevalence_table %>%
           dplyr::group_by(cohort_definition_id,subject_id,concept_id,concept_name,heritage) %>%
-          dplyr::summarize(prevalence = sum(prevalence), .groups = 'drop') %>% dplyr::filter(concept_id != 0)
+          dplyr::summarize(prevalence = sum(prevalence, na.rm = TRUE), .groups = 'drop') %>% dplyr::filter(concept_id != 0)
         data_patients <- rbind(data_patients, data_to_add %>% as.data.frame())
       }
       else if (domain == "Observation") {
         printCustomMessage("Querying observation data from database ...")
         data_to_add <- patient_observation_prevalence_table %>%
           dplyr::group_by(cohort_definition_id,subject_id,concept_id,concept_name,heritage) %>%
-          dplyr::summarize(prevalence = sum(prevalence), .groups = 'drop') %>% dplyr::filter(concept_id != 0)
+          dplyr::summarize(prevalence = sum(prevalence, na.rm = TRUE), .groups = 'drop') %>% dplyr::filter(concept_id != 0)
         data_patients <- rbind(data_patients, data_to_add %>% as.data.frame())
       }
       else if (domain == "Condition") {
         printCustomMessage("Querying condition occurrence data from database ...")
         data_to_add <- patient_condition_prevalence_table %>%
           dplyr::group_by(cohort_definition_id,subject_id,concept_id,concept_name,heritage) %>%
-          dplyr::summarize(prevalence = sum(prevalence), .groups = 'drop') %>% dplyr::filter(concept_id != 0)
+          dplyr::summarize(prevalence = sum(prevalence, na.rm = TRUE), .groups = 'drop') %>% dplyr::filter(concept_id != 0)
         data_patients <- rbind(data_patients, data_to_add %>% as.data.frame())
       }
     }
@@ -219,6 +219,8 @@ generateTables <- function(cdm,
   colnames(data_person) <- toupper(colnames(data_person))
 
   printCustomMessage("Data imported from the database!")
+  # Add abstraction level
+  data_patients$ABSTRACTION_LEVEL = -1
   # Setting names for each list element
   return(
     list(

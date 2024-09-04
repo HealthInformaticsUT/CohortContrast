@@ -233,12 +233,18 @@ checkForCorrectRelationDefinitions <- function(
 }
 
 #' @keywords internal
-assertRequiredColumns <- function(data) {
+assertRequiredCohortTable <- function(data) {
+  if (is.null(data)) {
+    stop("Table does not exist")
+  }
   # Check if all required columns are present
   required_columns <- c("cohort_definition_id", "subject_id", "cohort_start_date", "cohort_end_date")
   missing_columns <- setdiff(required_columns, colnames(data))
   if (length(missing_columns) > 0) {
     stop(paste("The following required columns are missing:", paste(missing_columns, collapse = ", ")))
+  }
+  if (nrow(data) == 0) {
+    stop(paste("The cohort table is empty!"))
   }
 }
 

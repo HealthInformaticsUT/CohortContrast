@@ -4,12 +4,12 @@
 \alias{handleMapping}
 \title{This function uses complementaryMappingTable to map concepts to custom names}
 \usage{
-handleMapping(data, complementaryMappingTable)
+handleMapping(data, complementaryMappingTable, abstractionLevel = NA)
 }
 \arguments{
 \item{data}{Data list object}
 
-\item{complementaryMappingTable}{Mappingtable for mapping concept_ids if present}
+\item{complementaryMappingTable}{Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,}
 }
 \description{
 This function uses complementaryMappingTable to map concepts to custom names
