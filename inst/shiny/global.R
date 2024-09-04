@@ -14,7 +14,7 @@ library(stringr)
 ############################## Shiny functions
 
 # Functions for data loading and formatting ------------------------------------
-format_results <- function(object, pathToResults, studyName, autoScaleRate, applyInverseTarget, applyZTest, applyLogitTest) {
+format_results <- function(object, pathToResults, studyName, autoScaleRate, applyInverseTarget, applyZTest, applyLogitTest, abstractionLevel) {
 
   # Calculate the number of patients in target and control groups
   n_patients <- object$data_initial %>%
@@ -26,8 +26,8 @@ format_results <- function(object, pathToResults, studyName, autoScaleRate, appl
   count_control <- n_patients$`control`
 
   # Update data features with prevalence calculations
-  data_features_temp = object$data_features %>% dplyr::select(CONCEPT_ID, ZTEST, LOGITTEST)
-  object$data_features <- object$data_patients %>%
+  data_features_temp <- object$data_features %>%  dplyr::filter(ABSTRACTION_LEVEL == abstractionLevel) %>% dplyr::select(CONCEPT_ID, ZTEST, LOGITTEST, ABSTRACTION_LEVEL)
+  object$data_features <- object$data_patients %>% dplyr::filter(ABSTRACTION_LEVEL == abstractionLevel) %>%
     group_by(CONCEPT_ID, CONCEPT_NAME) %>%
     summarise(
       TARGET_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 'target' & PREVALENCE > 0),
@@ -53,9 +53,9 @@ format_results <- function(object, pathToResults, studyName, autoScaleRate, appl
   }
   if (applyInverseTarget) {
     # Invert target and control groups
-    object$data_patients <- object$data_patients %>% mutate(COHORT_DEFINITION_ID = ifelse(COHORT_DEFINITION_ID == 'control', 'target', 'control'))
+    object$data_patients <- object$data_patients %>% dplyr::filter(ABSTRACTION_LEVEL == abstractionLevel) %>%  mutate(COHORT_DEFINITION_ID = ifelse(COHORT_DEFINITION_ID == 'control', 'target', 'control'))
     object$data_initial <- object$data_initial %>% mutate(COHORT_DEFINITION_ID = ifelse(COHORT_DEFINITION_ID == 'control', 'target', 'control'))
-    object$data_features <- object$data_features %>%
+    object$data_features <- object$data_features %>% dplyr::filter(ABSTRACTION_LEVEL == abstractionLevel) %>%
       mutate(
         TEMP = TARGET_SUBJECT_COUNT,
         TARGET_SUBJECT_COUNT = CONTROL_SUBJECT_COUNT,
@@ -90,7 +90,7 @@ format_results <- function(object, pathToResults, studyName, autoScaleRate, appl
       )))
 
     # Calculate the scaled prevalence for each PERSON_ID
-    scaled_prevalence <- object$data_patients %>%
+    scaled_prevalence <- object$data_patients %>% dplyr::filter(ABSTRACTION_LEVEL == abstractionLevel) %>%
       left_join(
         object$data_initial %>% select(SUBJECT_ID, COHORT_DURATION),
         by = c("PERSON_ID" = "SUBJECT_ID")
@@ -111,21 +111,21 @@ format_results <- function(object, pathToResults, studyName, autoScaleRate, appl
         TARGET_SUBJECT_COUNT,
         CONTROL_SUBJECT_COUNT,
         TARGET_SUBJECT_PREVALENCE,
-        CONTROL_SUBJECT_PREVALENCE
+        CONTROL_SUBJECT_PREVALENCE,
+        ABSTRACTION_LEVEL
       )
   }
-
-  concepts <- object$data_patients %>%
-    select(CONCEPT_ID, CONCEPT_NAME, HERITAGE) %>%
+  concepts <- object$data_patients %>% dplyr::filter(ABSTRACTION_LEVEL == abstractionLevel) %>%
+    select(CONCEPT_ID, CONCEPT_NAME, HERITAGE, ABSTRACTION_LEVEL) %>%
     distinct() %>%
     filter(CONCEPT_ID != 0) %>%
-    inner_join(object$data_features, by = c("CONCEPT_ID", "CONCEPT_NAME")) %>%
+    inner_join(object$data_features, by = c("CONCEPT_ID", "CONCEPT_NAME", "ABSTRACTION_LEVEL")) %>%
     filter(!is.na(PREVALENCE_DIFFERENCE_RATIO))
 
-  target <- object$data_patients %>%
+  target <- object$data_patients %>% dplyr::filter(ABSTRACTION_LEVEL == abstractionLevel) %>%
     filter(COHORT_DEFINITION_ID == 'target') %>%
-    select(-COHORT_DEFINITION_ID) %>%
-    left_join(concepts, by = c("CONCEPT_ID", "CONCEPT_NAME", "HERITAGE")) %>%
+    select(-COHORT_DEFINITION_ID) %>%#--ABSTRACTION_LEVEL
+    left_join(concepts, by = c("CONCEPT_ID", "CONCEPT_NAME", "HERITAGE", "ABSTRACTION_LEVEL")) %>%
     filter(!is.na(PREVALENCE_DIFFERENCE_RATIO))
 
   target_df <- target %>%
@@ -216,7 +216,8 @@ filter_target = function(target, prevalence_thereshold = 0.01, prevalence_ratio_
     filter(PREVALENCE > prevalence_thereshold) %>%
     filter(PREVALENCE_DIFFERENCE_RATIO > prevalence_ratio_threshold) %>%
     filter(HERITAGE %in% domain)
-  res$target_matrix =  res$target_matrix[rownames(res$target_row_annotation), ]
+  res$target_matrix =  res$target_matrix[rownames(res$target_row_annotation), , drop = FALSE]
+
   if (removeUntreated) {
     column_sums <- colSums(res$target_matrix, na.rm = TRUE)
     non_zero_colnames <- colnames(res$target_matrix)[column_sums != 0]
@@ -224,6 +225,7 @@ filter_target = function(target, prevalence_thereshold = 0.01, prevalence_ratio_
     res$target_matrix = res$target_matrix[, non_zero_colnames]
     res$target_col_annotation <- res$target_col_annotation[rownames(res$target_col_annotation) %in% colnames(res$target_matrix),]
   }
+
   return(res)
 }
 

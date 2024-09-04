@@ -43,7 +43,7 @@ test_that("Created features table is correct.", {
     createOutputFiles = FALSE)
 
   expect_equal(length(data$trajectoryDataList$selectedFeatures$CONCEPT_NAME) == 10, TRUE)
-  expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 3]) == 2, TRUE)
+  expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 4]) == 2, TRUE)
   expect_equal(nrow(data$trajectoryDataList$trajectoryData) == 41, TRUE)
   expect_equal(nrow(data$data_initial) == 10, TRUE)
   expect_equal(nrow(data$data_person) == 10, TRUE)

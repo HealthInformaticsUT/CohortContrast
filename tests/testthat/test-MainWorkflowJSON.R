@@ -39,11 +39,11 @@ test_that("Created features table is correct.", {
     createOutputFiles = FALSE)
 
   expect_equal(length(data$trajectoryDataList$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
-  expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "atorvastatin 80 MG Oral Tablet", 3]) == 19, TRUE)
-  expect_equal(nrow(data$trajectoryDataList$trajectoryData) == 3332, TRUE)
-  expect_equal(nrow(data$data_initial) == 1660, TRUE)
+  expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 4]) == 830, TRUE)
+  expect_equal(nrow(data$trajectoryDataList$trajectoryData) == 6326, TRUE)
+  expect_equal(nrow(data$data_initial) == 2490, TRUE)
   expect_equal(nrow(data$data_person) == 830, TRUE)
-  expect_equal(nrow(data$data_patients) == 1041, TRUE)
+  expect_equal(nrow(data$data_patients) == 3199, TRUE)
 
   DBI::dbDisconnect(db)
 })

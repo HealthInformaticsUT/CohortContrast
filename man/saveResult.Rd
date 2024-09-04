@@ -4,12 +4,14 @@
 \alias{saveResult}
 \title{This function saves the resulting data object}
 \usage{
-saveResult(data, pathToResults)
+saveResult(data, pathToResults, complName = NULL)
 }
 \arguments{
 \item{data}{Data list object}
 
 \item{pathToResults}{Path to the results folder, can be project's working directory}
+
+\item{complName}{Optional, name of the rds file to be saved}
 }
 \description{
 This function saves the resulting data object

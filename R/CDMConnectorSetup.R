@@ -107,12 +107,11 @@ createControlCohortInverse <- function(cdm, targetTable) {
   result <- cdm$target %>%
     dplyr::left_join(cdm$observation_period, by = c("subject_id" = "person_id")) %>%
     dplyr::mutate(
-      start_period = paste(observation_period_start_date, cohort_start_date, sep = " "),
-      end_period = paste(cohort_end_date, observation_period_end_date, sep = " ")
+      start_period = paste(observation_period_start_date, as.Date(cohort_start_date - lubridate::days(1)), sep = " "),
+      end_period = paste(as.Date(cohort_end_date + lubridate::days(1)), observation_period_end_date, sep = " ")
     ) %>%
     dplyr::select(cohort_definition_id, subject_id, start_period, end_period) %>%
     as.data.frame() # We have to create a dataframe because of the usage of separate_rows func
-
   # Create table for inverse dates used in the target cohort
   result <- result %>%
     tidyr::pivot_longer(
@@ -128,6 +127,7 @@ createControlCohortInverse <- function(cdm, targetTable) {
       .groups = 'drop'
     ) %>% dplyr::select(-period_type) %>%
     dplyr::filter(cohort_start_date < cohort_end_date)
+
   return(result)
 }
 
@@ -162,7 +162,8 @@ cohortFromCohortTable <- function(cdm,
     cohortTable <-
       dplyr::filter(cohortTable, cohort_definition_id == cohortId)
   }
-  assertRequiredColumns(cohortTable)
+  cohortTable <- tibble::as_tibble(cohortTable)
+  assertRequiredCohortTable(cohortTable)
   return(cohortTable)
 }
 
@@ -202,7 +203,7 @@ cohortFromDataTable <- function(data, cohortId = NULL) {
       dplyr::filter(cohortTable, cohort_definition_id == cohortId)
   }
   cohortTable <- tibble::as_tibble(cohortTable)
-  assertRequiredColumns(cohortTable)
+  assertRequiredCohortTable(cohortTable)
   return(cohortTable)
 }
 
@@ -226,7 +227,7 @@ cohortFromCSV <- function(pathToCsv, cohortId = NULL) {
       dplyr::filter(cohortTable, cohort_definition_id == cohortId)
   }
   cohortTable <- tibble::as_tibble(cohortTable)
-  assertRequiredColumns(cohortTable)
+  assertRequiredCohortTable(cohortTable)
   return(cohortTable)
 }
 
@@ -254,7 +255,7 @@ cohortFromJSON <- function(pathToJSON, cdm, cohortId = NULL) {
       dplyr::filter(cohortTable, cohort_definition_id == cohortId)
   }
   cohortTable <- tibble::as_tibble(cohortTable)
-  assertRequiredColumns(cohortTable)
+  assertRequiredCohortTable(cohortTable)
   return(cohortTable)
 }
 

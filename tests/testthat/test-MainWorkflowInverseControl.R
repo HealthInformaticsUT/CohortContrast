@@ -41,11 +41,11 @@ test_that("Created features table is correct with JSON inverseControl.", {
     createOutputFiles = TRUE)
 
   expect_equal(length(data$trajectoryDataList$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
-  expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 3]) == 2, TRUE)
+  expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 4]) == 2, TRUE)
   expect_equal(nrow(data$trajectoryDataList$trajectoryData) == 141, TRUE)
   expect_equal(nrow(data$data_initial) == 10, TRUE)
   expect_equal(nrow(data$data_person) == 5, TRUE)
-  expect_equal(nrow(data$data_patients) == 59, TRUE)
+  expect_equal(nrow(data$data_patients) == 49, TRUE)
 })
 #> Test passed 🥇
 test_that("Created features table is correct with Cohort tables inverseControl.", {
@@ -93,11 +93,11 @@ data = CohortContrast(
   createOutputFiles = FALSE)
 
 expect_equal(length(data$trajectoryDataList$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
-expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 3]) == 2, TRUE)
+expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 4]) == 2, TRUE)
 expect_equal(nrow(data$trajectoryDataList$trajectoryData) == 141, TRUE)
 expect_equal(nrow(data$data_initial) == 10, TRUE)
 expect_equal(nrow(data$data_person) == 5, TRUE)
-expect_equal(nrow(data$data_patients) == 59, TRUE)
+expect_equal(nrow(data$data_patients) == 49, TRUE)
 DBI::dbDisconnect(db)
 })
 #> Test passed 🥇

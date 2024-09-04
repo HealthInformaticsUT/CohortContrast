@@ -91,7 +91,10 @@ utils::globalVariables(
     'TEMP',
     '.data',
     'match_count',
-    'row_number'
+    'row_number',
+    'CONCEPT_NAME.new',
+    'ABSTRACTION_LEVEL'
+
 
   )
 )

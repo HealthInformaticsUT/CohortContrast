@@ -26,7 +26,7 @@ server = function(input, output, session) {
   loaded_data <- reactiveVal(NULL)
   data_features <- reactiveVal(NULL)
   data_patients <- reactiveVal(NULL)
-  complementaryMappingTable <- reactiveVal(data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), stringsAsFactors = FALSE))
+  complementaryMappingTable <- reactiveVal(data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), ABSTRACTION_LEVEL = integer(), stringsAsFactors = FALSE))
 
   # Waiters
   fullScreenWaiter <- waiter::Waiter$new(
@@ -147,6 +147,7 @@ server = function(input, output, session) {
     applyInverseTarget <- if (!is.null(input$applyInverseTarget) && input$applyInverseTarget) TRUE else FALSE
     applyZTest <- if (!is.null(input$applyZTest) && input$applyZTest) TRUE else FALSE
     applyLogitTest <- if (!is.null(input$applyLogitTest) && input$applyLogitTest) TRUE else FALSE
+    abstractionLevel <- if(!is.null(input$applyLogitTest)) input$abstraction_lvl else 0
     result <- format_results(
       object = loaded_data(),
       pathToResults = pathToResults,
@@ -154,7 +155,8 @@ server = function(input, output, session) {
       autoScaleRate = autoScaleRate,
       applyInverseTarget = applyInverseTarget,
       applyZTest = applyZTest,
-      applyLogitTest = applyLogitTest
+      applyLogitTest = applyLogitTest,
+      abstractionLevel = abstractionLevel
     )
     # fullScreenWaiter$hide()
     result
@@ -204,9 +206,16 @@ server = function(input, output, session) {
     target_mod(data_features())
   })
 
+  filtered_data <- reactive({
+    # Filter the data based on the user's selected abstraction level
+    req(input$abstraction_lvl)  # Ensure the input is available before proceeding
+    target_mod() %>%
+      dplyr::filter(.data$ABSTRACTION_LEVEL == input$abstraction_lvl)
+  })
+
   output$concept_table <- DT::renderDT({
     datatable(
-      target_mod(),
+      filtered_data(),
       selection = 'multiple',
       filter = 'top'
     )
@@ -265,7 +274,7 @@ server = function(input, output, session) {
     target_mod(original_data()$data_features)
 
     data_features(data_features())
-    complementaryMappingTable(if (!is.null(original_data()$complementaryMappingTable)) complementaryMappingTable(original_data()$complementaryMappingTable) else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), stringsAsFactors = FALSE))
+    complementaryMappingTable(if (!is.null(original_data()$complementaryMappingTable)) complementaryMappingTable(original_data()$complementaryMappingTable) else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), ABSTRACTION_LEVE = integer(), stringsAsFactors = FALSE))
   })
 
   # Save data to file on button press
@@ -286,7 +295,7 @@ server = function(input, output, session) {
     object$complementaryMappingTable <- complementaryMappingTable()
 
     # Save the actual data to the file
-    save(object, file = file_path)
+    saveRDS(object, file = file_path)
     snapshotWaiter$hide()
     # Notify the user
     showNotification(paste("Data saved to", file_path))
@@ -295,7 +304,7 @@ server = function(input, output, session) {
   # Function to combine selected concepts
   combineSelectedConcepts <- function(new_concept_name) {
     selected_rows <- input$concept_table_rows_selected
-
+    abstraction_level <- input$abstraction_lvl
     data_features <- data_features()
     data_patients <- data_patients()
     data_initial <- loaded_data()$data_initial
@@ -308,23 +317,23 @@ server = function(input, output, session) {
 
     count_target <- n_patients$`target`
     count_control <- n_patients$`control`
-    selected_concept_ids <- as.numeric(target_mod()$CONCEPT_ID[selected_rows])
+    processed_table = target_mod() %>% dplyr::filter(ABSTRACTION_LEVEL == abstraction_level)
+    selected_concept_ids <- as.numeric(processed_table$CONCEPT_ID[selected_rows])
+    representingConceptId <- selected_concept_ids[which.max(as.numeric(processed_table$PREVALENCE_DIFFERENCE_RATIO[selected_rows]))]
 
-    representingConceptId <- selected_concept_ids[which.max(as.numeric(target_mod()$PREVALENCE_DIFFERENCE_RATIO[selected_rows]))]
-
-    representingZTest <- any(target_mod()$ZTEST[selected_rows])
-    representingLogitTest <- any(target_mod()$LOGITTEST[selected_rows])
-
+    representingZTest <- any(processed_table$ZTEST[selected_rows])
+    representingLogitTest <- any(processed_table$LOGITTEST[selected_rows])
     data_features <- data_features %>% dplyr::mutate(
-      ZTEST = dplyr::if_else(CONCEPT_ID == representingConceptId, representingZTest, ZTEST),
-      LOGITTEST = dplyr::if_else(CONCEPT_ID == representingConceptId, representingLogitTest, LOGITTEST)
+      ZTEST = dplyr::if_else(CONCEPT_ID == representingConceptId & ABSTRACTION_LEVEL == abstraction_level, representingZTest, ZTEST),
+      LOGITTEST = dplyr::if_else(CONCEPT_ID == representingConceptId & ABSTRACTION_LEVEL == abstraction_level, representingLogitTest, LOGITTEST)
     )
 
-    target_mod_data <- data_patients
-    selected_heritage <- as.vector(data_patients %>% select(CONCEPT_ID, HERITAGE) %>% distinct() %>% filter(CONCEPT_ID %in% selected_concept_ids) %>% select(HERITAGE))
+    # target_mod_data <- data_patients
+    selected_heritage <- as.vector(data_patients %>% select(CONCEPT_ID, HERITAGE, ABSTRACTION_LEVEL) %>% distinct() %>% filter(CONCEPT_ID %in% selected_concept_ids, ABSTRACTION_LEVEL == abstraction_level) %>% select(HERITAGE))
     most_frequent_heritage <- names(sort(table(selected_heritage), decreasing = TRUE)[1])
 
-    rows_to_update <- data_patients$CONCEPT_ID %in% selected_concept_ids
+    rows_to_update <- data_patients$CONCEPT_ID %in% selected_concept_ids &
+      data_patients$ABSTRACTION_LEVEL == abstraction_level
 
     data_patients <- data_patients %>%
       mutate(
@@ -332,12 +341,12 @@ server = function(input, output, session) {
         CONCEPT_NAME = replace(CONCEPT_NAME, rows_to_update, new_concept_name),
         HERITAGE = replace(HERITAGE, rows_to_update, most_frequent_heritage)
       ) %>%
-      group_by(COHORT_DEFINITION_ID, PERSON_ID, CONCEPT_ID, CONCEPT_NAME, HERITAGE) %>%
+      group_by(COHORT_DEFINITION_ID, PERSON_ID, CONCEPT_ID, CONCEPT_NAME, HERITAGE, ABSTRACTION_LEVEL) %>%
       summarise(PREVALENCE = sum(PREVALENCE), .groups = 'drop')
 
-    data_features_temp <- data_features %>% dplyr::select(CONCEPT_ID, ZTEST, LOGITTEST)
+    data_features_temp <- data_features %>% dplyr::select(CONCEPT_ID, ABSTRACTION_LEVEL, ZTEST, LOGITTEST)
     data_features <- data_patients %>%
-      group_by(CONCEPT_ID, CONCEPT_NAME) %>%
+      group_by(CONCEPT_ID, CONCEPT_NAME, ABSTRACTION_LEVEL) %>%
       summarise(
         TARGET_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 'target' & PREVALENCE > 0),
         CONTROL_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 'control' & PREVALENCE > 0),
@@ -352,17 +361,18 @@ server = function(input, output, session) {
           (is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0) ~ 100,
           TRUE ~ TARGET_SUBJECT_PREVALENCE / CONTROL_SUBJECT_PREVALENCE
         )
-      ) %>% left_join(data_features_temp, by = "CONCEPT_ID", keep = FALSE)
+      ) %>% left_join(data_features_temp, by = c("CONCEPT_ID", "ABSTRACTION_LEVEL"), keep = FALSE)
 
     data_features(data_features)
     data_patients(data_patients)
 
     # Update complementaryMappingTable
-    new_rows <- data.frame(CONCEPT_ID = selected_concept_ids, CONCEPT_NAME = new_concept_name, stringsAsFactors = FALSE)
+    new_rows <- data.frame(CONCEPT_ID = selected_concept_ids, CONCEPT_NAME = new_concept_name,ABSTRACTION_LEVEL = abstraction_level, stringsAsFactors = FALSE)
     complementary_mapping <- rbind(complementary_mapping, new_rows)
 
     # Update all related concept names in complementaryMappingTable
-    related_concepts <- complementary_mapping$CONCEPT_NAME %in% complementary_mapping$CONCEPT_NAME[complementary_mapping$CONCEPT_ID %in% selected_concept_ids]
+    related_concepts <- complementary_mapping$CONCEPT_NAME %in% complementary_mapping$CONCEPT_NAME[complementary_mapping$CONCEPT_ID %in% selected_concept_ids] &
+      complementary_mapping$ABSTRACTION_LEVEL == abstraction_level
     complementary_mapping$CONCEPT_NAME[related_concepts] <- new_concept_name
     complementary_mapping <- complementary_mapping %>% distinct() # Ensure no duplicates
 
@@ -379,7 +389,4 @@ server = function(input, output, session) {
       complementaryMappingTable = complementary_mapping
     ))
   }
-
-
-
 }

@@ -8,11 +8,13 @@
 #' @param prevalenceCutOff numeric > if set, removes all of the concepts which are not present (in target) more than prevalenceCutOff times
 #' @param topK numeric > if set, keeps this number of features in the analysis. Maximum number of features exported.
 #' @param presenceFilter numeric > if set, removes all features represented less than the given percentage
-#' @param complementaryMappingTable Mappingtable for mapping concept_ids if present
+#' @param complementaryMappingTable Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,
 #' @param createC2TInput Boolean for creating Cohort2Trajectory input dataframe
 #' @param runZTests boolean for Z-tests
 #' @param runLogitTests boolean for logit-tests
+#' @param getAllAbstractions boolean for creating abstractions' levels for the imported data, this is useful when using GUI and exploring data
 #' @param createOutputFiles Boolean for creating output files, the default value is TRUE
+#' @param complName Name of the output file
 #'
 #' @importFrom dplyr %>%
 #'
@@ -97,12 +99,12 @@ CohortContrast <- function(cdm,
                            createC2TInput = FALSE,
                            runZTests = TRUE,
                            runLogitTests = TRUE,
-                           createOutputFiles = TRUE) {
+                           getAllAbstractions = FALSE,
+                           createOutputFiles = TRUE,
+                           complName = NULL) {
 
-  #TODO: remove resultslist from the .rds file saved and the return object. assert that all columns are existing
-
-  assertRequiredColumns(targetTable)
-  assertRequiredColumns(controlTable)
+  assertRequiredCohortTable(targetTable)
+  assertRequiredCohortTable(controlTable)
   cdm <- createCohortContrastCdm(cdm = cdm, targetTable = targetTable, controlTable = controlTable)
   targetCohortId = 2
 
@@ -111,8 +113,17 @@ CohortContrast <- function(cdm,
     domainsIncluded = domainsIncluded,
   )
 
-  if (is.data.frame(complementaryMappingTable)) {
+  if (is.data.frame(complementaryMappingTable) && !getAllAbstractions) {
     data = handleMapping(data, complementaryMappingTable)
+  } else if (getAllAbstractions) {
+    assertAncestryCompleteness(cdm)
+    for (maxAbstraction in 10:0) {
+      # TODO: check if all concepts have a name (which are present in concept anchestor, otherwise duplicate names will happen)
+
+      complementaryMappingTable = generateMappingTable(cdm = cdm, data = data, maxAbstraction = maxAbstraction)
+      # Handle mapping for all abstractions
+      data = handleMapping(data, complementaryMappingTable, abstractionLevel = maxAbstraction)
+    }
   }
 
   data = createDataFeatures(data, topK)
@@ -125,7 +136,7 @@ CohortContrast <- function(cdm,
   data = handleFeatureSelection(data = data, pathToResults = pathToResults, topK = topK, prevalenceCutOff = prevalenceCutOff, targetCohortId = targetCohortId, runZTests = runZTests, runLogitTests = runLogitTests, createOutputFiles = createOutputFiles)
 
   # Maybe create separate. function for this
-  data = createC2TInput(data,
+  data = createC2TInputFunction(data,
                         targetCohortId,
                         createC2TInput,
                         complementaryMappingTable)
@@ -133,7 +144,7 @@ CohortContrast <- function(cdm,
 
   if (createOutputFiles){
     createPathToResults(pathToResults = pathToResults)
-    saveResult(data, pathToResults)
+    saveResult(data, pathToResults, complName)
   }
 
   return(data)
@@ -214,14 +225,13 @@ queryHeritageData <-
               dplyr::left_join(
                 concept_map,
                 complementaryMappingTable,
-                by = "CONCEPT_ID",
-                suffix = c("", ".compl")
+                by = "CONCEPT_ID"
               ),
               # Choose the complementaryMappingTable CONCEPT_NAME if it's not NA; otherwise, use the original
               CONCEPT_NAME = dplyr::if_else(
-                is.na(CONCEPT_NAME.compl),
+                is.na(CONCEPT_NAME.new),
                 CONCEPT_NAME,
-                CONCEPT_NAME.compl
+                CONCEPT_NAME.new
               )
             ),
             # Select and rename the columns to match the original concept_map structure
@@ -297,6 +307,7 @@ performPrevalenceAnalysis <- function(data_patients,
     dplyr::group_by(
       dplyr::mutate(data_patients, PREVALENCE = dplyr::if_else(PREVALENCE > 0, 1, 0)),
       COHORT_DEFINITION_ID,
+      ABSTRACTION_LEVEL,
       CONCEPT_ID
     ),
     TOTAL_PREVALENCE = sum(PREVALENCE),
@@ -317,18 +328,21 @@ performPrevalenceAnalysis <- function(data_patients,
 
   # Prepare a data frame to hold the results
   significant_concepts <-
-    data.frame(CONCEPT_ID = integer(), P_VALUE = double())
+    data.frame(CONCEPT_ID = integer(), ZTEST = logical() , ZTEST_P_VALUE = double(), ABSTRACTION_LEVEL = integer())
 
   # We implement Bonferroni correction
   printCustomMessage("Starting running Z-tests on data...")
-  alpha <- 0.05 / length(unique(agg_data$CONCEPT_ID))
+  for (abstraction_level in unique(agg_data$ABSTRACTION_LEVEL)) {
+
+  agg_data_abstraction_subset = agg_data %>% dplyr::filter(ABSTRACTION_LEVEL == abstraction_level)
+  alpha <- 0.05 / length(unique(agg_data_abstraction_subset$CONCEPT_ID))
 
   # Perform statistical test for each CONCEPT_ID
-  for (concept_id in unique(agg_data$CONCEPT_ID)) {
+  for (concept_id in unique(agg_data_abstraction_subset$CONCEPT_ID)) {
     prevalence_cohort_1 <-
-      dplyr::filter(cohort_1, CONCEPT_ID == concept_id)$TOTAL_PREVALENCE
+      dplyr::filter(cohort_1, CONCEPT_ID == concept_id, ABSTRACTION_LEVEL == abstraction_level)$TOTAL_PREVALENCE
     prevalence_cohort_2 <-
-      dplyr::filter(cohort_2, CONCEPT_ID == concept_id)$TOTAL_PREVALENCE
+      dplyr::filter(cohort_2, CONCEPT_ID == concept_id, ABSTRACTION_LEVEL == abstraction_level)$TOTAL_PREVALENCE
 
     if ((length(prevalence_cohort_1) == 0 ||
          length(prevalence_cohort_2) == 0) ||
@@ -341,7 +355,8 @@ performPrevalenceAnalysis <- function(data_patients,
         data.frame(
           CONCEPT_ID = concept_id,
           ZTEST = FALSE,
-          ZTEST_P_VALUE = 1
+          ZTEST_P_VALUE = 1,
+          ABSTRACTION_LEVEL = abstraction_level
         )
       )
     }  else {
@@ -357,7 +372,8 @@ performPrevalenceAnalysis <- function(data_patients,
           data.frame(
             CONCEPT_ID = concept_id,
             ZTEST = FALSE,
-            ZTEST_P_VALUE = 1
+            ZTEST_P_VALUE = 1,
+            ABSTRACTION_LEVEL = abstraction_level
           )
         )
       }
@@ -368,7 +384,8 @@ performPrevalenceAnalysis <- function(data_patients,
             data.frame(
               CONCEPT_ID = concept_id,
               ZTEST = TRUE,
-              ZTEST_P_VALUE = test_result$p.value
+              ZTEST_P_VALUE = test_result$p.value,
+              ABSTRACTION_LEVEL = abstraction_level
             )
           )
       }   else {
@@ -377,7 +394,8 @@ performPrevalenceAnalysis <- function(data_patients,
           data.frame(
             CONCEPT_ID = concept_id,
             ZTEST = FALSE,
-            ZTEST_P_VALUE = test_result$p.value
+            ZTEST_P_VALUE = test_result$p.value,
+            ABSTRACTION_LEVEL = abstraction_level
             #ODDS_RATIO = odds_ratio
           )
         )
@@ -385,7 +403,7 @@ performPrevalenceAnalysis <- function(data_patients,
 
     }
   }
-
+  }
   return(significant_concepts)
 }
 #' @title This function learns separate logistic regression models on the patient prevalence data target vs control
@@ -405,7 +423,7 @@ performPrevalenceAnalysisLogistic <-
     # Aggregate the prevalence data for each concept within each cohort
     agg_data <- data_patients %>%
       dplyr::mutate(PREVALENCE = dplyr::if_else(PREVALENCE > 0, 1, 0)) %>%
-      dplyr::group_by(COHORT_DEFINITION_ID, CONCEPT_ID) %>%
+      dplyr::group_by(ABSTRACTION_LEVEL, COHORT_DEFINITION_ID, CONCEPT_ID) %>%
       dplyr::summarise(TOTAL_PREVALENCE = sum(PREVALENCE),
                        .groups = 'drop')
 
@@ -423,34 +441,31 @@ performPrevalenceAnalysisLogistic <-
 
     # Prepare a data frame to hold the results
     significant_concepts <-
-      data.frame(
-        CONCEPT_ID = integer(),
-        P_VALUE = double(),
-        ODDS_RATIO = double()
-      )
+      data.frame(CONCEPT_ID = integer(), LOGITTEST = logical() , LOGITTEST_P_VALUE = double(), ABSTRACTION_LEVEL = integer())
 
     # Implement Bonferroni correction
     printCustomMessage("Starting running logistic regressions on data...")
-    alpha <- 0.05 / length(unique(agg_data$CONCEPT_ID))
+    for (abstraction_level in unique(agg_data$ABSTRACTION_LEVEL)) {
+
+      agg_data_abstraction_subset = agg_data %>% dplyr::filter(ABSTRACTION_LEVEL == abstraction_level)
+    alpha <- 0.05 / length(unique(agg_data_abstraction_subset$CONCEPT_ID))
 
     # Get unique concept IDs
-    concept_ids <- unique(agg_data$CONCEPT_ID)
+    concept_ids <- unique(agg_data_abstraction_subset$CONCEPT_ID)
 
     # Perform logistic regression for each CONCEPT_ID
     for (i in seq_along(concept_ids)) {
       concept_id <- concept_ids[i]
 
       # Create the dataset for logistic regression
-      concept_data <- data_patients %>%
+      concept_data <- data_patients %>% dplyr::filter(ABSTRACTION_LEVEL == abstraction_level) %>%
         dplyr::mutate(
           PREVALENCE = dplyr::if_else(CONCEPT_ID == concept_id &
                                         PREVALENCE > 0, 1, 0),
           TARGET = dplyr::if_else(COHORT_DEFINITION_ID == targetCohortId, 1, 0)
         )
 
-      # Ensure presence filter and valid sample sizes
-      prevalence_cohort_2 <-
-        sum(concept_data$PREVALENCE[concept_data$TARGET == 1])
+      prevalence_cohort_2 <- ifelse(is.na(sum(concept_data$PREVALENCE[concept_data$TARGET == 1])), 0, sum(concept_data$PREVALENCE[concept_data$TARGET == 1]))
       if (prevalence_cohort_2 / sample_2_n < presenceFilter) {
         significant_concepts <- rbind(
           significant_concepts,
@@ -458,6 +473,7 @@ performPrevalenceAnalysisLogistic <-
             CONCEPT_ID = concept_id,
             LOGITTEST = FALSE,
             LOGITTEST_P_VALUE = 1,
+            ABSTRACTION_LEVEL = abstraction_level
             #ODDS_RATIO = odds_ratio
           )
         )
@@ -480,6 +496,7 @@ performPrevalenceAnalysisLogistic <-
             CONCEPT_ID = concept_id,
             LOGITTEST = TRUE,
             LOGITTEST_P_VALUE = p_value,
+            ABSTRACTION_LEVEL = abstraction_level
             #ODDS_RATIO = odds_ratio
           )
         )
@@ -491,12 +508,13 @@ performPrevalenceAnalysisLogistic <-
               CONCEPT_ID = concept_id,
               LOGITTEST = FALSE,
               LOGITTEST_P_VALUE = p_value,
+              ABSTRACTION_LEVEL = abstraction_level
               #ODDS_RATIO = odds_ratio
             )
           )
         }
     }
-
+}
     return(significant_concepts)
   }
 
@@ -518,12 +536,11 @@ calculate_data_features <-
         values_from = count,
         values_fill = list(count = 0)
       )
-
     count_target <- n_patients$`2`
     count_control <- n_patients$`1`
     # Update data features with prevalence calculations
     data_features <- data$data_patients %>%
-      dplyr::group_by(CONCEPT_ID, CONCEPT_NAME) %>%
+      dplyr::group_by(CONCEPT_ID, CONCEPT_NAME, ABSTRACTION_LEVEL) %>%
       dplyr::summarise(
         TARGET_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 2 &
                                      PREVALENCE > 0),
@@ -550,62 +567,46 @@ calculate_data_features <-
     if (nHighestPrevalenceDifference != FALSE) {
       # Keep only the nHighestPrevalenceDifference rows with highest values of PREVALENCE_DIFFERENCE_RATIO
       data_features <- data_features %>%
+        dplyr::group_by(ABSTRACTION_LEVEL) %>%
         dplyr::arrange(dplyr::desc(PREVALENCE_DIFFERENCE_RATIO)) %>%
-        dplyr::slice_head(n = nHighestPrevalenceDifference)
+        dplyr::slice_head(n = nHighestPrevalenceDifference) %>%
+        dplyr::ungroup()
     }
+    data$data_features <- data_features
 
-    return(data_features)
+    filtered_keys <- data_features %>%
+      dplyr::select(ABSTRACTION_LEVEL, CONCEPT_ID) %>%
+      dplyr::distinct()
+
+    data$data_patients <- data$data_patients %>%
+      dplyr::inner_join(filtered_keys, by = c("ABSTRACTION_LEVEL", "CONCEPT_ID"))
+
+    return(data)
   }
 
 #' This function uses complementaryMappingTable to map concepts to custom names
 #' @param data Data list object
-#' @param complementaryMappingTable Mappingtable for mapping concept_ids if present
+#' @param complementaryMappingTable Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,
 #'
 #' @keywords internal
 
-handleMapping <- function(data, complementaryMappingTable) {
+handleMapping <- function(data, complementaryMappingTable, abstractionLevel = NA) {
   printCustomMessage("Mapping according to predefined complementaryMappingTable...")
-  # Join the dataframes on CONCEPT_ID
-  data$data_patients <-
-    dplyr::select(
-      dplyr::mutate(
-        dplyr::left_join(
-          data$data_patients,
-          complementaryMappingTable,
-          by = "CONCEPT_ID",
-          suffix = c("", ".compl")
-        ),
-        # Choose the complementaryMappingTable CONCEPT_NAME if it's not NA; otherwise, use the original
-        CONCEPT_NAME = dplyr::if_else(
-          is.na(CONCEPT_NAME.compl),
-          CONCEPT_NAME,
-          CONCEPT_NAME.compl
-        )
-      ),
-      # Select and rename the columns to match the original concept_map structure
-      COHORT_DEFINITION_ID,
-      PERSON_ID,
-      CONCEPT_ID,
-      CONCEPT_NAME,
-      PREVALENCE,
-      HERITAGE
-    )
 
-  data_patients <- data$data_patients
-
-  # Step 1: Create a mapping of CONCEPT_NAME to the first occurrence of CONCEPT_ID in complementaryMappingTable
-  unique_concept_ids <- complementaryMappingTable %>%
-    dplyr::group_by(CONCEPT_NAME) %>%
-    dplyr::slice(1) %>%
-    dplyr::select(CONCEPT_NAME, CONCEPT_ID)
+  data_patients <- data$data_patients %>% dplyr::filter(ABSTRACTION_LEVEL == abstractionLevel)
+  # If new abstraction level get default abstraction level data
+  if(nrow(data_patients) == 0){
+    data_patients <- data$data_patients %>% dplyr::filter(ABSTRACTION_LEVEL == -1)
+  }
+  data$data_patients <- data$data_patients %>% dplyr::filter(ABSTRACTION_LEVEL != abstractionLevel)
 
   # Step 2: Replace CONCEPT_ID in data_patients with the mapped CONCEPT_ID for each CONCEPT_NAME
   data_patients <- data_patients %>%
-    dplyr::left_join(unique_concept_ids,
-              by = "CONCEPT_NAME",
-              suffix = c("", ".new")) %>%
+    dplyr::full_join(complementaryMappingTable,
+              by = "CONCEPT_ID", relationship = "many-to-many") %>%
    dplyr:: mutate(CONCEPT_ID = dplyr::if_else(is.na(CONCEPT_ID.new), CONCEPT_ID, CONCEPT_ID.new)) %>%
-    dplyr::select(-CONCEPT_ID.new)
+    dplyr:: mutate(CONCEPT_NAME = dplyr::if_else(is.na(CONCEPT_NAME.new), CONCEPT_NAME, CONCEPT_NAME.new)) %>%
+    dplyr::select(-CONCEPT_ID.new, -CONCEPT_NAME.new)
 
   # Step 3: Summarize data_patients to aggregate PREVALENCE
   final_data <- data_patients %>%
@@ -640,9 +641,10 @@ handleMapping <- function(data, complementaryMappingTable) {
                     HERITAGE) %>%
     dplyr::summarise(PREVALENCE = sum(PREVALENCE, na.rm = TRUE),
               .groups = 'drop')
-
+  # Add abstraction level identifier
+  result$ABSTRACTION_LEVEL = abstractionLevel
   # Assign the result back to data$data_patients
-  data$data_patients <- result
+  data$data_patients <- rbind(data$data_patients, result)
   return(data)
 }
 
@@ -654,9 +656,7 @@ handleMapping <- function(data, complementaryMappingTable) {
 
 createDataFeatures <- function(data, topK) {
   printCustomMessage("Get top n features ...")
-  data$data_features = calculate_data_features(data, topK)
-  data$data_patients <-
-    data$data_patients %>% dplyr::filter(CONCEPT_ID %in% unique(data$data_features$CONCEPT_ID))
+  data = calculate_data_features(data, topK)
   return(data)
 }
 
@@ -687,7 +687,7 @@ handleTests <-
                                   presenceFilter)
       data_features <-
         data_features <- data_features %>%
-        dplyr::left_join(significant_concepts, by = "CONCEPT_ID")
+        dplyr::left_join(significant_concepts,by = c("ABSTRACTION_LEVEL", "CONCEPT_ID"))
       printCustomMessage("Z-test on data executed!")
     }
     else {
@@ -704,7 +704,7 @@ handleTests <-
                                           presenceFilter)
       data_features <-
         data_features <- data_features %>%
-        dplyr::left_join(significant_concepts, by = "CONCEPT_ID")
+        dplyr::left_join(significant_concepts, by = c("ABSTRACTION_LEVEL", "CONCEPT_ID"))
       printCustomMessage("Logit-test on data executed!")
     }  else {
       data_features <- data_features %>%
@@ -788,7 +788,7 @@ handleFeatureSelection <-
         dplyr::pull(dplyr::slice(dplyr::arrange(
           data_features, dplyr::desc(PREVALENCE_DIFFERENCE_RATIO)
         ), 1:topK), CONCEPT_ID)
-      features = dplyr::filter(data_features, CONCEPT_ID %in% topNFeatures)
+      features = dplyr::filter(data_features, CONCEPT_ID %in% topNFeatures, ABSTRACTION_LEVEL == -1)
       n_features_left = nrow(features)
       printCustomMessage(
         paste(
@@ -804,7 +804,7 @@ handleFeatureSelection <-
 
     patients = dplyr::select(
       dplyr::filter(
-        dplyr::filter(data$data_patients, COHORT_DEFINITION_ID == targetCohortId),
+        dplyr::filter(data$data_patients, COHORT_DEFINITION_ID == targetCohortId, ABSTRACTION_LEVEL == -1),
         CONCEPT_ID %in% features$CONCEPT_ID
       ),
       PERSON_ID,
@@ -836,7 +836,7 @@ handleFeatureSelection <-
 #'
 #' @keywords internal
 
-createC2TInput <-
+createC2TInputFunction <-
   function(data,
            targetCohortId,
            createC2TInput,
@@ -845,6 +845,7 @@ createC2TInput <-
       data_selected_patients = dplyr::select(
         dplyr::filter(
           data$data_patients,
+          ABSTRACTION_LEVEL == -1,
           CONCEPT_NAME %in% data$trajectoryDataList$selectedFeatureNames,
           COHORT_DEFINITION_ID == targetCohortId
         ),
@@ -897,14 +898,18 @@ createC2TInput <-
 #' This function saves the resulting data object
 #' @param data Data list object
 #' @param pathToResults Path to the results folder, can be project's working directory
+#' @param complName Optional, name of the rds file to be saved
 #'
 #' @keywords internal
 
-saveResult <- function(data, pathToResults) {
+saveResult <- function(data, pathToResults, complName = NULL) {
   # Generate a timestamp
   timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
   # Create the full file path with the timestamp included in the filename
   filePath <- file.path(pathToResults, paste0("CohortContrast_", timestamp, ".rds"))
+  if(!is.null(complName)){
+    filePath <- file.path(pathToResults, paste0(complName, ".rds"))
+  }
   data$data_patients = dplyr::mutate(data$data_patients, COHORT_DEFINITION_ID = dplyr::if_else(COHORT_DEFINITION_ID == 2, "target", "control"))
   data$data_initial = dplyr::mutate(data$data_initial, COHORT_DEFINITION_ID = dplyr::if_else(COHORT_DEFINITION_ID == 2, "target", "control"))
   save_object(data, path = filePath)
