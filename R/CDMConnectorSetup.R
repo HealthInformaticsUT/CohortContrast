@@ -47,41 +47,41 @@ createControlCohortMatching <-
     else {
       cdm$control <-
         CohortConstructor::matchCohorts(cdm$target, ratio = Inf, name = "control")
-      cdm$control <- dplyr::filter(cdm$control, cohort_definition_id == 2)
+      cdm$control <- dplyr::filter(cdm$control, .data$cohort_definition_id == 2)
       # TODO
       # Group by person and filter by max and min criteria
       matched_counts <- cdm$control %>%
-        dplyr::group_by(cluster_id) %>%
+        dplyr::group_by(.data$cluster_id) %>%
         dplyr::summarise(match_count = dplyr::n()) %>% as.data.frame()
 
       if (!is.null(min)) {
         # Check if any person has fewer than min matches
-        insufficient_matches <- matched_counts %>% dplyr::filter(match_count < min)
+        insufficient_matches <- matched_counts %>% dplyr::filter(.data$match_count < min)
         if (nrow(insufficient_matches) > 0) {
           stop("Some persons have fewer than the minimum required matches.")
         }
         cdm$control <- cdm$control %>%
-          dplyr::group_by(cluster_id) %>%
+          dplyr::group_by(.data$cluster_id) %>%
           dplyr::mutate(row_number = dplyr::row_number()) %>%
-          dplyr::filter(row_number <= ratio) %>%
-          dplyr::select(-row_number)
+          dplyr::filter(.data$row_number <= ratio) %>%
+          dplyr::select(-.data$row_number)
       }
 
       if (!is.null(max)) {
         # Limit the matches per person to the specified maximum
         cdm$control <- cdm$control %>%
-          dplyr::group_by(cluster_id) %>%
+          dplyr::group_by(.data$cluster_id) %>%
           dplyr::mutate(row_number = dplyr::row_number()) %>%
-          dplyr::filter(row_number <= max) %>%
-          dplyr::select(-row_number)
+          dplyr::filter(.data$row_number <= max) %>%
+          dplyr::select(-.data$row_number)
       }
     }
     # 2. Restrict the people in the matched cohort to those in the control cohort ----
     cdm$control <- cdm$control |>
       dplyr::ungroup() |>
       # Filter to people in the matched cohort
-      dplyr::filter(cohort_definition_id == 2) |>
-      dplyr::select(-cluster_id)
+      dplyr::filter(.data$cohort_definition_id == 2) |>
+      dplyr::select(-.data$cluster_id)
     result <- cdm$control %>% as.data.frame()
     return(result)
   }
@@ -107,26 +107,26 @@ createControlCohortInverse <- function(cdm, targetTable) {
   result <- cdm$target %>%
     dplyr::left_join(cdm$observation_period, by = c("subject_id" = "person_id")) %>%
     dplyr::mutate(
-      start_period = paste(observation_period_start_date, as.Date(cohort_start_date - lubridate::days(1)), sep = " "),
-      end_period = paste(as.Date(cohort_end_date + lubridate::days(1)), observation_period_end_date, sep = " ")
+      start_period = paste(.data$observation_period_start_date, as.Date(.data$cohort_start_date - lubridate::days(1)), sep = " "),
+      end_period = paste(as.Date(.data$cohort_end_date + lubridate::days(1)), .data$observation_period_end_date, sep = " ")
     ) %>%
-    dplyr::select(cohort_definition_id, subject_id, start_period, end_period) %>%
+    dplyr::select(.data$cohort_definition_id, .data$subject_id, .data$start_period, .data$end_period) %>%
     as.data.frame() # We have to create a dataframe because of the usage of separate_rows func
   # Create table for inverse dates used in the target cohort
   result <- result %>%
     tidyr::pivot_longer(
-      cols = c(start_period, end_period),
+      cols = c(.data$start_period, .data$end_period),
       names_to = "period_type",
       values_to = "period"
     ) %>%
-    tidyr::separate_rows(period, sep = " ") %>%
-    dplyr::group_by(cohort_definition_id, subject_id, period_type) %>%
+    tidyr::separate_rows(.data$period, sep = " ") %>%
+    dplyr::group_by(.data$cohort_definition_id, .data$subject_id, .data$period_type) %>%
     dplyr::summarize(
-      cohort_start_date = as.Date(dplyr::first(period)),
-      cohort_end_date = as.Date(dplyr::last(period)),
+      cohort_start_date = as.Date(dplyr::first(.data$period)),
+      cohort_end_date = as.Date(dplyr::last(.data$period)),
       .groups = 'drop'
-    ) %>% dplyr::select(-period_type) %>%
-    dplyr::filter(cohort_start_date < cohort_end_date)
+    ) %>% dplyr::select(-.data$period_type) %>%
+    dplyr::filter(.data$cohort_start_date < .data$cohort_end_date)
 
   return(result)
 }
@@ -160,7 +160,7 @@ cohortFromCohortTable <- function(cdm,
                CDMConnector::in_schema(schemaName, tableName))
   if (!is.null(cohortId)) {
     cohortTable <-
-      dplyr::filter(cohortTable, cohort_definition_id == cohortId)
+      dplyr::filter(cohortTable, .data$cohort_definition_id == cohortId)
   }
   cohortTable <- tibble::as_tibble(cohortTable)
   assertRequiredCohortTable(cohortTable)
@@ -200,7 +200,7 @@ cohortFromDataTable <- function(data, cohortId = NULL) {
   cohortTable = data
   if (!is.null(cohortId)) {
     cohortTable <-
-      dplyr::filter(cohortTable, cohort_definition_id == cohortId)
+      dplyr::filter(cohortTable, .data$cohort_definition_id == cohortId)
   }
   cohortTable <- tibble::as_tibble(cohortTable)
   assertRequiredCohortTable(cohortTable)
@@ -224,7 +224,7 @@ cohortFromCSV <- function(pathToCsv, cohortId = NULL) {
   cohortTable = readr::read_csv(pathToCsv)
   if (!is.null(cohortId)) {
     cohortTable <-
-      dplyr::filter(cohortTable, cohort_definition_id == cohortId)
+      dplyr::filter(cohortTable, .data$cohort_definition_id == cohortId)
   }
   cohortTable <- tibble::as_tibble(cohortTable)
   assertRequiredCohortTable(cohortTable)
@@ -252,7 +252,7 @@ cohortFromJSON <- function(pathToJSON, cdm, cohortId = NULL) {
   cohortTable = cdm$target %>% as.data.frame()
   if (!is.null(cohortId)) {
     cohortTable <-
-      dplyr::filter(cohortTable, cohort_definition_id == cohortId)
+      dplyr::filter(cohortTable, .data$cohort_definition_id == cohortId)
   }
   cohortTable <- tibble::as_tibble(cohortTable)
   assertRequiredCohortTable(cohortTable)

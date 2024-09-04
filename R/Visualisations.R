@@ -18,12 +18,12 @@ createTargetMatrixForHeatmap <- function(data,
   concepts <- dplyr::filter(
     dplyr::inner_join(
       dplyr::distinct(dplyr::filter(
-        dplyr::select(data$data_patients, CONCEPT_ID, CONCEPT_NAME, HERITAGE),
-        CONCEPT_ID != 0
+        dplyr::select(data$data_patients, .data$CONCEPT_ID, .data$CONCEPT_NAME, .data$HERITAGE),
+        .data$CONCEPT_ID != 0
       )),
       data$data_features,
       by = c("CONCEPT_ID", "CONCEPT_NAME")
-    ),!is.na(PREVALENCE_DIFFERENCE_RATIO)
+    ),!is.na(.data$PREVALENCE_DIFFERENCE_RATIO)
   )
 
 
@@ -32,8 +32,8 @@ createTargetMatrixForHeatmap <- function(data,
   target <- dplyr::left_join(
     dplyr::select(
       dplyr::filter(data$data_patients,
-                    COHORT_DEFINITION_ID == targetCohortId),
-      -COHORT_DEFINITION_ID
+                    .data$COHORT_DEFINITION_ID == targetCohortId),
+      -.data$COHORT_DEFINITION_ID
     ),
     concepts,
     by = c("CONCEPT_ID", "CONCEPT_NAME", "HERITAGE")
@@ -46,19 +46,19 @@ createTargetMatrixForHeatmap <- function(data,
         dplyr::mutate(
           dplyr::filter(target,
                         #CONCEPT_ID %in% dataRaw$selectedFeatures$CONCEPT_ID
-                        PREVALENCE_DIFFERENCE_RATIO > prevalenceCutOff),
+                        .data$PREVALENCE_DIFFERENCE_RATIO > prevalenceCutOff),
           PRESENT = 1
         ),
-        NPATIENTS = length(unique(PERSON_ID))
+        NPATIENTS = length(unique(.data$PERSON_ID))
       ),
-      CONCEPT_ID
+      .data$ CONCEPT_ID
     ),
     NCONCEPTS = dplyr::n()
   )),
-  NCONCEPTS / NPATIENTS > presenceFilter)
+  .data$NCONCEPTS / .data$NPATIENTS > presenceFilter)
   # Step 4: Create a summary for patients without concepts
   no_concept_summary <- dplyr::summarize(
-    dplyr::group_by(target, PERSON_ID),
+    dplyr::group_by(.data$target, .data$PERSON_ID),
     CONCEPT_ID = 999999999,
     CONCEPT_NAME = "None",
     PREVALENCE = 99999,
@@ -71,24 +71,24 @@ createTargetMatrixForHeatmap <- function(data,
   wide_data <- tidyr::pivot_wider(
     combined_data,
     id_cols = c(
-      CONCEPT_ID,
-      CONCEPT_NAME,
-      HERITAGE,
-      PREVALENCE_DIFFERENCE_RATIO
+      .data$CONCEPT_ID,
+      .data$CONCEPT_NAME,
+      .data$HERITAGE,
+      .data$PREVALENCE_DIFFERENCE_RATIO
     ),
-    names_from = PERSON_ID,
-    values_from = PRESENT,
+    names_from = .data$PERSON_ID,
+    values_from = .data$PRESENT,
     names_prefix = "PID_",
     values_fill = 0
   )
   # Step 6: Filter out placeholder and convert CONCEPT_ID to character
   target_df <-
-    dplyr::filter(wide_data, CONCEPT_ID != '999999999' &
-                    CONCEPT_ID != '0')
+    dplyr::filter(wide_data, .data$CONCEPT_ID != '999999999' &
+                    .data$CONCEPT_ID != '0')
 
-  target_df =  dplyr::distinct(dplyr::summarise(dplyr::group_by(target_df, CONCEPT_NAME, HERITAGE),
-                                             CONCEPT_ID = dplyr::first(CONCEPT_ID),
-                                             PREVALENCE_DIFFERENCE_RATIO = sum(PREVALENCE_DIFFERENCE_RATIO, na.rm = T),
+  target_df =  dplyr::distinct(dplyr::summarise(dplyr::group_by(target_df, .data$CONCEPT_NAME, .data$HERITAGE),
+                                             CONCEPT_ID = dplyr::first(.data$CONCEPT_ID),
+                                             PREVALENCE_DIFFERENCE_RATIO = sum(.data$PREVALENCE_DIFFERENCE_RATIO, na.rm = T),
                                              dplyr::across(tidyr::starts_with("PID_"),
                                                     function(x) ifelse(sum(x, na.rm = TRUE) > 0, 1, 0), # Use explicit function definition
                                                     .names = "{.col}"),
@@ -119,7 +119,7 @@ createTargetMatrixForHeatmap <- function(data,
   # Select and rename columns as necessary
   # Assuming 'year_of_birth' does not need renaming and is directly used
   selected_person_data <-
-    dplyr::select(person_data, PERSON_ID, GENDER, YEAR_OF_BIRTH)
+    dplyr::select(person_data, .data$PERSON_ID, .data$GENDER, .data$YEAR_OF_BIRTH)
   # Convert 'person_id' to row names
   person <-
     tibble::column_to_rownames(selected_person_data, var = "PERSON_ID")
@@ -167,13 +167,13 @@ createHeatmap <-
         dplyr::summarize(
           dplyr::group_by(
             tibble::rownames_to_column(target_row_annotation, "CONCEPT_ID"),
-            HERITAGE
+            .data$HERITAGE
           ),
-          CONCEPT_ID = list(CONCEPT_ID)
+          CONCEPT_ID = list(.data$CONCEPT_ID)
         ),
-        MATRIX = purrr::map(CONCEPT_ID, ~ target_matrix[.x, , drop = F])
+        MATRIX = purrr::map(.data$CONCEPT_ID, ~ target_matrix[.x, , drop = F])
       ),
-      MATRIX = purrr::map(MATRIX,
+      MATRIX = purrr::map(.data$MATRIX,
                           function(x) {
                             if (nrow(x) > 1) {
                               x = x[stats::hclust(stats::dist(x))$order,]
@@ -196,7 +196,7 @@ createHeatmap <-
           tibble::remove_rownames(target_row_annotation),
           "CONCEPT_NAME"
         ),
-        -PREVALENCE_DIFFERENCE_RATIO
+        -.data$PREVALENCE_DIFFERENCE_RATIO
       ),
       annotation_col = person,
       cluster_cols = col_clustering,

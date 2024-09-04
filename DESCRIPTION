@@ -18,7 +18,6 @@ Imports:
     ggplot2,
     stringr,
     stats,
-    scales,
     utils,
     patchwork,
     CDMConnector,

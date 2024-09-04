@@ -176,37 +176,37 @@ queryHeritageData <-
       if (heritage == 'condition_occurrence') {
         query_result <-
           cdm$condition_occurrence %>% dplyr::inner_join(cdm$cohortcontrast_cohorts,
-                                                         by = c("person_id" = "subject_id")) %>% dplyr::filter(condition_concept_id %in% unique_concept_ids) %>% as.data.frame()
+                                                         by = c("person_id" = "subject_id")) %>% dplyr::filter(.data$condition_concept_id %in% unique_concept_ids) %>% as.data.frame()
       }
       else if (heritage == 'drug_exposure') {
         query_result <-
           cdm$drug_exposure %>% dplyr::inner_join(cdm$cohortcontrast_cohorts,
-                                                  by = c("person_id" = "subject_id")) %>% dplyr::filter(drug_concept_id %in% unique_concept_ids) %>% as.data.frame()
+                                                  by = c("person_id" = "subject_id")) %>% dplyr::filter(.data$drug_concept_id %in% unique_concept_ids) %>% as.data.frame()
       }
       else if (heritage == 'measurement') {
         query_result <-
           cdm$measurement %>% dplyr::inner_join(cdm$cohortcontrast_cohorts,
-                                                by = c("person_id" = "subject_id")) %>% dplyr::filter(measurement_concept_id %in% unique_concept_ids) %>% as.data.frame()
+                                                by = c("person_id" = "subject_id")) %>% dplyr::filter(.data$measurement_concept_id %in% unique_concept_ids) %>% as.data.frame()
       }
       else if (heritage == 'procedure_occurrence') {
         query_result <-
           cdm$procedure_occurrence %>% dplyr::inner_join(cdm$cohortcontrast_cohorts,
-                                                         by = c("person_id" = "subject_id")) %>% dplyr::filter(procedure_concept_id %in% unique_concept_ids) %>% as.data.frame()
+                                                         by = c("person_id" = "subject_id")) %>% dplyr::filter(.data$procedure_concept_id %in% unique_concept_ids) %>% as.data.frame()
       }
       else if (heritage == 'observation') {
         query_result <-
           cdm$observation %>% dplyr::inner_join(cdm$cohortcontrast_cohorts,
-                                                by = c("person_id" = "subject_id")) %>% dplyr::filter(observation_concept_id %in% unique_concept_ids) %>% as.data.frame()
+                                                by = c("person_id" = "subject_id")) %>% dplyr::filter(.data$observation_concept_id %in% unique_concept_ids) %>% as.data.frame()
       }
       else if (heritage == 'visit_occurrence') {
         query_result <-
           cdm$visit_occurrence %>% dplyr::inner_join(cdm$cohortcontrast_cohorts,
-                                                     by = c("person_id" = "subject_id")) %>% dplyr::filter(visit_concept_id %in% unique_concept_ids) %>% as.data.frame()
+                                                     by = c("person_id" = "subject_id")) %>% dplyr::filter(.data$visit_concept_id %in% unique_concept_ids) %>% as.data.frame()
       }
       else if (heritage == 'visit_detail') {
         query_result <-
           cdm$visit_detail %>% dplyr::inner_join(cdm$cohortcontrast_cohorts,
-                                                 by = c("person_id" = "subject_id")) %>% dplyr::filter(visit_detail_concept_id %in% unique_concept_ids) %>% as.data.frame()
+                                                 by = c("person_id" = "subject_id")) %>% dplyr::filter(.data$visit_detail_concept_id %in% unique_concept_ids) %>% as.data.frame()
       }
       # Further processing...
       colnames(query_result) = toupper(colnames(query_result))
@@ -229,14 +229,14 @@ queryHeritageData <-
               ),
               # Choose the complementaryMappingTable CONCEPT_NAME if it's not NA; otherwise, use the original
               CONCEPT_NAME = dplyr::if_else(
-                is.na(CONCEPT_NAME.new),
-                CONCEPT_NAME,
-                CONCEPT_NAME.new
+                is.na(.data$CONCEPT_NAME.new),
+                .data$CONCEPT_NAME,
+                .data$CONCEPT_NAME.new
               )
             ),
             # Select and rename the columns to match the original concept_map structure
-            CONCEPT_ID,
-            CONCEPT_NAME
+            .data$CONCEPT_ID,
+            .data$CONCEPT_NAME
           )
 
         # Ensuring that the updated_concept_map contains unique CONCEPT_ID entries
@@ -281,8 +281,8 @@ queryHeritageData <-
       }
       query_result_mapped$START_DATE = query_result_mapped[[first_column_ending_with_datetime]]
       query_result_mapped$CONCEPT_ID = query_result_mapped[["CONCEPT_NAME"]]
-      query_result_mapped = dplyr::select(query_result_mapped, CONCEPT_ID, PERSON_ID, START_DATE)
-      query_result_mapped = dplyr::filter(query_result_mapped, PERSON_ID %in% as.integer(unique_person_ids))
+      query_result_mapped = dplyr::select(query_result_mapped, .data$CONCEPT_ID, .data$PERSON_ID, .data$START_DATE)
+      query_result_mapped = dplyr::filter(query_result_mapped, .data$PERSON_ID %in% as.integer(unique_person_ids))
       printCustomMessage(paste("Quering eligible ", heritage, " data finished.", sep = ""))
       return(query_result_mapped) # Assuming `query_result_mapped` is the final processed result
     })
@@ -305,26 +305,26 @@ performPrevalenceAnalysis <- function(data_patients,
   # Aggregate the prevalence data for each concept within each cohort
   agg_data <- dplyr::summarise(
     dplyr::group_by(
-      dplyr::mutate(data_patients, PREVALENCE = dplyr::if_else(PREVALENCE > 0, 1, 0)),
-      COHORT_DEFINITION_ID,
-      ABSTRACTION_LEVEL,
-      CONCEPT_ID
+      dplyr::mutate(data_patients, PREVALENCE = dplyr::if_else(.data$PREVALENCE > 0, 1, 0)),
+      .data$COHORT_DEFINITION_ID,
+      .data$ABSTRACTION_LEVEL,
+      .data$CONCEPT_ID
     ),
-    TOTAL_PREVALENCE = sum(PREVALENCE),
+    TOTAL_PREVALENCE = sum(.data$PREVALENCE),
     .groups = 'drop'
   )
 
   # Separate the data for each cohort for easier analysis
   cohort_1 <-
-    dplyr::filter(agg_data, COHORT_DEFINITION_ID != targetCohortId)
+    dplyr::filter(agg_data, .data$COHORT_DEFINITION_ID != targetCohortId)
   cohort_2 <-
-    dplyr::filter(agg_data, COHORT_DEFINITION_ID == targetCohortId)
+    dplyr::filter(agg_data, .data$COHORT_DEFINITION_ID == targetCohortId)
 
   # Count of patients in each cohort
   sample_1_n <-
-    nrow(dplyr::filter(data_initial, COHORT_DEFINITION_ID != targetCohortId))
+    nrow(dplyr::filter(data_initial, .data$COHORT_DEFINITION_ID != targetCohortId))
   sample_2_n <-
-    nrow(dplyr::filter(data_initial, COHORT_DEFINITION_ID == targetCohortId))
+    nrow(dplyr::filter(data_initial, .data$COHORT_DEFINITION_ID == targetCohortId))
 
   # Prepare a data frame to hold the results
   significant_concepts <-
@@ -334,15 +334,15 @@ performPrevalenceAnalysis <- function(data_patients,
   printCustomMessage("Starting running Z-tests on data...")
   for (abstraction_level in unique(agg_data$ABSTRACTION_LEVEL)) {
 
-  agg_data_abstraction_subset = agg_data %>% dplyr::filter(ABSTRACTION_LEVEL == abstraction_level)
+  agg_data_abstraction_subset = agg_data %>% dplyr::filter(.data$ABSTRACTION_LEVEL == abstraction_level)
   alpha <- 0.05 / length(unique(agg_data_abstraction_subset$CONCEPT_ID))
 
   # Perform statistical test for each CONCEPT_ID
   for (concept_id in unique(agg_data_abstraction_subset$CONCEPT_ID)) {
     prevalence_cohort_1 <-
-      dplyr::filter(cohort_1, CONCEPT_ID == concept_id, ABSTRACTION_LEVEL == abstraction_level)$TOTAL_PREVALENCE
+      dplyr::filter(cohort_1, .data$CONCEPT_ID == concept_id, .data$ABSTRACTION_LEVEL == abstraction_level)$TOTAL_PREVALENCE
     prevalence_cohort_2 <-
-      dplyr::filter(cohort_2, CONCEPT_ID == concept_id, ABSTRACTION_LEVEL == abstraction_level)$TOTAL_PREVALENCE
+      dplyr::filter(cohort_2, .data$CONCEPT_ID == concept_id, .data$ABSTRACTION_LEVEL == abstraction_level)$TOTAL_PREVALENCE
 
     if ((length(prevalence_cohort_1) == 0 ||
          length(prevalence_cohort_2) == 0) ||
@@ -422,16 +422,16 @@ performPrevalenceAnalysisLogistic <-
            presenceFilter) {
     # Aggregate the prevalence data for each concept within each cohort
     agg_data <- data_patients %>%
-      dplyr::mutate(PREVALENCE = dplyr::if_else(PREVALENCE > 0, 1, 0)) %>%
-      dplyr::group_by(ABSTRACTION_LEVEL, COHORT_DEFINITION_ID, CONCEPT_ID) %>%
-      dplyr::summarise(TOTAL_PREVALENCE = sum(PREVALENCE),
+      dplyr::mutate(PREVALENCE = dplyr::if_else(.data$PREVALENCE > 0, 1, 0)) %>%
+      dplyr::group_by(.data$ABSTRACTION_LEVEL, .data$COHORT_DEFINITION_ID, .data$CONCEPT_ID) %>%
+      dplyr::summarise(TOTAL_PREVALENCE = sum(.data$PREVALENCE),
                        .groups = 'drop')
 
     # Separate the data for each cohort for easier analysis
     cohort_1 <-
-      dplyr::filter(agg_data, COHORT_DEFINITION_ID != targetCohortId)
+      dplyr::filter(agg_data, .data$COHORT_DEFINITION_ID != targetCohortId)
     cohort_2 <-
-      dplyr::filter(agg_data, COHORT_DEFINITION_ID == targetCohortId)
+      dplyr::filter(agg_data, .data$COHORT_DEFINITION_ID == targetCohortId)
 
     # Count of patients in each cohort
     sample_1_n <-
@@ -447,7 +447,7 @@ performPrevalenceAnalysisLogistic <-
     printCustomMessage("Starting running logistic regressions on data...")
     for (abstraction_level in unique(agg_data$ABSTRACTION_LEVEL)) {
 
-      agg_data_abstraction_subset = agg_data %>% dplyr::filter(ABSTRACTION_LEVEL == abstraction_level)
+      agg_data_abstraction_subset = agg_data %>% dplyr::filter(.data$ABSTRACTION_LEVEL == abstraction_level)
     alpha <- 0.05 / length(unique(agg_data_abstraction_subset$CONCEPT_ID))
 
     # Get unique concept IDs
@@ -458,11 +458,11 @@ performPrevalenceAnalysisLogistic <-
       concept_id <- concept_ids[i]
 
       # Create the dataset for logistic regression
-      concept_data <- data_patients %>% dplyr::filter(ABSTRACTION_LEVEL == abstraction_level) %>%
+      concept_data <- data_patients %>% dplyr::filter(.data$ABSTRACTION_LEVEL == abstraction_level) %>%
         dplyr::mutate(
-          PREVALENCE = dplyr::if_else(CONCEPT_ID == concept_id &
-                                        PREVALENCE > 0, 1, 0),
-          TARGET = dplyr::if_else(COHORT_DEFINITION_ID == targetCohortId, 1, 0)
+          PREVALENCE = dplyr::if_else(.data$CONCEPT_ID == concept_id &
+                                        .data$PREVALENCE > 0, 1, 0),
+          TARGET = dplyr::if_else(.data$COHORT_DEFINITION_ID == targetCohortId, 1, 0)
         )
 
       prevalence_cohort_2 <- ifelse(is.na(sum(concept_data$PREVALENCE[concept_data$TARGET == 1])), 0, sum(concept_data$PREVALENCE[concept_data$TARGET == 1]))
@@ -529,53 +529,53 @@ calculate_data_features <-
   function(data, nHighestPrevalenceDifference) {
     # Calculate number of patients per cohort
     n_patients <- data$data_initial %>%
-      dplyr::group_by(COHORT_DEFINITION_ID) %>%
+      dplyr::group_by(.data$COHORT_DEFINITION_ID) %>%
       dplyr::summarise(count = dplyr::n(), .groups = 'drop') %>%
       tidyr::pivot_wider(
-        names_from = COHORT_DEFINITION_ID,
-        values_from = count,
+        names_from = .data$COHORT_DEFINITION_ID,
+        values_from = .data$count,
         values_fill = list(count = 0)
       )
     count_target <- n_patients$`2`
     count_control <- n_patients$`1`
     # Update data features with prevalence calculations
     data_features <- data$data_patients %>%
-      dplyr::group_by(CONCEPT_ID, CONCEPT_NAME, ABSTRACTION_LEVEL) %>%
+      dplyr::group_by(.data$CONCEPT_ID, .data$CONCEPT_NAME, .data$ABSTRACTION_LEVEL) %>%
       dplyr::summarise(
-        TARGET_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 2 &
-                                     PREVALENCE > 0),
-        CONTROL_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 1 &
-                                      PREVALENCE > 0),
+        TARGET_SUBJECT_COUNT = sum(.data$COHORT_DEFINITION_ID == 2 &
+                                     .data$PREVALENCE > 0),
+        CONTROL_SUBJECT_COUNT = sum(.data$COHORT_DEFINITION_ID == 1 &
+                                      .data$PREVALENCE > 0),
         .groups = 'drop'
       ) %>%
       dplyr::mutate(
-        TARGET_SUBJECT_PREVALENCE = TARGET_SUBJECT_COUNT / count_target,
-        CONTROL_SUBJECT_PREVALENCE = CONTROL_SUBJECT_COUNT / count_control,
+        TARGET_SUBJECT_PREVALENCE = .data$TARGET_SUBJECT_COUNT / count_target,
+        CONTROL_SUBJECT_PREVALENCE = .data$CONTROL_SUBJECT_COUNT / count_control,
         PREVALENCE_DIFFERENCE_RATIO = dplyr::case_when(
-          is.na(TARGET_SUBJECT_PREVALENCE) |
-            TARGET_SUBJECT_PREVALENCE == 0 ~ 0,
+          is.na(.data$TARGET_SUBJECT_PREVALENCE) |
+            .data$TARGET_SUBJECT_PREVALENCE == 0 ~ 0,
           (
-            is.na(CONTROL_SUBJECT_PREVALENCE) |
-              CONTROL_SUBJECT_PREVALENCE == 0
-          ) & is.na(TARGET_SUBJECT_PREVALENCE) ~ -1,
-          is.na(CONTROL_SUBJECT_PREVALENCE) |
-            CONTROL_SUBJECT_PREVALENCE == 0 ~ 100,
-          TRUE ~ TARGET_SUBJECT_PREVALENCE / CONTROL_SUBJECT_PREVALENCE
+            is.na(.data$CONTROL_SUBJECT_PREVALENCE) |
+              .data$CONTROL_SUBJECT_PREVALENCE == 0
+          ) & is.na(.data$TARGET_SUBJECT_PREVALENCE) ~ -1,
+          is.na(.data$CONTROL_SUBJECT_PREVALENCE) |
+            .data$CONTROL_SUBJECT_PREVALENCE == 0 ~ 100,
+          TRUE ~ .data$TARGET_SUBJECT_PREVALENCE / .data$CONTROL_SUBJECT_PREVALENCE
         )
       )
 
     if (nHighestPrevalenceDifference != FALSE) {
       # Keep only the nHighestPrevalenceDifference rows with highest values of PREVALENCE_DIFFERENCE_RATIO
       data_features <- data_features %>%
-        dplyr::group_by(ABSTRACTION_LEVEL) %>%
-        dplyr::arrange(dplyr::desc(PREVALENCE_DIFFERENCE_RATIO)) %>%
+        dplyr::group_by(.data$ABSTRACTION_LEVEL) %>%
+        dplyr::arrange(dplyr::desc(.data$PREVALENCE_DIFFERENCE_RATIO)) %>%
         dplyr::slice_head(n = nHighestPrevalenceDifference) %>%
         dplyr::ungroup()
     }
     data$data_features <- data_features
 
     filtered_keys <- data_features %>%
-      dplyr::select(ABSTRACTION_LEVEL, CONCEPT_ID) %>%
+      dplyr::select(.data$ABSTRACTION_LEVEL, .data$CONCEPT_ID) %>%
       dplyr::distinct()
 
     data$data_patients <- data$data_patients %>%
@@ -593,53 +593,53 @@ calculate_data_features <-
 handleMapping <- function(data, complementaryMappingTable, abstractionLevel = NA) {
   printCustomMessage("Mapping according to predefined complementaryMappingTable...")
 
-  data_patients <- data$data_patients %>% dplyr::filter(ABSTRACTION_LEVEL == abstractionLevel)
+  data_patients <- data$data_patients %>% dplyr::filter(.data$ABSTRACTION_LEVEL == abstractionLevel)
   # If new abstraction level get default abstraction level data
   if(nrow(data_patients) == 0){
-    data_patients <- data$data_patients %>% dplyr::filter(ABSTRACTION_LEVEL == -1)
+    data_patients <- data$data_patients %>% dplyr::filter(.data$ABSTRACTION_LEVEL == -1)
   }
-  data$data_patients <- data$data_patients %>% dplyr::filter(ABSTRACTION_LEVEL != abstractionLevel)
+  data$data_patients <- data$data_patients %>% dplyr::filter(.data$ABSTRACTION_LEVEL != abstractionLevel)
 
   # Step 2: Replace CONCEPT_ID in data_patients with the mapped CONCEPT_ID for each CONCEPT_NAME
   data_patients <- data_patients %>%
     dplyr::full_join(complementaryMappingTable,
               by = "CONCEPT_ID", relationship = "many-to-many") %>%
-   dplyr:: mutate(CONCEPT_ID = dplyr::if_else(is.na(CONCEPT_ID.new), CONCEPT_ID, CONCEPT_ID.new)) %>%
-    dplyr:: mutate(CONCEPT_NAME = dplyr::if_else(is.na(CONCEPT_NAME.new), CONCEPT_NAME, CONCEPT_NAME.new)) %>%
-    dplyr::select(-CONCEPT_ID.new, -CONCEPT_NAME.new)
+   dplyr:: mutate(CONCEPT_ID = dplyr::if_else(is.na(.data$CONCEPT_ID.new), .data$CONCEPT_ID, .data$CONCEPT_ID.new)) %>%
+    dplyr:: mutate(CONCEPT_NAME = dplyr::if_else(is.na(.data$CONCEPT_NAME.new), .data$CONCEPT_NAME, .data$CONCEPT_NAME.new)) %>%
+    dplyr::select(-.data$CONCEPT_ID.new, -.data$CONCEPT_NAME.new)
 
   # Step 3: Summarize data_patients to aggregate PREVALENCE
   final_data <- data_patients %>%
-    dplyr::group_by(COHORT_DEFINITION_ID,
-                    PERSON_ID,
-                    CONCEPT_ID,
-                    CONCEPT_NAME,
-                    HERITAGE) %>%
-    dplyr::summarise(PREVALENCE = sum(PREVALENCE, na.rm = TRUE),
+    dplyr::group_by(.data$COHORT_DEFINITION_ID,
+                    .data$PERSON_ID,
+                    .data$CONCEPT_ID,
+                    .data$CONCEPT_NAME,
+                    .data$HERITAGE) %>%
+    dplyr::summarise(PREVALENCE = sum(.data$PREVALENCE, na.rm = TRUE),
               .groups = 'drop')
 
   final_data_summarized <- final_data %>%
-    dplyr::group_by(CONCEPT_ID, HERITAGE) %>%
-    dplyr::summarise(Summed_Prevalence = sum(PREVALENCE, na.rm = TRUE),
+    dplyr::group_by(.data$CONCEPT_ID, .data$HERITAGE) %>%
+    dplyr::summarise(Summed_Prevalence = sum(.data$PREVALENCE, na.rm = TRUE),
               .groups = 'drop')
 
   # Assign the most prevalent heritage to each concept ID and PERSON_ID
   most_prevalent_heritage <- final_data_summarized %>%
-    dplyr::group_by(CONCEPT_ID) %>%
-    dplyr::filter(Summed_Prevalence == max(Summed_Prevalence)) %>%
+    dplyr::group_by(.data$CONCEPT_ID) %>%
+    dplyr::filter(.data$Summed_Prevalence == max(.data$Summed_Prevalence)) %>%
     dplyr::slice(1) %>%  # In case of tie, take the first occurrence
-    dplyr::select(CONCEPT_ID, HERITAGE)
+    dplyr::select(.data$CONCEPT_ID, .data$HERITAGE)
 
   # Merge the most prevalent heritage back to the original dataframe and sum the PREVALENCE
   result <- final_data %>%
-    dplyr::select(-HERITAGE) %>%
+    dplyr::select(-.data$HERITAGE) %>%
     dplyr::left_join(most_prevalent_heritage, by = "CONCEPT_ID") %>%
-    dplyr::group_by(COHORT_DEFINITION_ID,
-                    PERSON_ID,
-                    CONCEPT_ID,
-                    CONCEPT_NAME,
-                    HERITAGE) %>%
-    dplyr::summarise(PREVALENCE = sum(PREVALENCE, na.rm = TRUE),
+    dplyr::group_by(.data$COHORT_DEFINITION_ID,
+                    .data$PERSON_ID,
+                    .data$CONCEPT_ID,
+                    .data$CONCEPT_NAME,
+                    .data$HERITAGE) %>%
+    dplyr::summarise(PREVALENCE = sum(.data$PREVALENCE, na.rm = TRUE),
               .groups = 'drop')
   # Add abstraction level identifier
   result$ABSTRACTION_LEVEL = abstractionLevel
@@ -744,7 +744,7 @@ handleFeatureSelection <-
     data_features = data$data_features
     }
     else{
-    data_features = data$data_features %>% dplyr::filter(ZTEST | LOGITTEST)
+    data_features = data$data_features %>% dplyr::filter(.data$ZTEST | .data$LOGITTEST)
     }
     n_features_left = nrow(data_features)
     trajectoryDataList = list()
@@ -770,7 +770,7 @@ handleFeatureSelection <-
 
     if (topK == FALSE) {
       features = dplyr::filter(data_features,
-                               PREVALENCE_DIFFERENCE_RATIO > prevalenceCutOff)
+                               .data$PREVALENCE_DIFFERENCE_RATIO > prevalenceCutOff)
       n_features_left = nrow(features)
       printCustomMessage(
         paste(
@@ -786,9 +786,9 @@ handleFeatureSelection <-
     else {
       topNFeatures <-
         dplyr::pull(dplyr::slice(dplyr::arrange(
-          data_features, dplyr::desc(PREVALENCE_DIFFERENCE_RATIO)
-        ), 1:topK), CONCEPT_ID)
-      features = dplyr::filter(data_features, CONCEPT_ID %in% topNFeatures, ABSTRACTION_LEVEL == -1)
+          data_features, dplyr::desc(.data$PREVALENCE_DIFFERENCE_RATIO)
+        ), 1:topK), .data$CONCEPT_ID)
+      features = dplyr::filter(data_features, .data$CONCEPT_ID %in% topNFeatures, .data$ABSTRACTION_LEVEL == -1)
       n_features_left = nrow(features)
       printCustomMessage(
         paste(
@@ -804,20 +804,20 @@ handleFeatureSelection <-
 
     patients = dplyr::select(
       dplyr::filter(
-        dplyr::filter(data$data_patients, COHORT_DEFINITION_ID == targetCohortId, ABSTRACTION_LEVEL == -1),
-        CONCEPT_ID %in% features$CONCEPT_ID
+        dplyr::filter(data$data_patients, .data$COHORT_DEFINITION_ID == targetCohortId, .data$ABSTRACTION_LEVEL == -1),
+        .data$CONCEPT_ID %in% features$CONCEPT_ID
       ),
-      PERSON_ID,
-      CONCEPT_NAME,
-      PREVALENCE
+      .data$PERSON_ID,
+      .data$CONCEPT_NAME,
+      .data$PREVALENCE
     )
 
     patients <-
-      dplyr::summarise(dplyr::group_by(patients, PERSON_ID, CONCEPT_NAME),
-                       PREVALENCE = mean(PREVALENCE))
+      dplyr::summarise(dplyr::group_by(patients, .data$PERSON_ID, .data$CONCEPT_NAME),
+                       PREVALENCE = mean(.data$PREVALENCE))
 
     transformed_data <-
-      tidyr::spread(patients, CONCEPT_NAME, PREVALENCE, fill = 0)
+      tidyr::spread(patients, .data$CONCEPT_NAME, .data$PREVALENCE, fill = 0)
     patients_data <-
       transformed_data[,-1] # Remove the first column (patient IDs)
     # export selected features
@@ -845,21 +845,21 @@ createC2TInputFunction <-
       data_selected_patients = dplyr::select(
         dplyr::filter(
           data$data_patients,
-          ABSTRACTION_LEVEL == -1,
-          CONCEPT_NAME %in% data$trajectoryDataList$selectedFeatureNames,
-          COHORT_DEFINITION_ID == targetCohortId
+          .data$ABSTRACTION_LEVEL == -1,
+          .data$CONCEPT_NAME %in% data$trajectoryDataList$selectedFeatureNames,
+          .data$COHORT_DEFINITION_ID == targetCohortId
         ),
-        CONCEPT_ID,
-        CONCEPT_NAME,
-        PERSON_ID,
-        HERITAGE
+        .data$CONCEPT_ID,
+        .data$CONCEPT_NAME,
+        .data$PERSON_ID,
+        .data$HERITAGE
       )
       # Creating target cohort & eligible patients dataset
       data_target = dplyr::mutate(
         dplyr::filter(
           data$data_initial,
-          COHORT_DEFINITION_ID == targetCohortId,
-          SUBJECT_ID %in% unique(data_selected_patients$PERSON_ID)
+          .data$COHORT_DEFINITION_ID == targetCohortId,
+          .data$SUBJECT_ID %in% unique(data_selected_patients$PERSON_ID)
         ),
         COHORT_DEFINITION_ID = 0
       )
@@ -910,8 +910,8 @@ saveResult <- function(data, pathToResults, complName = NULL) {
   if(!is.null(complName)){
     filePath <- file.path(pathToResults, paste0(complName, ".rds"))
   }
-  data$data_patients = dplyr::mutate(data$data_patients, COHORT_DEFINITION_ID = dplyr::if_else(COHORT_DEFINITION_ID == 2, "target", "control"))
-  data$data_initial = dplyr::mutate(data$data_initial, COHORT_DEFINITION_ID = dplyr::if_else(COHORT_DEFINITION_ID == 2, "target", "control"))
+  data$data_patients = dplyr::mutate(data$data_patients, COHORT_DEFINITION_ID = dplyr::if_else(.data$COHORT_DEFINITION_ID == 2, "target", "control"))
+  data$data_initial = dplyr::mutate(data$data_initial, COHORT_DEFINITION_ID = dplyr::if_else(.data$COHORT_DEFINITION_ID == 2, "target", "control"))
   save_object(data, path = filePath)
   printCustomMessage(paste("Saved the result to ", filePath, sep = ""))
 }
