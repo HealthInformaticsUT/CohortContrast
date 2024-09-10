@@ -36,7 +36,8 @@ test_that("Created features table is correct.", {
     createC2TInput = TRUE,
     runZTests = FALSE,
     runLogitTests = FALSE,
-    createOutputFiles = FALSE)
+    createOutputFiles = FALSE,
+    numCores = 1)
 
   expect_equal(length(data$trajectoryDataList$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
   expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 4]) == 830, TRUE)

@@ -85,7 +85,7 @@ body <- shinydashboard::dashboardBody(
             "abstraction_lvl",
             h3("Abstraction level"),
             min = -1,
-            max = 10,
+            max = 5,
             value = -1,
             step = 1
           )
@@ -184,7 +184,7 @@ body <- shinydashboard::dashboardBody(
         shiny::tags$h4("Prevalence Cutoff"),
         shiny::tags$p("The prevalence cutoff is the minimum percentage of people who should have the concept in the target cohort. Concepts with a prevalence below this cutoff will be filtered out."),
         shiny::tags$h4("Abstraction level"),
-        shiny::tags$p("The abstraction level slider helps you to automatically combine or expand concepts. The levels are calculated based on concept ancestor table in the CDM. Level -1 stands for default imported concept ids, the levels from 0 to 10 represent (0 - highest level, 10 - lowest level) the distance in concept hierarchy from the ancestor of highest level."),
+        shiny::tags$p("The abstraction level slider helps you to automatically combine or expand concepts. The levels are calculated based on concept ancestor table in the CDM. Level -1 stands for default imported concept ids, the levels from 0 to 10 represent (0 - highest level, 5 - lowest level) the distance in concept hierarchy from the ancestor of highest level."),
         shiny::tags$h4("Scale for Rate"),
         shiny::tags$p("When enabled, the prevalence will be calculated on a yearly basis for each person. This takes into account the total number of occurrences of the concept in the observation period."),
         shiny::tags$h4("Inverse Target"),

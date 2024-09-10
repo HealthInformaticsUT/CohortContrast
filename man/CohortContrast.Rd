@@ -21,7 +21,8 @@ CohortContrast(
   runLogitTests = TRUE,
   getAllAbstractions = FALSE,
   createOutputFiles = TRUE,
-  complName = NULL
+  complName = NULL,
+  numCores = parallel::detectCores() - 1
 )
 }
 \arguments{
@@ -54,6 +55,8 @@ CohortContrast(
 \item{createOutputFiles}{Boolean for creating output files, the default value is TRUE}
 
 \item{complName}{Name of the output file}
+
+\item{numCores}{Number of cores to allocate to parallel proccessing}
 }
 \description{
 CohortContrast analysis function
@@ -114,7 +117,8 @@ data = CohortContrast(
   createC2TInput = FALSE,
   runZTests = FALSE,
   runLogitTests = FALSE,
-  createOutputFiles = FALSE
+  createOutputFiles = FALSE,
+  numCores = 1
 )
 
 DBI::dbDisconnect(con)
