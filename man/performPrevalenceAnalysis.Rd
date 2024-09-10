@@ -8,7 +8,8 @@ performPrevalenceAnalysis(
   data_patients,
   data_initial,
   targetCohortId,
-  presenceFilter
+  presenceFilter,
+  numCores = parallel::detectCores() - 1
 )
 }
 \arguments{
@@ -19,6 +20,8 @@ performPrevalenceAnalysis(
 \item{targetCohortId}{Target cohort id}
 
 \item{presenceFilter}{Presence filter 0-1, if 0.1 then feature has to be present for at least 10 percent of patients}
+
+\item{numCores}{Number of cores to allocate to parallel processing}
 }
 \description{
 This function performs Z-tests on the patient prevalence data target vs control

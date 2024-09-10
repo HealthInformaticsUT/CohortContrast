@@ -38,7 +38,8 @@ test_that("Created features table is correct with JSON & patient matching", {
     createC2TInput = TRUE,
     runZTests = FALSE,
     runLogitTests = FALSE,
-   createOutputFiles = FALSE)
+   createOutputFiles = FALSE,
+   numCores = 1)
 
   expect_equal(length(data$trajectoryDataList$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
 #  expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 3]) == 2, TRUE)
@@ -92,7 +93,8 @@ test_that("Created features table is correct with Cohorts table & patient matchi
     createC2TInput = TRUE,
     runZTests = FALSE,
     runLogitTests = FALSE,
-    createOutputFiles = FALSE)
+    createOutputFiles = FALSE,
+    numCores = 1)
 
   expect_equal(length(data$trajectoryDataList$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
   #  expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 3]) == 2, TRUE)
@@ -146,7 +148,8 @@ test_that("Test patient matching with min and max values", {
     createC2TInput = TRUE,
     runZTests = FALSE,
     runLogitTests = FALSE,
-    createOutputFiles = FALSE)
+    createOutputFiles = FALSE,
+    numCores = 1)
 
   expect_equal(length(data$trajectoryDataList$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
   #  expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 3]) == 2, TRUE)

@@ -101,6 +101,7 @@ server = function(input, output, session) {
 
   # Load data based on selection
   observeEvent(input$studyName, {
+    fullScreenWaiter$show()
     req(input$studyName)
     split_name <- unlist(strsplit(input$studyName, " ", fixed = TRUE))
     correct_study_name <- split_name[1]

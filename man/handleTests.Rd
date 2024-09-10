@@ -9,7 +9,8 @@ handleTests(
   targetCohortId,
   presenceFilter,
   runZTests = TRUE,
-  runLogitTests = TRUE
+  runLogitTests = TRUE,
+  numCores = parallel::detectCores() - 1
 )
 }
 \arguments{

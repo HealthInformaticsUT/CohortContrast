@@ -25,6 +25,9 @@ Imports:
     omopgenerics,
     shiny,
     lubridate,
+    doParallel,
+    parallel,
+    foreach
 Suggests: 
     testthat (>= 3.0.0),
     PatientProfiles (>= 1.1.0),

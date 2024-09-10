@@ -4,12 +4,14 @@
 \alias{handleMapping}
 \title{This function uses complementaryMappingTable to map concepts to custom names}
 \usage{
-handleMapping(data, complementaryMappingTable, abstractionLevel = NA)
+handleMapping(data, complementaryMappingTable, abstractionLevel = -1)
 }
 \arguments{
 \item{data}{Data list object}
 
 \item{complementaryMappingTable}{Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,}
+
+\item{abstractionLevel}{Level of abstraction, by default -1 (imported data level)}
 }
 \description{
 This function uses complementaryMappingTable to map concepts to custom names
