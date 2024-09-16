@@ -96,7 +96,8 @@ data = CohortContrast::CohortContrast(
   createC2TInput = FALSE,
   runZTests = TRUE,
   runLogitTests = FALSE,
-  createOutputFiles = TRUE)
+  createOutputFiles = TRUE,
+  safeRun = FALSE)
   
  CohortContrast::runCohortContrastGUI(
  pathToResults = pathToResults
