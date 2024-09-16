@@ -5,11 +5,6 @@ if (!requireNamespace("ggplot2", quietly = TRUE)) {
 if (!requireNamespace("patchwork", quietly = TRUE)) {
   stop("patchwork is required for this app but is not installed. Please install it.")
 }
-library(shiny)
-library(DT)
-library(pheatmap)
-library(patchwork)
-library(tidyverse)
 
 ################################################################################
 #
@@ -17,51 +12,58 @@ library(tidyverse)
 #
 ################################################################################
 
-server = function(input, output, session) {
+server <- function(input, output, session) {
   # Reactive values
-  study_info <- reactiveVal(list())
-  studyName <- reactiveVal()
-  target_mod <- reactiveVal()
-  original_data <- reactiveVal(NULL)
-  loaded_data <- reactiveVal(NULL)
-  data_features <- reactiveVal(NULL)
-  data_patients <- reactiveVal(NULL)
-  complementaryMappingTable <- reactiveVal(data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), ABSTRACTION_LEVEL = integer(), stringsAsFactors = FALSE))
+  study_info <- shiny::reactiveVal(list())
+  studyName <- shiny::reactiveVal()
+  target_mod <- shiny::reactiveVal()
+  original_data <- shiny::reactiveVal(NULL)
+  loaded_data <- shiny::reactiveVal(NULL)
+  data_features <- shiny::reactiveVal(NULL)
+  data_patients <- shiny::reactiveVal(NULL)
+  data_initial <- shiny::reactiveVal(NULL)
+  selected_filters <- shiny::reactiveVal(list())
+  selected_patient_filters <- shiny::reactiveVal(list())
+  complementaryMappingTable <- shiny::reactiveVal(data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), ABSTRACTION_LEVEL = integer(), stringsAsFactors = FALSE))
+  removeButtonCounter <- shiny::reactiveVal(0)
+  removeButtonCounterMap <- shiny::reactiveValues()
+  filterButtonCounter <- shiny::reactiveVal(0)
+  filterButtonCounterMap <- shiny::reactiveValues()
 
   # Waiters
   fullScreenWaiter <- waiter::Waiter$new(
-    html = tagList(
+    html = htmltools::tagList(
       h4("Loading, please wait...", style = "color: white;"),
       waiter::spin_3()
     ),
-    color = "rgba(0, 0, 0, 0.75)"  # Semi-transparent black background
+    color = "rgba(0, 0, 0, 0.75)" # Semi-transparent black background
   )
   snapshotWaiter <- waiter::Waiter$new(
-    html = tagList(
+    html = htmltools::tagList(
       h4("Saving the snapshot, please wait...", style = "color: white;"),
       waiter::spin_3()
     ),
-    color = "rgba(0, 0, 0, 0.75)"  # Semi-transparent black background
+    color = "rgba(0, 0, 0, 0.75)" # Semi-transparent black background
   )
   combiningWaiter <- waiter::Waiter$new(
-    html = tagList(
+    html = htmltools::tagList(
       h4("Combining concepts, please wait...", style = "color: white;"),
       waiter::spin_3()
     ),
-    color = "rgba(0, 0, 0, 0.75)"  # Semi-transparent black background
+    color = "rgba(0, 0, 0, 0.75)" # Semi-transparent black background
   )
   prevalencePlotWaiter <- waiter::Waiter$new(
-    id = "prevalence",  # Targeting the prevalence plot
-    html = tagList(
-      div(style = "color: white; font-size: 18px; text-align: center;", "Loading Prevalence Plot..."),
+    id = "prevalence", # Targeting the prevalence plot
+    html = htmltools::tagList(
+      htmltools::div(style = "color: white; font-size: 18px; text-align: center;", "Loading Prevalence Plot..."),
       waiter::spin_3()
     )
   )
 
   heatmapPlotWaiter <- waiter::Waiter$new(
-    id = "heatmap",  # Targeting the heatmap plot
-    html = tagList(
-      div(style = "color: white; font-size: 18px; text-align: center;", "Loading Heatmap Plot..."),
+    id = "heatmap", # Targeting the heatmap plot
+    html = htmltools::tagList(
+      htmltools::div(style = "color: white; font-size: 18px; text-align: center;", "Loading Heatmap Plot..."),
       waiter::spin_3()
     )
   )
@@ -70,101 +72,132 @@ server = function(input, output, session) {
   load_study_data <- function() {
     names_and_rows <- list()
     CohortContrast:::printCustomMessage("EXECUTION: Loading studies from working directory ...")
-    study_names <- get_study_names(pathToResults)
+    study_names <- CohortContrast:::get_study_names(pathToResults)
     for (study_name in study_names) {
-      file_path <- str_c(pathToResults, "/", study_name, ".rds")
+      file_path <- stringr::str_c(pathToResults, "/", study_name, ".rds")
 
       if (file.exists(file_path)) {
         object <- readRDS(file_path)
-        loaded_data(object)
-        original_data(object)
-        rows <- nrow(distinct(select(filter(object$data_initial, COHORT_DEFINITION_ID == 'target'), SUBJECT_ID)))
+        object$data_initial <- data.table::as.data.table(object$data_initial)
+
+        # Use isolate to prevent reactivity triggers
+        shiny::isolate({
+          loaded_data(object)
+          original_data(object)
+        })
+
+        rows <- object$data_initial[
+          COHORT_DEFINITION_ID == "target",
+          data.table::uniqueN(SUBJECT_ID)
+        ]
         names_and_rows[[study_name]] <- rows
       }
     }
-    study_info(names_and_rows)
+
+    # Use isolate to prevent reactivity triggers
+    shiny::isolate({
+      study_info(names_and_rows)
+    })
+
     CohortContrast:::printCustomMessage("COMPLETED: Loading studies from working directory")
   }
-  # Initialize data on app start
-  observe({
-    fullScreenWaiter$show()  # Show the loading screen
+
+  # Initialize data on app start (load once)
+  shiny::observe({
+    fullScreenWaiter$show() # Show the loading screen
     load_study_data()
+    fullScreenWaiter$hide() # Hide the loading screen
   })
 
   # Update dropdown choices
-  observe({
-    choices <- sapply(names(study_info()), function(name) {
+  shiny::observe({
+    choices_filtering <- sapply(names(study_info()), function(name) {
       paste(name, "(", study_info()[[name]], "patients)")
     })
-    updateSelectInput(session, "studyName", choices = as.vector(choices))
+    shiny::updateSelectInput(session, "studyName", choices = as.vector(choices_filtering))
   })
 
   # Load data based on selection
-  observeEvent(input$studyName, {
+  shiny::observeEvent(input$studyName, {
     fullScreenWaiter$show()
-    req(input$studyName)
+    shiny::req(input$studyName)
     split_name <- unlist(strsplit(input$studyName, " ", fixed = TRUE))
     correct_study_name <- split_name[1]
     CohortContrast:::printCustomMessage(paste("EXECUTION: Loading study", correct_study_name, "from working directory ...", sep = " "))
-    file_path <- str_c(pathToResults, "/", correct_study_name, ".rds")
+    file_path <- stringr::str_c(pathToResults, "/", correct_study_name, ".rds")
     studyName(correct_study_name)
     if (file.exists(file_path)) {
       object <- readRDS(file_path)
-      loaded_data(list(
-        data_initial = object$data_initial,
-        data_patients = object$data_patients,
-        data_features = object$data_features,
-        data_person = object$data_person,
-        target_matrix = object$target_matrix,
-        target_row_annotation = object$target_row_annotation,
-        target_col_annotation = object$target_col_annotation
-      ))
-      original_data(list(
-        data_initial = object$data_initial,
-        data_patients = object$data_patients,
-        data_features = object$data_features,
-        data_person = object$data_person,
-        target_matrix = object$target_matrix,
-        target_row_annotation = object$target_row_annotation,
-        target_col_annotation = object$target_col_annotation
-      ))
-      data_features(object$data_features)
-      data_patients(object$data_patients)
-      target_mod(object$data_features)
-      if(!is.null(object$complementaryMappingTable)) complementaryMappingTable(object$complementaryMappingTable)
+
+      # Ensure that all relevant components are converted to data.table
+      object$data_initial <- data.table::as.data.table(object$data_initial)
+      object$data_patients <- data.table::as.data.table(object$data_patients)
+      object$data_features <- data.table::as.data.table(object$data_features)
+      object$data_person <- data.table::as.data.table(object$data_person)
+      object$target_matrix <- data.table::as.data.table(object$target_matrix)
+      object$target_row_annotation <- data.table::as.data.table(object$target_row_annotation)
+      object$target_col_annotation <- data.table::as.data.table(object$target_col_annotation)
+
+      # Forward the converted data.tables
+      shiny::isolate({
+        loaded_data(list(
+          data_initial = object$data_initial,
+          data_patients = object$data_patients,
+          data_features = object$data_features,
+          data_person = object$data_person,
+          target_matrix = object$target_matrix,
+          target_row_annotation = object$target_row_annotation,
+          target_col_annotation = object$target_col_annotation,
+          config = object$config
+        ))
+
+        original_data(list(
+          data_initial = object$data_initial,
+          data_patients = object$data_patients,
+          data_features = object$data_features,
+          data_person = object$data_person,
+          target_matrix = object$target_matrix,
+          target_row_annotation = object$target_row_annotation,
+          target_col_annotation = object$target_col_annotation,
+          config = object$config
+        ))
+
+        # Update reactive values with the converted data.tables
+        data_features(object$data_features)
+        data_patients(object$data_patients)
+        data_initial(object$data_initial)
+        target_mod(object$data_features)
+      })
+
+      if (!is.null(object$complementaryMappingTable)) complementaryMappingTable(object$complementaryMappingTable)
       CohortContrast:::printCustomMessage(paste("COMPLETED: Loading study", correct_study_name, "from working directory", sep = " "))
     } else {
       print("File not found")
-      fullScreenWaiter$hide()  # Hide the loading screen
     }
+    fullScreenWaiter$hide() # Hide the loading screen
   })
 
   # Reactive expressions
-  target <- reactive({
+  target <- shiny::reactive({
     fullScreenWaiter$show()
-    req(studyName(), pathToResults, loaded_data())
-
+    shiny::req(studyName(), pathToResults, loaded_data())
     autoScaleRate <- if (!is.null(input$scaleRate) && input$scaleRate) TRUE else FALSE
     applyInverseTarget <- if (!is.null(input$applyInverseTarget) && input$applyInverseTarget) TRUE else FALSE
     applyZTest <- if (!is.null(input$applyZTest) && input$applyZTest) TRUE else FALSE
     applyLogitTest <- if (!is.null(input$applyLogitTest) && input$applyLogitTest) TRUE else FALSE
-    abstractionLevel <- if(!is.null(input$applyLogitTest)) input$abstraction_lvl else 0
+    abstractionLevel <- if (!is.null(input$applyLogitTest)) input$abstraction_lvl else 0
     result <- format_results(
-      object = loaded_data(),
-      pathToResults = pathToResults,
-      studyName = studyName(),
+      data = loaded_data(),
       autoScaleRate = autoScaleRate,
       applyInverseTarget = applyInverseTarget,
       applyZTest = applyZTest,
       applyLogitTest = applyLogitTest,
       abstractionLevel = abstractionLevel
     )
-    # fullScreenWaiter$hide()
     result
   })
 
-  target_filtered <- reactive({
-    # fullScreenWaiter$show()
+  target_filtered <- shiny::reactive({
     result <- filter_target(
       target(),
       input$prevalence,
@@ -177,88 +210,105 @@ server = function(input, output, session) {
   })
 
   # Render plots
-  output$prevalence <- renderPlot({
-    prevalencePlotWaiter$show()
-    result <- tryCatch({
-      plot_prevalence(target_filtered())
-    }, error = function(e) {
-      print(e)
-      plot_prevalence(NULL)
-    })
-    prevalencePlotWaiter$hide()
-    result
-  }, height = 950)
+  output$prevalence <- shiny::renderPlot(
+    {
+      prevalencePlotWaiter$show()
+      result <- tryCatch(
+        {
+          plot_prevalence(target_filtered())
+        },
+        error = function(e) {
+          print(e)
+          plot_prevalence(NULL)
+        }
+      )
+      prevalencePlotWaiter$hide()
+      result
+    },
+    height = 950
+  )
 
-  output$heatmap <- renderPlot({
-    heatmapPlotWaiter$show()
-    result <- tryCatch({
-      plot_heatmap(target_filtered())
-    }, error = function(e) {
-      print(e)
-      plot_heatmap(NULL)
-    })
-    heatmapPlotWaiter$hide()
-    result
-  }, height = 950)
+  output$heatmap <- shiny::renderPlot(
+    {
+      heatmapPlotWaiter$show()
+      result <- tryCatch(
+        {
+          plot_heatmap(target_filtered())
+        },
+        error = function(e) {
+          print(e)
+          plot_heatmap(NULL)
+        }
+      )
+      heatmapPlotWaiter$hide()
+      result
+    },
+    height = 950
+  )
 
   # Mapping table related stuff
-  observe({
-    req(data_features())
+  shiny::observe({
+    shiny::req(data_features())
     target_mod(data_features())
   })
 
-  filtered_data <- reactive({
+  filtered_data <- shiny::reactive({
     # Filter the data based on the user's selected abstraction level
-    req(input$abstraction_lvl)  # Ensure the input is available before proceeding
-    target_mod() %>%
-      dplyr::filter(.data$ABSTRACTION_LEVEL == input$abstraction_lvl)
+    shiny::req(input$abstraction_lvl) # Ensure the input is available before proceeding
+    filtered_data <- target_mod()[
+      ABSTRACTION_LEVEL == input$abstraction_lvl
+    ]
   })
 
-  output$concept_table <- DT::renderDT({
-    datatable(
-      filtered_data(),
-      selection = 'multiple',
-      filter = 'top'
-    )
-  }, server = TRUE)
+  output$concept_table <- DT::renderDT(
+    {
+      DT::datatable(
+        filtered_data(),
+        selection = "multiple",
+        filter = "top"
+      )
+    },
+    server = TRUE
+  )
 
   # Combine concepts
-  observeEvent(input$accept_btn, {
+  shiny::observeEvent(input$accept_btn, {
     combiningWaiter$show()
-    removeModal()
+    shiny::removeModal()
     new_concept_name <- input$new_concept_name
     combineSelectedConcepts(new_concept_name)
     target_mod(data_features())
 
     loaded_data(list(
-      data_initial = loaded_data()$data_initial,
+      data_initial = data_initial(),
       data_patients = data_patients(),
       data_features = data_features(),
       data_person = loaded_data()$data_person,
       target_matrix = loaded_data()$target_matrix,
       target_row_annotation = loaded_data()$target_row_annotation,
-      target_col_annotation = loaded_data()$target_col_annotation
+      target_col_annotation = loaded_data()$target_col_annotation,
+      config = loaded_data()$config
     ))
     combiningWaiter$hide()
   })
 
-  observeEvent(input$combine_btn, {
+  shiny::observeEvent(input$combine_btn, {
     if (length(input$concept_table_rows_selected) > 1) {
-      showModal(modalDialog(
+      shiny::showModal(shiny::modalDialog(
         title = "Combine Concepts",
         textInput("new_concept_name", "Enter New Concept Name:", ""),
-        footer = tagList(
-          modalButton("Cancel"),
-          actionButton("accept_btn", "Accept")
+        footer = htmltools::tagList(
+          shiny::modalButton("Cancel"),
+          shiny::actionButton("accept_btn", "Accept")
         )
       ))
     } else {
-      showNotification("Select at least two rows to combine", type = "warning")
+      shiny::showNotification("Select at least two rows to combine", type = "warning")
     }
   })
 
   # Reset data to original
-  observeEvent(input$reset_btn, {
+  shiny::observeEvent(input$reset_btn_mappings, {
     initial_data <- list(
       data_initial = original_data()$data_initial,
       data_patients = original_data()$data_patients,
@@ -266,12 +316,14 @@ server = function(input, output, session) {
       data_person = original_data()$data_person,
       target_matrix = original_data()$data_matrix,
       target_row_annotation = original_data()$target_row_annotation,
-      target_col_annotation = original_data()$target_col_annotation
+      target_col_annotation = original_data()$target_col_annotation,
+      config = original_data()$config
     )
 
     loaded_data(initial_data)
     data_features(original_data()$data_features)
     data_patients(original_data()$data_patients)
+    data_initial(original_data()$data_initial)
     target_mod(original_data()$data_features)
 
     data_features(data_features())
@@ -279,16 +331,16 @@ server = function(input, output, session) {
   })
 
   # Save data to file on button press
-  observeEvent(input$save_btn, {
+  shiny::observeEvent(input$save_btn, {
     snapshotWaiter$show()
     # Create the base file path
-    file_base <- str_c(pathToResults, "/", studyName(), "_Snapshot")
-    file_path <- str_c(file_base, ".rds")
+    file_base <- stringr::str_c(pathToResults, "/", studyName(), "_Snapshot")
+    file_path <- stringr::str_c(file_base, ".rds")
     counter <- 1
 
     # Check if file exists and append increasing numbers if necessary
     while (file.exists(file_path)) {
-      file_path <- str_c(file_base, "_", counter, ".rds")
+      file_path <- stringr::str_c(file_base, "_", counter, ".rds")
       counter <- counter + 1
     }
     # Extract the data from the reactive
@@ -299,83 +351,452 @@ server = function(input, output, session) {
     saveRDS(object, file = file_path)
     snapshotWaiter$hide()
     # Notify the user
-    showNotification(paste("Data saved to", file_path))
+    shiny::showNotification(paste("Data saved to", file_path))
   })
 
+  #################################################################### FILTERING (REMOVE CONCEPTS)
+  # Reactive expression to prepare choices with both CONCEPT_ID and CONCEPT_NAME for display
+  choices_filtering <- shiny::reactive({
+    data_filtering <- data_features()
+    stats::setNames(
+      data_filtering$CONCEPT_ID,
+      paste0(data_filtering$CONCEPT_NAME, " (", data_filtering$CONCEPT_ID, ")")
+    )
+  })
+
+  # Server-side selectize input for filtering by CONCEPT_ID and CONCEPT_NAME
+  output$dynamic_concepts_removal <- shiny::renderUI({
+    shiny::fluidRow(
+      shiny::column(
+        width = 12,
+        shiny::selectizeInput(
+          inputId = "filter_concept_id",
+          label = "Select concepts to remove",
+          choices = NULL, # Start with no choices, they will be loaded server-side
+          selected = NULL,
+          multiple = FALSE,
+          options = list(
+            placeholder = "Search or select a CONCEPT_ID",
+            server = TRUE, # Enable server-side processing
+            loadThrottle = 100, # Time delay before querying the server, in milliseconds
+            load = I('function(query_filtering, callback) {
+              if (!query_filtering.length) return callback();
+              Shiny.setInputValue("search_query_filtering", query_filtering);
+            }')
+          )
+        )
+      ),
+      shiny::column(
+        width = 6,
+        shiny::actionButton("add_filter", "Remove concept", icon = shiny::icon("trash"))
+      )
+    )
+  })
+
+  # Server-side search for selectizeInput
+  shiny::observeEvent(input$search_query_filtering, {
+    query_filtering <- input$search_query_filtering
+    data_filtering <- data_features()
+
+    # Filter the choices based on the search query
+    matched_choices_filtering <- stats::setNames(
+      data_filtering$CONCEPT_ID,
+      paste0(data_filtering$CONCEPT_NAME, " (", data_filtering$CONCEPT_ID, ")")
+    )
+
+    # Send the matched choices to the selectizeInput
+    shiny::updateSelectizeInput(session, "filter_concept_id", choices = matched_choices_filtering, server = TRUE)
+  })
+
+  # Observe when the "Add Filter" button is clicked
+  shiny::observeEvent(input$add_filter, {
+    # Retrieve current filters
+    filters <- selected_filters()
+    # Get the selected CONCEPT_NAME based on the selected CONCEPT_ID
+    concept_name <- data_features()$CONCEPT_NAME[
+      data_features()$CONCEPT_ID == input$filter_concept_id
+    ][1]
+
+    # Check if the pair is unique and add it to the list
+    if (!(input$filter_concept_id %in% sapply(filters, `[[`, "id"))) {
+      filters <- append(filters, list(list(id = input$filter_concept_id, name = concept_name)))
+      selected_filters(filters)
+    }
+  })
+
+  output$selected_filters_list <- shiny::renderUI({
+    filters <- selected_filters()
+    if (length(filters) == 0) {
+      return(NULL)
+    }
+    htmltools::tags$ul(
+      lapply(seq_along(filters), function(i) {
+        # Increment the counter within an isolated context
+        shiny::isolate({
+          counter <- removeButtonCounter() + 1
+          removeButtonCounter(counter) # Update the reactive value, but isolated
+        })
+        # Map the counter to the filter ID
+        removeButtonCounterMap[[as.character(counter)]] <- filters[[i]]$id
+        # Create the UI element for the filter with the remove button
+        filterTagItem <- htmltools::tags$li(
+          paste(filters[[i]]$id, "-", filters[[i]]$name),
+          shiny::actionButton(inputId = paste0("remove_filter_", counter), label = "Restore", icon = icon("arrow-up"))
+        )
+        return(filterTagItem)
+      })
+    )
+  })
+
+
+  # Manage observers for removal buttons
+  shiny::observe({
+    filters <- selected_filters()
+    current_ids <- names(removeButtonCounterMap)
+
+    # Loop through the counter map to create or update observers for each remove button
+    lapply(current_ids, function(counter) {
+      if (!is.null(removeButtonCounterMap[[counter]])) {
+        shiny::observeEvent(input[[paste0("remove_filter_", counter)]],
+          {
+            filter_id_to_remove <- removeButtonCounterMap[[counter]]
+            # Remove the filter from the list
+            updated_filters <- filters[!sapply(filters, function(f) f$id == filter_id_to_remove)]
+            selected_filters(updated_filters)
+
+
+            data_features <- data_features()
+            data_patients <- data_patients()
+
+            data_features_original <- original_data()$data_features
+            data_patients_original <- original_data()$data_patients
+
+            data_features_restore <- data_features_original[data_features_original$CONCEPT_ID == removeButtonCounterMap[[counter]], ]
+            data_patients_restore <- data_patients_original[data_patients_original$CONCEPT_ID == removeButtonCounterMap[[counter]], ]
+
+            data_features <- rbind(data_features, data_features_restore)
+            data_patients <- rbind(data_patients, data_patients_restore)
+
+            # Update the reactive values with the restored data
+            data_patients(data_patients)
+            data_features(data_features)
+
+            # Update the loaded_data reactive with the restored data
+            loaded_data(list(
+              data_initial = data_initial(),
+              data_patients = data_patients(), # Note the use of data_patients()
+              data_features = data_features(), # Note the use of data_features()
+              data_person = loaded_data()$data_person,
+              target_matrix = loaded_data()$target_matrix,
+              target_row_annotation = loaded_data()$target_row_annotation,
+              target_col_annotation = loaded_data()$target_col_annotation,
+              complementaryMappingTable = loaded_data()$complementaryMappingTable,
+              config = loaded_data()$config
+            ))
+
+
+            # Remove the mapping for the button after it's used
+            removeButtonCounterMap[[counter]] <- NULL
+
+            # Destroy the observer for this button after removal to prevent looping
+            shiny::isolate(removeButtonCounterMap[[counter]] <- NULL)
+          },
+          once = TRUE
+        ) # Ensure the observer is only triggered once
+      }
+    })
+  })
+
+  shiny::observe({
+    filters <- selected_filters()
+
+    # Retrieve the current values of data_features and data_patients
+    data_filtering <- data_features()
+    data_patients <- data_patients()
+
+    if (length(filters) > 0) {
+      for (filter in filters) {
+        # Filter data based on the selected filters
+        data_filtering <- data_filtering[data_filtering$CONCEPT_ID != filter$id, ]
+        data_patients <- data_patients[data_patients$CONCEPT_ID != filter$id, ]
+      }
+    }
+
+    # Update the reactive values with the filtered data
+    data_patients(data_patients)
+    data_features(data_filtering)
+
+    # Update the loaded_data reactive with the new filtered data
+    loaded_data(list(
+      data_initial = data_initial(),
+      data_patients = data_patients(), # Note the use of data_patients()
+      data_features = data_features(), # Note the use of data_features()
+      data_person = loaded_data()$data_person,
+      target_matrix = loaded_data()$target_matrix,
+      target_row_annotation = loaded_data()$target_row_annotation,
+      target_col_annotation = loaded_data()$target_col_annotation,
+      complementaryMappingTable = loaded_data()$complementaryMappingTable,
+      config = loaded_data()$config
+    ))
+  })
+
+
+  #################################################################### FILTERING (SELECT ONLY WITH CONCEPTS)
+  # Reactive expression to prepare choices with both CONCEPT_ID and CONCEPT_NAME for display
+
+  # Server-side selectize input for filtering by CONCEPT_ID and CONCEPT_NAME
+  output$dynamic_concepts_selection <- shiny::renderUI({
+    shiny::fluidRow(
+      shiny::column(
+        width = 12,
+        shiny::selectizeInput(
+          inputId = "filter_patient_concept_id_selection",
+          label = "Select concepts for subject filtering",
+          choices = NULL, # Start with no choices, they will be loaded server-side
+          selected = NULL,
+          multiple = FALSE,
+          options = list(
+            placeholder = "Search or select a CONCEPT_ID",
+            server = TRUE, # Enable server-side processing
+            loadThrottle = 100, # Time delay before querying the server, in milliseconds
+            load = I('function(query_filtering, callback) {
+              if (!query_filtering.length) return callback();
+              Shiny.setInputValue("search_patient_query_filtering", query_filtering);
+            }')
+          )
+        )
+      ),
+      shiny::column(
+        width = 6,
+        shiny::actionButton("add_patients_filter", "Filter by concept", icon = shiny::icon("filter"))
+      )
+    )
+  })
+
+  # Server-side search for selectizeInput
+  shiny::observeEvent(input$search_patient_query_filtering, {
+    query_filtering <- input$search_patient_query_filtering
+    data_filtering <- data_features()
+
+    # Filter the choices based on the search query
+    matched_choices_filtering <- stats::setNames(
+      data_filtering$CONCEPT_ID,
+      paste0(data_filtering$CONCEPT_NAME, " (", data_filtering$CONCEPT_ID, ")")
+    )
+
+    # Send the matched choices to the selectizeInput
+    shiny::updateSelectizeInput(session, "filter_patient_concept_id_selection", choices = matched_choices_filtering, server = TRUE)
+  })
+
+  # Observe when the "Add Filter" button is clicked
+  shiny::observeEvent(input$add_patients_filter, {
+    # Retrieve current filters
+    filters <- selected_patient_filters()
+    # Get the selected CONCEPT_NAME based on the selected CONCEPT_ID
+    concept_name <- data_features()$CONCEPT_NAME[
+      data_features()$CONCEPT_ID == input$filter_patient_concept_id_selection
+    ][1]
+
+    # Check if the pair is unique and add it to the list
+    if (!(input$filter_patient_concept_id_selection %in% sapply(filters, `[[`, "id"))) {
+      filters <- append(filters, list(list(id = input$filter_patient_concept_id_selection, name = concept_name)))
+      selected_patient_filters(filters)
+    }
+  })
+
+  output$selected_patient_filters_list <- shiny::renderUI({
+    filters <- selected_patient_filters()
+    if (length(filters) == 0) {
+      return(NULL)
+    }
+    htmltools::tags$ul(
+      lapply(seq_along(filters), function(i) {
+        # Increment the counter within an isolated context
+        shiny::isolate({
+          counter <- filterButtonCounter() + 1
+          filterButtonCounter(counter) # Update the reactive value, but isolated
+        })
+        # Map the counter to the filter ID
+        filterButtonCounterMap[[as.character(counter)]] <- filters[[i]]$id
+        # Create the UI element for the filter with the remove button
+        filterTagItem <- htmltools::tags$li(
+          paste(filters[[i]]$id, "-", filters[[i]]$name),
+          shiny::actionButton(inputId = paste0("add_filter_", counter), label = "Remove", icon = icon("xmark"))
+        )
+        return(filterTagItem)
+      })
+    )
+  })
+
+
+  # Manage observers for removal buttons
+  shiny::observe({
+    filters <- selected_patient_filters()
+    current_ids <- names(filterButtonCounterMap)
+
+    # Loop through the counter map to create or update observers for each remove button
+    lapply(current_ids, function(counter) {
+      if (!is.null(filterButtonCounterMap[[counter]])) {
+        shiny::observeEvent(input[[paste0("add_filter_", counter)]],
+          {
+            filter_id_to_remove <- filterButtonCounterMap[[counter]]
+            # Remove the filter from the list
+            updated_filters <- filters[!sapply(filters, function(f) f$id == filter_id_to_remove)]
+            selected_patient_filters(updated_filters)
+
+            # Update the reactive values with the restored data
+            data_patients(original_data()$data_patients)
+            data_features(original_data()$data_features)
+            data_initial(original_data()$data_initial)
+
+            # Update the loaded_data reactive with the restored data
+            keepUsersWithConcepts(updated_filters)
+            # Remove the mapping for the button after it's used
+            filterButtonCounterMap[[counter]] <- NULL
+
+            # Destroy the observer for this button after removal to prevent looping
+            shiny::isolate(filterButtonCounterMap[[counter]] <- NULL)
+          },
+          once = TRUE
+        ) # Ensure the observer is only triggered once
+      }
+    })
+  })
+
+
+  shiny::observe({
+    shiny::req(data_patients())
+    filters <- selected_patient_filters()
+    keepUsersWithConcepts(filters)
+  })
   # Function to combine selected concepts
   combineSelectedConcepts <- function(new_concept_name) {
     selected_rows <- input$concept_table_rows_selected
     abstraction_level <- input$abstraction_lvl
     data_features <- data_features()
     data_patients <- data_patients()
-    data_initial <- loaded_data()$data_initial
+    data_initial <- data_initial()
     complementary_mapping <- complementaryMappingTable()
 
-    n_patients <- data_initial %>%
-      group_by(COHORT_DEFINITION_ID) %>%
-      summarise(count = n(), .groups = 'drop') %>%
-      spread(COHORT_DEFINITION_ID, count, fill = 0)
+    # Assuming data_initial, data_features, and processed_table are data.tables
+    # Step 1: Grouping and summarizing, followed by reshaping
+    n_patients_temp <- data_initial[, .N, by = COHORT_DEFINITION_ID]
+    n_patients <- reshape2::dcast(n_patients_temp, formula = 1 ~ COHORT_DEFINITION_ID, value.var = "N", fill = 0)
+    # Step 2: Extracting count values
+    count_target <- n_patients$target
+    count_control <- n_patients$control
 
-    count_target <- n_patients$`target`
-    count_control <- n_patients$`control`
-    processed_table = target_mod() %>% dplyr::filter(ABSTRACTION_LEVEL == abstraction_level)
+    # Step 3: Filtering processed_table and selecting concept IDs
+    processed_table <- target_mod()[ABSTRACTION_LEVEL == abstraction_level]
     selected_concept_ids <- as.numeric(processed_table$CONCEPT_ID[selected_rows])
-    representingConceptId <- selected_concept_ids[which.max(as.numeric(processed_table$PREVALENCE_DIFFERENCE_RATIO[selected_rows]))]
+    representingConceptId <- selected_concept_ids[
+      which.max(as.numeric(processed_table$PREVALENCE_DIFFERENCE_RATIO[selected_rows]))
+    ]
 
+    # Step 4: Determining ZTEST and LOGITTEST values
     representingZTest <- any(processed_table$ZTEST[selected_rows])
     representingLogitTest <- any(processed_table$LOGITTEST[selected_rows])
-    data_features <- data_features %>% dplyr::mutate(
-      ZTEST = dplyr::if_else(CONCEPT_ID == representingConceptId & ABSTRACTION_LEVEL == abstraction_level, representingZTest, ZTEST),
-      LOGITTEST = dplyr::if_else(CONCEPT_ID == representingConceptId & ABSTRACTION_LEVEL == abstraction_level, representingLogitTest, LOGITTEST)
-    )
+
+    # Step 5: Updating data_features with new values
+    data_features[
+      CONCEPT_ID == representingConceptId & ABSTRACTION_LEVEL == abstraction_level,
+      `:=`(
+        ZTEST = representingZTest,
+        LOGITTEST = representingLogitTest
+      )
+    ]
 
     # target_mod_data <- data_patients
-    selected_heritage <- as.vector(data_patients %>% select(CONCEPT_ID, HERITAGE, ABSTRACTION_LEVEL) %>% distinct() %>% filter(CONCEPT_ID %in% selected_concept_ids, ABSTRACTION_LEVEL == abstraction_level) %>% select(HERITAGE))
+    # Step 1: Select and filter relevant rows
+    selected_heritage <- data_patients[
+      CONCEPT_ID %in% selected_concept_ids & ABSTRACTION_LEVEL == abstraction_level,
+      unique(HERITAGE)
+    ]
+
+    # Step 2: Find the most frequent heritage
     most_frequent_heritage <- names(sort(table(selected_heritage), decreasing = TRUE)[1])
 
-    rows_to_update <- data_patients$CONCEPT_ID %in% selected_concept_ids &
-      data_patients$ABSTRACTION_LEVEL == abstraction_level
+    # Step 3: Identify rows to update
+    rows_to_update <- data_patients[
+      , CONCEPT_ID %in% selected_concept_ids & ABSTRACTION_LEVEL == abstraction_level
+    ]
 
-    data_patients <- data_patients %>%
-      mutate(
-        CONCEPT_ID = replace(CONCEPT_ID, rows_to_update, representingConceptId),
-        CONCEPT_NAME = replace(CONCEPT_NAME, rows_to_update, new_concept_name),
-        HERITAGE = replace(HERITAGE, rows_to_update, most_frequent_heritage)
-      ) %>%
-      group_by(COHORT_DEFINITION_ID, PERSON_ID, CONCEPT_ID, CONCEPT_NAME, HERITAGE, ABSTRACTION_LEVEL) %>%
-      summarise(PREVALENCE = sum(PREVALENCE), .groups = 'drop')
+    # Step 4: Update rows and group by relevant columns, then summarize
+    data_patients[
+      rows_to_update,
+      `:=`(
+        CONCEPT_ID = representingConceptId,
+        CONCEPT_NAME = new_concept_name,
+        HERITAGE = most_frequent_heritage
+      )
+    ]
+    # Step 5: Summarize by grouping and calculating prevalence
+    data_patients <- data_patients[
+      , .(PREVALENCE = sum(PREVALENCE)),
+      by = .(COHORT_DEFINITION_ID, PERSON_ID, CONCEPT_ID, CONCEPT_NAME, HERITAGE, ABSTRACTION_LEVEL)
+    ]
+    # Assuming data_features and data_patients are data.tables
 
-    data_features_temp <- data_features %>% dplyr::select(CONCEPT_ID, ABSTRACTION_LEVEL, ZTEST, LOGITTEST)
-    data_features <- data_patients %>%
-      group_by(CONCEPT_ID, CONCEPT_NAME, ABSTRACTION_LEVEL) %>%
-      summarise(
-        TARGET_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 'target' & PREVALENCE > 0),
-        CONTROL_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 'control' & PREVALENCE > 0),
-        .groups = 'drop'
-      ) %>%
-      mutate(
+    # Step 1: Select specific columns from data_features
+    data_features_temp <- data_features[
+      , .(CONCEPT_ID, ABSTRACTION_LEVEL, ZTEST,ZTEST_P_VALUE, LOGITTEST,LOGITTEST_P_VALUE)
+    ]
+
+    # Step 2: Summarize data_patients by CONCEPT_ID, CONCEPT_NAME, and ABSTRACTION_LEVEL
+
+    data_features <- data_patients[
+      , .(
+        TARGET_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == "target" & PREVALENCE > 0),
+        CONTROL_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == "control" & PREVALENCE > 0)
+      ),
+      by = .(CONCEPT_ID, CONCEPT_NAME, ABSTRACTION_LEVEL)
+    ]
+    # Step 3: Add new columns using mutate-like operations
+    data_features <- data_features[
+      , `:=`(
         TARGET_SUBJECT_PREVALENCE = TARGET_SUBJECT_COUNT / count_target,
-        CONTROL_SUBJECT_PREVALENCE = CONTROL_SUBJECT_COUNT / count_control,
-        PREVALENCE_DIFFERENCE_RATIO = case_when(
-          (is.na(TARGET_SUBJECT_PREVALENCE) | TARGET_SUBJECT_PREVALENCE == 0) ~ 0,
-          (is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0) & is.na(TARGET_SUBJECT_PREVALENCE) ~ -1,
-          (is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0) ~ 100,
-          TRUE ~ TARGET_SUBJECT_PREVALENCE / CONTROL_SUBJECT_PREVALENCE
+        CONTROL_SUBJECT_PREVALENCE = CONTROL_SUBJECT_COUNT / count_control
+      )
+    ]
+    data_features <- data_features[
+      , `:=`(
+        PREVALENCE_DIFFERENCE_RATIO = data.table::fifelse(
+          is.na(TARGET_SUBJECT_PREVALENCE) | TARGET_SUBJECT_PREVALENCE == 0, 0,
+          data.table::fifelse(
+            is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0,
+            data.table::fifelse(TARGET_SUBJECT_PREVALENCE == 0, -1, 100),
+            TARGET_SUBJECT_PREVALENCE / CONTROL_SUBJECT_PREVALENCE
+          )
         )
-      ) %>% left_join(data_features_temp, by = c("CONCEPT_ID", "ABSTRACTION_LEVEL"), keep = FALSE)
+      )
+    ]
+    # Step 4: Join with data_features_temp
+    data_features <- data_features[
+      data_features_temp,
+      on = .(CONCEPT_ID, ABSTRACTION_LEVEL)
+    ]
+
+    data_features <- data_features[!is.na(CONCEPT_NAME)]
 
     data_features(data_features)
     data_patients(data_patients)
-
     # Update complementaryMappingTable
-    new_rows <- data.frame(CONCEPT_ID = selected_concept_ids, CONCEPT_NAME = new_concept_name,ABSTRACTION_LEVEL = abstraction_level, stringsAsFactors = FALSE)
+    new_rows <- data.frame(CONCEPT_ID = selected_concept_ids, CONCEPT_NAME = new_concept_name, ABSTRACTION_LEVEL = abstraction_level, stringsAsFactors = FALSE)
     complementary_mapping <- rbind(complementary_mapping, new_rows)
-
     # Update all related concept names in complementaryMappingTable
-    related_concepts <- complementary_mapping$CONCEPT_NAME %in% complementary_mapping$CONCEPT_NAME[complementary_mapping$CONCEPT_ID %in% selected_concept_ids] &
-      complementary_mapping$ABSTRACTION_LEVEL == abstraction_level
-    complementary_mapping$CONCEPT_NAME[related_concepts] <- new_concept_name
-    complementary_mapping <- complementary_mapping %>% distinct() # Ensure no duplicates
+    # Step 1: Identify related concepts
+    related_concepts <- complementary_mapping[
+      complementary_mapping$CONCEPT_ID %in% selected_concept_ids & complementary_mapping$ABSTRACTION_LEVEL == abstraction_level,
+      "CONCEPT_NAME"
+    ]
+    # Step 2: Update CONCEPT_NAME for related concepts
+    complementary_mapping = data.table::as.data.table(complementary_mapping)
+    complementary_mapping[
+      complementary_mapping$CONCEPT_NAME %in% related_concepts & complementary_mapping$ABSTRACTION_LEVEL == abstraction_level,
+      CONCEPT_NAME := new_concept_name
+    ]
+    # Step 3: Remove duplicates
+    complementary_mapping <- unique(complementary_mapping)
 
     complementaryMappingTable(complementary_mapping)
 
@@ -387,7 +808,150 @@ server = function(input, output, session) {
       target_matrix = loaded_data()$target_matrix,
       target_row_annotation = loaded_data()$target_row_annotation,
       target_col_annotation = loaded_data()$target_col_annotation,
-      complementaryMappingTable = complementary_mapping
+      complementaryMappingTable = complementary_mapping,
+      config = loaded_data()$config
+
+    ))
+  }
+
+  # Function to combine selected concepts
+  keepUsersWithConcepts <- function(filters) {
+    if (length(filters) == 0) {
+      return()
+    }
+    abstraction_level <- input$abstraction_lvl
+    data_features <- data_features()
+    data_patients_filtering <- data_patients()
+    data_initial_filtering <- data_initial()
+    complementary_mapping <- complementaryMappingTable()
+
+    # Convert from int64
+    data_initial_filtering$SUBJECT_ID <- as.integer(data_initial_filtering$SUBJECT_ID)
+    data_patients_filtering$PERSON_ID <- as.integer(data_patients_filtering$PERSON_ID)
+    # Step 1: Filter rows where COHORT_DEFINITION_ID is 'control'
+    data_patients_control <- data_patients_filtering[
+      COHORT_DEFINITION_ID == "control"
+    ]
+
+    # Step 2: Filter rows where COHORT_DEFINITION_ID is 'target'
+    data_patients_target <- data_patients_filtering[
+      COHORT_DEFINITION_ID == "target"
+    ]
+    # Initialize personIdsToKeep with all PERSON_IDs initially
+    personIdsToKeep <- data_patients_target$PERSON_ID
+
+    for (filter in filters) {
+      # Find PERSON_IDs matching the current filter
+      # Step 1: Filter rows based on CONCEPT_ID
+      currentPersonIds <- data_patients_target[
+        CONCEPT_ID == as.integer(filter$id),
+        .(PERSON_ID)
+      ]
+
+      # Step 2: Select distinct PERSON_IDs
+      currentPersonIds <- unique(currentPersonIds)
+
+      # Step 3: Pull the PERSON_ID column and convert to integer
+      currentPersonIds <- as.integer(currentPersonIds$PERSON_ID)
+
+      # Intersect with the previous PERSON_IDs
+      personIdsToKeep <- intersect(personIdsToKeep, currentPersonIds)
+    }
+
+    # Step 1: Filter the target data based on personIdsToKeep
+    data_patients_target <- data_patients_target[
+      PERSON_ID %in% personIdsToKeep
+    ]
+
+    # Step 2: Combine the filtered target data with the control data
+    data_patients_filtering <- data.table::rbindlist(list(data_patients_target, data_patients_control))
+
+
+    # Step 1: Filter for 'target' cohort
+    target_ids <- unique(data_patients_target$PERSON_ID)
+    target_filter <- data_initial_filtering[
+      SUBJECT_ID %in% target_ids & COHORT_DEFINITION_ID == "target"
+    ]
+
+    # Step 2: Filter for 'control' cohort
+    control_ids <- unique(data_patients_control$PERSON_ID)
+    control_filter <- data_initial_filtering[
+      SUBJECT_ID %in% control_ids & COHORT_DEFINITION_ID == "control"
+    ]
+
+    # Step 3: Combine the filtered data tables
+    data_initial_filtering <- data.table::rbindlist(list(target_filter, control_filter))
+
+
+    count_target <- data_initial_filtering[
+      COHORT_DEFINITION_ID == "target",
+      .N
+    ]
+
+    count_control <- data_initial_filtering[
+      COHORT_DEFINITION_ID == "control",
+      .N
+    ]
+
+    # Step 2: Select specific columns
+    data_features_temp <- data_features[
+      , .(CONCEPT_ID, ABSTRACTION_LEVEL, ZTEST,ZTEST_P_VALUE, LOGITTEST,LOGITTEST_P_VALUE)
+    ]
+
+    if (nrow(data_patients_filtering) == 0) {
+      data_features_filtering <- data_features[0]
+    } else {
+      data_features_filtering <- data_patients_filtering[
+        , .(
+          TARGET_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == "target" & PREVALENCE > 0),
+          CONTROL_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == "control" & PREVALENCE > 0)
+        ),
+        by = .(CONCEPT_ID, CONCEPT_NAME, ABSTRACTION_LEVEL)
+      ][
+        , `:=`(
+          TARGET_SUBJECT_PREVALENCE = data.table::fifelse(count_target == 0, 0, TARGET_SUBJECT_COUNT / count_target),
+          CONTROL_SUBJECT_PREVALENCE = data.table::fifelse(count_control == 0, 0, CONTROL_SUBJECT_COUNT / count_control)
+        ),
+        by = .(CONCEPT_ID, ABSTRACTION_LEVEL)
+      ]
+
+      data_features_filtering <- data_features_filtering[
+        , `:=`(
+          PREVALENCE_DIFFERENCE_RATIO = data.table::fifelse(
+            is.na(TARGET_SUBJECT_PREVALENCE) | TARGET_SUBJECT_PREVALENCE == 0, 0,
+            data.table::fifelse(
+              is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0,
+              data.table::fifelse(TARGET_SUBJECT_PREVALENCE == 0, -1, 100),
+              TARGET_SUBJECT_PREVALENCE / CONTROL_SUBJECT_PREVALENCE
+            )
+          )
+        ),
+        by = .(CONCEPT_ID, ABSTRACTION_LEVEL)
+      ]
+
+      # Step 5: Joining with data_features_temp
+      data_features_filtering <- data_features_filtering[
+        data_features_temp,
+        on = .(CONCEPT_ID, ABSTRACTION_LEVEL)
+      ]
+    }
+    data_features_filtering <- data_features_filtering[!is.na(CONCEPT_NAME)]
+
+    data_features(data_features_filtering)
+    data_patients(data_patients_filtering)
+    data_initial(data_initial_filtering)
+
+
+    loaded_data(list(
+      data_initial = data_initial_filtering,
+      data_patients = data_patients_filtering,
+      data_features = data_features_filtering,
+      data_person = loaded_data()$data_person,
+      target_matrix = loaded_data()$target_matrix,
+      target_row_annotation = loaded_data()$target_row_annotation,
+      target_col_annotation = loaded_data()$target_col_annotation,
+      complementaryMappingTable = complementary_mapping,
+      config = loaded_data()$config
     ))
   }
 }

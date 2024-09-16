@@ -11,6 +11,7 @@ sidebar <- shinydashboard::dashboardSidebar(
       icon = icon("dashboard")
     ),
     shinydashboard::menuItem("Mapping", tabName = "mapping", icon = icon("sliders")),
+    shinydashboard::menuItem("Filtering", tabName = "filtering", icon = icon("filter")),
     shinydashboard::menuItem("Help", tabName = "help", icon = icon("receipt"))
   )
 )
@@ -85,7 +86,7 @@ body <- shinydashboard::dashboardBody(
             "abstraction_lvl",
             h3("Abstraction level"),
             min = -1,
-            max = 5,
+            max = 10,
             value = -1,
             step = 1
           )
@@ -162,6 +163,52 @@ body <- shinydashboard::dashboardBody(
                  plotOutput("heatmap"))
       )
     ),
+    shinydashboard::tabItem(
+      tabName = "filtering",
+      h3("Concept Filtering Panel"),
+
+      # First fluidRow with two columns
+      fluidRow(
+        column(
+          width = 6,  # Adjust width as needed (out of 12)
+          tags$div(
+            style = "width: 100%; padding: 0 20px;",  # Full width with some padding
+            uiOutput("dynamic_concepts_removal"),
+            uiOutput("selected_filters_list")
+            # actionButton("reset_btn_filter", "Reset Filters")
+          )
+        ),
+        column(
+          width = 6,  # Adjust width as needed (out of 12)
+          tags$div(
+            style = "width: 100%; padding: 0 20px;",  # Full width with some padding
+            uiOutput("dynamic_concepts_selection"),
+            uiOutput("selected_patient_filters_list")
+            # actionButton("reset_btn_filter", "Reset Filters")
+          )
+        )
+      ),
+
+      tags$style(HTML("
+    #dynamic_concepts_removal .form-group {
+      width: 100%;
+    }
+    #dynamic_concepts_removal {
+      display: flex;
+      flex-wrap: wrap;
+      width: 100%;
+    }
+
+    #dynamic_concepts_selection .form-group {
+      width: 100%;
+    }
+    #dynamic_concepts_selection {
+      display: flex;
+      flex-wrap: wrap;
+      width: 100%;
+    }
+  "))
+    ),
     # Mapping tab
     shinydashboard::tabItem(
       tabName = "mapping",
@@ -169,7 +216,7 @@ body <- shinydashboard::dashboardBody(
       fluidRow(div(style = 'overflow-x: auto;', DT::DTOutput("concept_table"))),
       fluidRow(
         actionButton("combine_btn", "Combine Selected"),
-        actionButton("reset_btn", "Reset"),
+        actionButton("reset_btn_mappings", "Reset"),
         actionButton("save_btn", "Snapshot")
       )
     ),

@@ -255,7 +255,8 @@ create_CohortContrast_object <- function(data) {
     data_initial = data$data_initial,
     data_person = data$data_person,
     data_features = data$data_features,
-    trajectoryDataList = data$trajectoryDataList
+    trajectoryDataList = data$trajectoryDataList,
+    config = data$config
   )
 
   # Set the class

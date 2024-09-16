@@ -11,11 +11,19 @@
 
 generateTables <- function(cdm,
                            pathToResults = getwd(),
-                           domainsIncluded = c("Drug", "Condition", "Measurement", "Observation", "Procedure", "Visit", "Visit detail")
-) {
-  cohort_size <- cdm$cohortcontrast_cohorts %>%
-    dplyr::group_by(.data$cohort_definition_id) %>%
-    dplyr::summarize(total_count = dplyr::n_distinct(.data$subject_id), .groups = 'drop')
+                           domainsIncluded =
+                             c(
+                               "Drug",
+                               "Condition",
+                               "Measurement",
+                               "Observation",
+                               "Procedure",
+                               "Visit",
+                               "Visit detail"
+                             )) {
+  # cohort_size <- cdm$cohortcontrast_cohorts %>%
+  #   dplyr::group_by(.data$cohort_definition_id) %>%
+  #   dplyr::summarize(total_count = dplyr::n_distinct(.data$subject_id), .groups = 'drop')
 
   # Drug Exposure Patient Prevalence
   patient_drug_prevalence_table <- cdm$cohortcontrast_cohorts %>%
@@ -24,15 +32,21 @@ generateTables <- function(cdm,
       .data$drug_exposure_start_date >= .data$cohort_start_date &
         .data$drug_exposure_start_date <= .data$cohort_end_date
     ) %>%
-    dplyr::select(.data$cohort_definition_id,
-                  .data$subject_id,
-                  .data$drug_concept_id,
-                  .data$drug_exposure_id) %>%
+    dplyr::select(
+      .data$cohort_definition_id,
+      .data$subject_id,
+      .data$drug_concept_id,
+      .data$drug_exposure_id
+    ) %>%
     dplyr::group_by(.data$cohort_definition_id, .data$subject_id, .data$drug_concept_id) %>%
-    dplyr::summarize(prevalence = dplyr::n_distinct(.data$drug_exposure_id),
-                     .groups = 'drop') %>%
-    dplyr::select(.data$cohort_definition_id, .data$subject_id, .data$drug_concept_id, .data$prevalence) %>% dplyr::left_join(cdm$concept, by = c("drug_concept_id" = "concept_id")) %>%
-    dplyr::select(.data$cohort_definition_id, .data$subject_id, concept_id = .data$drug_concept_id, .data$concept_name, .data$prevalence) %>% dplyr::mutate(heritage = 'drug_exposure')
+    dplyr::summarize(
+      prevalence = dplyr::n_distinct(.data$drug_exposure_id),
+      .groups = "drop"
+    ) %>%
+    dplyr::select(.data$cohort_definition_id, .data$subject_id, .data$drug_concept_id, .data$prevalence) %>%
+    dplyr::left_join(cdm$concept, by = c("drug_concept_id" = "concept_id")) %>%
+    dplyr::select(.data$cohort_definition_id, .data$subject_id, concept_id = .data$drug_concept_id, .data$concept_name, .data$prevalence) %>%
+    dplyr::mutate(heritage = "drug_exposure")
 
   # Condition Occurrence Patient Prevalence
   patient_condition_prevalence_table <- cdm$cohortcontrast_cohorts %>%
@@ -45,10 +59,12 @@ generateTables <- function(cdm,
     dplyr::group_by(.data$cohort_definition_id, .data$subject_id, .data$condition_concept_id) %>%
     dplyr::summarize(
       prevalence = dplyr::n_distinct(.data$condition_occurrence_id),
-      .groups = 'drop'
+      .groups = "drop"
     ) %>%
-    dplyr::select(.data$cohort_definition_id, .data$subject_id, .data$condition_concept_id, .data$prevalence)  %>% dplyr::left_join(cdm$concept, by = c("condition_concept_id" = "concept_id")) %>%
-    dplyr::select(.data$cohort_definition_id, .data$subject_id, concept_id = .data$condition_concept_id, .data$concept_name, .data$prevalence) %>% dplyr::mutate(heritage = 'condition_occurrence')
+    dplyr::select(.data$cohort_definition_id, .data$subject_id, .data$condition_concept_id, .data$prevalence) %>%
+    dplyr::left_join(cdm$concept, by = c("condition_concept_id" = "concept_id")) %>%
+    dplyr::select(.data$cohort_definition_id, .data$subject_id, concept_id = .data$condition_concept_id, .data$concept_name, .data$prevalence) %>%
+    dplyr::mutate(heritage = "condition_occurrence")
 
   # Measurement Patient Prevalence
   patient_measurement_prevalence_table <- cdm$cohortcontrast_cohorts %>%
@@ -61,10 +77,12 @@ generateTables <- function(cdm,
     dplyr::group_by(.data$cohort_definition_id, .data$subject_id, .data$measurement_concept_id) %>%
     dplyr::summarize(
       prevalence = dplyr::n_distinct(.data$measurement_id),
-      .groups = 'drop'
+      .groups = "drop"
     ) %>%
-    dplyr::select(.data$cohort_definition_id, .data$subject_id, .data$measurement_concept_id, .data$prevalence) %>% dplyr::left_join(cdm$concept, by = c("measurement_concept_id" = "concept_id")) %>%
-    dplyr::select(.data$cohort_definition_id, .data$subject_id, concept_id = .data$measurement_concept_id, .data$concept_name, .data$prevalence) %>% dplyr::mutate(heritage = 'measurement')
+    dplyr::select(.data$cohort_definition_id, .data$subject_id, .data$measurement_concept_id, .data$prevalence) %>%
+    dplyr::left_join(cdm$concept, by = c("measurement_concept_id" = "concept_id")) %>%
+    dplyr::select(.data$cohort_definition_id, .data$subject_id, concept_id = .data$measurement_concept_id, .data$concept_name, .data$prevalence) %>%
+    dplyr::mutate(heritage = "measurement")
 
   # Procedure Occurrence Patient Prevalence
   patient_procedure_prevalence_table <- cdm$cohortcontrast_cohorts %>%
@@ -77,10 +95,12 @@ generateTables <- function(cdm,
     dplyr::group_by(.data$cohort_definition_id, .data$subject_id, .data$procedure_concept_id) %>%
     dplyr::summarize(
       prevalence = dplyr::n_distinct(.data$procedure_occurrence_id),
-      .groups = 'drop'
+      .groups = "drop"
     ) %>%
-    dplyr::select(.data$cohort_definition_id, .data$subject_id, .data$procedure_concept_id, .data$prevalence) %>% dplyr::left_join(cdm$concept, by = c("procedure_concept_id" = "concept_id")) %>%
-    dplyr::select(.data$cohort_definition_id, .data$subject_id, concept_id = .data$procedure_concept_id, .data$concept_name, .data$prevalence) %>% dplyr::mutate(heritage = 'procedure_occurrence')
+    dplyr::select(.data$cohort_definition_id, .data$subject_id, .data$procedure_concept_id, .data$prevalence) %>%
+    dplyr::left_join(cdm$concept, by = c("procedure_concept_id" = "concept_id")) %>%
+    dplyr::select(.data$cohort_definition_id, .data$subject_id, concept_id = .data$procedure_concept_id, .data$concept_name, .data$prevalence) %>%
+    dplyr::mutate(heritage = "procedure_occurrence")
 
   # Observation Patient Prevalence
   patient_observation_prevalence_table <- cdm$cohortcontrast_cohorts %>%
@@ -93,10 +113,12 @@ generateTables <- function(cdm,
     dplyr::group_by(.data$cohort_definition_id, .data$subject_id, .data$observation_concept_id) %>%
     dplyr::summarize(
       prevalence = dplyr::n_distinct(.data$observation_id),
-      .groups = 'drop'
+      .groups = "drop"
     ) %>%
-    dplyr::select(.data$cohort_definition_id, .data$subject_id, .data$observation_concept_id, .data$prevalence) %>% dplyr::left_join(cdm$concept, by = c("observation_concept_id" = "concept_id")) %>%
-    dplyr::select(.data$cohort_definition_id, .data$subject_id, concept_id = .data$observation_concept_id, .data$concept_name, .data$prevalence) %>% dplyr::mutate(heritage = 'observation')
+    dplyr::select(.data$cohort_definition_id, .data$subject_id, .data$observation_concept_id, .data$prevalence) %>%
+    dplyr::left_join(cdm$concept, by = c("observation_concept_id" = "concept_id")) %>%
+    dplyr::select(.data$cohort_definition_id, .data$subject_id, concept_id = .data$observation_concept_id, .data$concept_name, .data$prevalence) %>%
+    dplyr::mutate(heritage = "observation")
 
   # Visit Occurrence Patient Prevalence
   patient_visit_prevalence_table <- cdm$cohortcontrast_cohorts %>%
@@ -109,10 +131,12 @@ generateTables <- function(cdm,
     dplyr::group_by(.data$cohort_definition_id, .data$subject_id, .data$visit_concept_id) %>%
     dplyr::summarize(
       prevalence = dplyr::n_distinct(.data$visit_occurrence_id),
-      .groups = 'drop'
+      .groups = "drop"
     ) %>%
-    dplyr::select(.data$cohort_definition_id, .data$subject_id, .data$visit_concept_id, .data$prevalence) %>% dplyr::left_join(cdm$concept, by = c("visit_concept_id" = "concept_id")) %>%
-    dplyr::select(.data$cohort_definition_id, .data$subject_id, concept_id = .data$visit_concept_id, .data$concept_name, .data$prevalence) %>% dplyr::mutate(heritage = 'visit_occurrence')
+    dplyr::select(.data$cohort_definition_id, .data$subject_id, .data$visit_concept_id, .data$prevalence) %>%
+    dplyr::left_join(cdm$concept, by = c("visit_concept_id" = "concept_id")) %>%
+    dplyr::select(.data$cohort_definition_id, .data$subject_id, concept_id = .data$visit_concept_id, .data$concept_name, .data$prevalence) %>%
+    dplyr::mutate(heritage = "visit_occurrence")
 
   # Visit Detail Patient Prevalence
   patient_visit_detail_prevalence_table <- cdm$cohortcontrast_cohorts %>%
@@ -125,10 +149,12 @@ generateTables <- function(cdm,
     dplyr::group_by(.data$cohort_definition_id, .data$subject_id, .data$visit_detail_concept_id) %>%
     dplyr::summarize(
       prevalence = dplyr::n_distinct(.data$visit_detail_id),
-      .groups = 'drop'
+      .groups = "drop"
     ) %>%
-    dplyr::select(.data$cohort_definition_id, .data$subject_id, .data$visit_detail_concept_id, .data$prevalence) %>% dplyr::left_join(cdm$concept, by = c("visit_detail_concept_id" = "concept_id")) %>%
-    dplyr::select(.data$cohort_definition_id, .data$subject_id, concept_id =.data$visit_detail_concept_id, .data$concept_name, .data$prevalence) %>% dplyr::mutate(heritage = 'visit_detail')
+    dplyr::select(.data$cohort_definition_id, .data$subject_id, .data$visit_detail_concept_id, .data$prevalence) %>%
+    dplyr::left_join(cdm$concept, by = c("visit_detail_concept_id" = "concept_id")) %>%
+    dplyr::select(.data$cohort_definition_id, .data$subject_id, concept_id = .data$visit_detail_concept_id, .data$concept_name, .data$prevalence) %>%
+    dplyr::mutate(heritage = "visit_detail")
 
   ############################################################################
   #
@@ -151,57 +177,58 @@ generateTables <- function(cdm,
       if (domain == "Visit") {
         printCustomMessage("Querying visit occurrence data from database ...")
         data_to_add <- patient_visit_prevalence_table %>%
-          dplyr::group_by(.data$cohort_definition_id,.data$subject_id,.data$concept_id,.data$concept_name,.data$heritage) %>%
-          dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE), .groups = 'drop') %>% dplyr::filter(.data$concept_id != 0)
+          dplyr::group_by(.data$cohort_definition_id, .data$subject_id, .data$concept_id, .data$concept_name, .data$heritage) %>%
+          dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE), .groups = "drop") %>%
+          dplyr::filter(.data$concept_id != 0)
         data_patients <- rbind(data_patients, data_to_add %>% as.data.frame())
-      }
-      else if (domain == "Visit detail") {
+      } else if (domain == "Visit detail") {
         printCustomMessage("Querying visit detail data from database ...")
         data_to_add <- patient_visit_detail_prevalence_table %>%
-          dplyr::group_by(.data$cohort_definition_id,.data$subject_id,.data$concept_id,.data$concept_name,.data$heritage) %>%
-          dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE), .groups = 'drop') %>% dplyr::filter(.data$concept_id != 0)
+          dplyr::group_by(.data$cohort_definition_id, .data$subject_id, .data$concept_id, .data$concept_name, .data$heritage) %>%
+          dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE), .groups = "drop") %>%
+          dplyr::filter(.data$concept_id != 0)
         data_patients <- rbind(data_patients, data_to_add %>% as.data.frame())
-      }
-      else if (domain == "Drug") {
+      } else if (domain == "Drug") {
         printCustomMessage("Querying drug exposure data from database ...")
         data_to_add <- patient_drug_prevalence_table %>%
-          dplyr::group_by(.data$cohort_definition_id,.data$subject_id,.data$concept_id,.data$concept_name,.data$heritage) %>%
-          dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE), .groups = 'drop') %>% dplyr::filter(.data$concept_id != 0)
+          dplyr::group_by(.data$cohort_definition_id, .data$subject_id, .data$concept_id, .data$concept_name, .data$heritage) %>%
+          dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE), .groups = "drop") %>%
+          dplyr::filter(.data$concept_id != 0)
         data_patients <- rbind(data_patients, data_to_add %>% as.data.frame())
-      }
-      else if (domain == "Measurement") {
+      } else if (domain == "Measurement") {
         printCustomMessage("Querying measurement data from database ...")
         data_to_add <- patient_measurement_prevalence_table %>%
-          dplyr::group_by(.data$cohort_definition_id,.data$subject_id,.data$concept_id,.data$concept_name,.data$heritage) %>%
-          dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE), .groups = 'drop') %>% dplyr::filter(.data$concept_id != 0)
+          dplyr::group_by(.data$cohort_definition_id, .data$subject_id, .data$concept_id, .data$concept_name, .data$heritage) %>%
+          dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE), .groups = "drop") %>%
+          dplyr::filter(.data$concept_id != 0)
         data_patients <- rbind(data_patients, data_to_add %>% as.data.frame())
-      }
-      else if (domain == "Procedure") {
+      } else if (domain == "Procedure") {
         printCustomMessage("Querying procedure occurrence data from database ...")
         data_to_add <- patient_procedure_prevalence_table %>%
-          dplyr::group_by(.data$cohort_definition_id,.data$subject_id,.data$concept_id,.data$concept_name,.data$heritage) %>%
-          dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE), .groups = 'drop') %>% dplyr::filter(.data$concept_id != 0)
+          dplyr::group_by(.data$cohort_definition_id, .data$subject_id, .data$concept_id, .data$concept_name, .data$heritage) %>%
+          dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE), .groups = "drop") %>%
+          dplyr::filter(.data$concept_id != 0)
         data_patients <- rbind(data_patients, data_to_add %>% as.data.frame())
-      }
-      else if (domain == "Observation") {
+      } else if (domain == "Observation") {
         printCustomMessage("Querying observation data from database ...")
         data_to_add <- patient_observation_prevalence_table %>%
-          dplyr::group_by(.data$cohort_definition_id,.data$subject_id,.data$concept_id,.data$concept_name,.data$heritage) %>%
-          dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE), .groups = 'drop') %>% dplyr::filter(.data$concept_id != 0)
+          dplyr::group_by(.data$cohort_definition_id, .data$subject_id, .data$concept_id, .data$concept_name, .data$heritage) %>%
+          dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE), .groups = "drop") %>%
+          dplyr::filter(.data$concept_id != 0)
         data_patients <- rbind(data_patients, data_to_add %>% as.data.frame())
-      }
-      else if (domain == "Condition") {
+      } else if (domain == "Condition") {
         printCustomMessage("Querying condition occurrence data from database ...")
         data_to_add <- patient_condition_prevalence_table %>%
-          dplyr::group_by(.data$cohort_definition_id,.data$subject_id,.data$concept_id,.data$concept_name,.data$heritage) %>%
-          dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE), .groups = 'drop') %>% dplyr::filter(.data$concept_id != 0)
+          dplyr::group_by(.data$cohort_definition_id, .data$subject_id, .data$concept_id, .data$concept_name, .data$heritage) %>%
+          dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE), .groups = "drop") %>%
+          dplyr::filter(.data$concept_id != 0)
         data_patients <- rbind(data_patients, data_to_add %>% as.data.frame())
       }
     }
   }
   printCustomMessage("Querying patient prevalence data from database completed.")
 
-  colnames(data_patients) <- c('COHORT_DEFINITION_ID','PERSON_ID','CONCEPT_ID','CONCEPT_NAME','HERITAGE','PREVALENCE')
+  colnames(data_patients) <- c("COHORT_DEFINITION_ID", "PERSON_ID", "CONCEPT_ID", "CONCEPT_NAME", "HERITAGE", "PREVALENCE")
 
   # aggregate rows in case of multiple observation periods in same cohort + remove void concepts
 
@@ -215,12 +242,15 @@ generateTables <- function(cdm,
   # Get person data
 
   data_person <-
-    cdm$person %>% dplyr::select(.data$person_id, .data$gender_concept_id, .data$year_of_birth) %>% dplyr::filter(.data$person_id %in% data_initial$SUBJECT_ID) %>% as.data.frame()
+    cdm$person %>%
+    dplyr::select(.data$person_id, .data$gender_concept_id, .data$year_of_birth) %>%
+    dplyr::filter(.data$person_id %in% data_initial$SUBJECT_ID) %>%
+    as.data.frame()
   colnames(data_person) <- toupper(colnames(data_person))
 
   printCustomMessage("Data imported from the database!")
   # Add abstraction level
-  data_patients$ABSTRACTION_LEVEL = -1
+  data_patients$ABSTRACTION_LEVEL <- -1
   # Setting names for each list element
   return(
     list(
