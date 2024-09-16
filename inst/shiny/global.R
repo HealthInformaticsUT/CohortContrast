@@ -1,465 +1,477 @@
-if (!requireNamespace("ggplot2", quietly = TRUE)) {
-  stop("ggplot2 is required for this app but is not installed. Please install it.")
-}
 
-if (!requireNamespace("patchwork", quietly = TRUE)) {
-  stop("patchwork is required for this app but is not installed. Please install it.")
-}
-############################### Global variables
-library(dplyr)
-library(tibble)
-library(tidyr)
-library(lubridate)
-library(stringr)
-############################## Shiny functions
-
-# Functions for data loading and formatting ------------------------------------
-format_results <- function(object, pathToResults, studyName, autoScaleRate, applyInverseTarget, applyZTest, applyLogitTest, abstractionLevel) {
-
-  # Calculate the number of patients in target and control groups
-  n_patients <- object$data_initial %>%
-    group_by(COHORT_DEFINITION_ID) %>%
-    summarise(count = n(), .groups = 'drop') %>%
-    pivot_wider(names_from = COHORT_DEFINITION_ID, values_from = count, values_fill = 0)
-
-  count_target <- n_patients$`target`
-  count_control <- n_patients$`control`
-
-  # Update data features with prevalence calculations
-  data_features_temp <- object$data_features %>%  dplyr::filter(ABSTRACTION_LEVEL == abstractionLevel) %>% dplyr::select(CONCEPT_ID, ZTEST, LOGITTEST, ABSTRACTION_LEVEL)
-  object$data_features <- object$data_patients %>% dplyr::filter(ABSTRACTION_LEVEL == abstractionLevel) %>%
-    group_by(CONCEPT_ID, CONCEPT_NAME) %>%
-    summarise(
-      TARGET_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 'target' & PREVALENCE > 0),
-      CONTROL_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == 'control' & PREVALENCE > 0),
-      .groups = 'drop'
-    ) %>%
-    mutate(
-      TARGET_SUBJECT_PREVALENCE = TARGET_SUBJECT_COUNT / count_target,
-      CONTROL_SUBJECT_PREVALENCE = CONTROL_SUBJECT_COUNT / count_control,
-      PREVALENCE_DIFFERENCE_RATIO = case_when(
-        is.na(TARGET_SUBJECT_PREVALENCE) | TARGET_SUBJECT_PREVALENCE == 0 ~ 0,
-        (is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0) & is.na(TARGET_SUBJECT_PREVALENCE) ~ -1,
-        is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0 ~ 100,
-        TRUE ~ TARGET_SUBJECT_PREVALENCE / CONTROL_SUBJECT_PREVALENCE
-      )
-    ) %>% left_join(data_features_temp, by = "CONCEPT_ID", keep = FALSE)
-
-  if (applyZTest) {
-    object$data_features = object$data_features %>% dplyr::filter(ZTEST)
+format_results <- function(data, autoScaleRate, applyInverseTarget, applyZTest, applyLogitTest, abstractionLevel) {
+  if(data$config$safeRun)
+  {
+    return(data$formattedResults)
   }
-  if (applyLogitTest) {
-    object$data_features = object$data_features %>% dplyr::filter(LOGITTEST)
-  }
-  if (applyInverseTarget) {
-    # Invert target and control groups
-    object$data_patients <- object$data_patients %>% dplyr::filter(ABSTRACTION_LEVEL == abstractionLevel) %>%  mutate(COHORT_DEFINITION_ID = ifelse(COHORT_DEFINITION_ID == 'control', 'target', 'control'))
-    object$data_initial <- object$data_initial %>% mutate(COHORT_DEFINITION_ID = ifelse(COHORT_DEFINITION_ID == 'control', 'target', 'control'))
-    object$data_features <- object$data_features %>% dplyr::filter(ABSTRACTION_LEVEL == abstractionLevel) %>%
-      mutate(
-        TEMP = TARGET_SUBJECT_COUNT,
-        TARGET_SUBJECT_COUNT = CONTROL_SUBJECT_COUNT,
-        CONTROL_SUBJECT_COUNT = TEMP,
-        TEMP = TARGET_SUBJECT_PREVALENCE,
-        TARGET_SUBJECT_PREVALENCE = CONTROL_SUBJECT_PREVALENCE,
-        CONTROL_SUBJECT_PREVALENCE = TEMP
-      ) %>%
-      select(-TEMP) %>%
-      mutate(PREVALENCE_DIFFERENCE_RATIO = if_else(
-        is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0 & is.na(TARGET_SUBJECT_PREVALENCE),
-        -1,
-        if_else(
-          is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0,
-          TARGET_SUBJECT_PREVALENCE / (1 / count_control),
-          if_else(
-            is.na(TARGET_SUBJECT_PREVALENCE) | TARGET_SUBJECT_PREVALENCE == 0,
-            (1 / count_target) / CONTROL_SUBJECT_PREVALENCE,
-            TARGET_SUBJECT_PREVALENCE / CONTROL_SUBJECT_PREVALENCE
-          )
+    # Convert data frames to data.table
+    data$data_initial <- data.table::as.data.table(data$data_initial)
+    data$data_features <- data.table::as.data.table(data$data_features)
+    data$data_patients <- data.table::as.data.table(data$data_patients)
+    data$data_person <- data.table::as.data.table(data$data_person)
+    # Calculate the number of patients in target and control groups
+    n_patients <- data$data_initial[, .N, by = COHORT_DEFINITION_ID]
+
+    n_patients <- reshape2::dcast(n_patients, 1 ~ COHORT_DEFINITION_ID, value.var = "N", fill = 0)
+
+    count_target <- n_patients$target
+
+    count_control <- n_patients$control
+
+
+
+    # Update data features with prevalence calculations
+    data_features_temp <- data$data_features[ABSTRACTION_LEVEL == abstractionLevel, .(CONCEPT_ID, ZTEST, LOGITTEST, ABSTRACTION_LEVEL)]
+
+    # First, calculate the counts for target and control subjects
+    data$data_features <- data$data_patients[
+        ABSTRACTION_LEVEL == abstractionLevel,
+        .(
+            TARGET_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == "target" & PREVALENCE > 0),
+            CONTROL_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == "control" & PREVALENCE > 0)
+        ),
+        by = .(CONCEPT_ID, CONCEPT_NAME)
+    ]
+
+    # Now, calculate the prevalences
+    data$data_features[, `:=`(
+        TARGET_SUBJECT_PREVALENCE = TARGET_SUBJECT_COUNT / count_target,
+        CONTROL_SUBJECT_PREVALENCE = CONTROL_SUBJECT_COUNT / count_control
+    )]
+
+    # Finally, calculate the PREVALENCE_DIFFERENCE_RATIO
+    data$data_features[, PREVALENCE_DIFFERENCE_RATIO := data.table::fifelse(
+        is.na(TARGET_SUBJECT_PREVALENCE) | TARGET_SUBJECT_PREVALENCE == 0, 0,
+        data.table::fifelse(
+            (is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0) & is.na(TARGET_SUBJECT_PREVALENCE), -1,
+            data.table::fifelse(
+                is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0, 100,
+                TARGET_SUBJECT_PREVALENCE / CONTROL_SUBJECT_PREVALENCE
+            )
         )
-      ))
-  }
+    )]
 
-  if (autoScaleRate) {
-    # Calculate the duration in the cohort in days
-    object$data_initial <- object$data_initial %>%
-      mutate(COHORT_DURATION = as.integer(difftime(
-        as.Date(COHORT_END_DATE),
-        as.Date(COHORT_START_DATE),
-        units = "days"
-      )))
+    # Join with data_features_temp
+    data$data_features <- data$data_features[data_features_temp, on = .(CONCEPT_ID), nomatch = 0]
 
-    # Calculate the scaled prevalence for each PERSON_ID
-    scaled_prevalence <- object$data_patients %>% dplyr::filter(ABSTRACTION_LEVEL == abstractionLevel) %>%
-      left_join(
-        object$data_initial %>% select(SUBJECT_ID, COHORT_DURATION),
-        by = c("PERSON_ID" = "SUBJECT_ID")
-      ) %>%
-      group_by(PERSON_ID, COHORT_DEFINITION_ID, CONCEPT_ID, CONCEPT_NAME, HERITAGE) %>%
-      mutate(
-        #PREVALENCE = if_else(PREVALENCE > 0, 1, 0),
-        SCALED_PREVALENCE = PREVALENCE / (COHORT_DURATION / 365)
-      ) %>%
-      ungroup()
+    if (applyZTest) {
+        data$data_features <- data$data_features[ZTEST == TRUE]
+    }
 
-    # Update features with scaled prevalence
-    object$data_features <- update_features(object$data_features, scaled_prevalence) %>%
-      select(
-        CONCEPT_ID,
-        CONCEPT_NAME,
-        PREVALENCE_DIFFERENCE_RATIO,
-        TARGET_SUBJECT_COUNT,
-        CONTROL_SUBJECT_COUNT,
-        TARGET_SUBJECT_PREVALENCE,
-        CONTROL_SUBJECT_PREVALENCE,
-        ABSTRACTION_LEVEL
+    if (applyLogitTest) {
+        data$data_features <- data$data_features[LOGITTEST == TRUE]
+    }
+
+    if (applyInverseTarget) {
+        # Invert target and control groups
+        data$data_patients[ABSTRACTION_LEVEL == abstractionLevel, COHORT_DEFINITION_ID := data.table::fifelse(COHORT_DEFINITION_ID == "control", "target", "control")]
+        data$data_initial[, COHORT_DEFINITION_ID := data.table::fifelse(COHORT_DEFINITION_ID == "control", "target", "control")]
+
+        data$data_features <- data$data_features[ABSTRACTION_LEVEL == abstractionLevel, `:=`(
+            TARGET_SUBJECT_COUNT = CONTROL_SUBJECT_COUNT,
+            CONTROL_SUBJECT_COUNT = TARGET_SUBJECT_COUNT,
+            TARGET_SUBJECT_PREVALENCE = CONTROL_SUBJECT_PREVALENCE,
+            CONTROL_SUBJECT_PREVALENCE = TARGET_SUBJECT_PREVALENCE
+        )][, PREVALENCE_DIFFERENCE_RATIO := data.table::fifelse(
+            is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0 & is.na(TARGET_SUBJECT_PREVALENCE), -1,
+            data.table::fifelse(
+                is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0,
+                TARGET_SUBJECT_PREVALENCE / (1 / count_control),
+                data.table::fifelse(
+                    is.na(TARGET_SUBJECT_PREVALENCE) | TARGET_SUBJECT_PREVALENCE == 0,
+                    (1 / count_target) / CONTROL_SUBJECT_PREVALENCE,
+                    TARGET_SUBJECT_PREVALENCE / CONTROL_SUBJECT_PREVALENCE
+                )
+            )
+        )]
+    }
+
+    if (autoScaleRate) {
+        # Calculate the duration in the cohort in days
+        data$data_initial[, COHORT_DURATION := as.integer(difftime(as.Date(COHORT_END_DATE), as.Date(COHORT_START_DATE), units = "days"))]
+        # Calculate the scaled prevalence for each PERSON_ID
+        scaled_prevalence <- merge(
+          data$data_patients[ABSTRACTION_LEVEL == abstractionLevel],
+          data$data_initial[, .(SUBJECT_ID, COHORT_DURATION)],
+          by.x = "PERSON_ID", by.y = "SUBJECT_ID",
+          allow.cartesian = TRUE
+        )[, SCALED_PREVALENCE := PREVALENCE / (COHORT_DURATION / 365)]
+        # Update features with scaled prevalence
+        data$data_features <- update_features(data$data_features, scaled_prevalence)[, .(
+            CONCEPT_ID,
+            CONCEPT_NAME,
+            PREVALENCE_DIFFERENCE_RATIO,
+            TARGET_SUBJECT_COUNT,
+            CONTROL_SUBJECT_COUNT,
+            TARGET_SUBJECT_PREVALENCE,
+            CONTROL_SUBJECT_PREVALENCE,
+            ABSTRACTION_LEVEL
+        )]
+    }
+
+    concepts <- unique(data$data_patients[ABSTRACTION_LEVEL == abstractionLevel, .(CONCEPT_ID, CONCEPT_NAME, HERITAGE, ABSTRACTION_LEVEL)]
+    [CONCEPT_ID != 0])[data$data_features, on = .(CONCEPT_ID, CONCEPT_NAME, ABSTRACTION_LEVEL), nomatch = 0][
+        !is.na(PREVALENCE_DIFFERENCE_RATIO)
+    ]
+    target <- merge(
+        data$data_patients[ABSTRACTION_LEVEL == abstractionLevel & COHORT_DEFINITION_ID == "target"],
+        concepts,
+        by = c("CONCEPT_ID", "CONCEPT_NAME", "HERITAGE", "ABSTRACTION_LEVEL")
+    )[!is.na(PREVALENCE_DIFFERENCE_RATIO)]
+
+    # Calculate target_df with appropriate type handling
+    target_dt <- data.table::as.data.table(target)
+
+    # Calculate NPATIENTS and PRESENT
+    target_dt[, NPATIENTS := data.table::uniqueN(PERSON_ID)]
+    target_dt[, PRESENT := 1]
+
+    # Calculate NCONCEPTS by grouping by CONCEPT_ID
+    target_dt[, NCONCEPTS := .N, by = CONCEPT_ID]
+
+    # Calculate PREVALENCE
+    target_dt[, PREVALENCE := NCONCEPTS / NPATIENTS]
+
+    # Pivot wider
+    wider_dt <- data.table::dcast(
+        target_dt,
+        CONCEPT_ID + CONCEPT_NAME + HERITAGE + PREVALENCE_DIFFERENCE_RATIO + PREVALENCE ~ PERSON_ID,
+        value.var = "PRESENT",
+        fill = 0
+    )
+
+    # Store the result of grep in a variable
+    columns_to_rename <- grep("^[0-9]", names(wider_dt), value = TRUE)
+    # Check if there are any columns to rename
+    if (length(columns_to_rename) > 0) {
+      # Rename the columns that start with a number
+      data.table::setnames(wider_dt,
+                           old = columns_to_rename,
+                           new = paste0("PID_", columns_to_rename)
       )
-  }
-  concepts <- object$data_patients %>% dplyr::filter(ABSTRACTION_LEVEL == abstractionLevel) %>%
-    select(CONCEPT_ID, CONCEPT_NAME, HERITAGE, ABSTRACTION_LEVEL) %>%
-    distinct() %>%
-    filter(CONCEPT_ID != 0) %>%
-    inner_join(object$data_features, by = c("CONCEPT_ID", "CONCEPT_NAME", "ABSTRACTION_LEVEL")) %>%
-    filter(!is.na(PREVALENCE_DIFFERENCE_RATIO))
+    } else {
+      message("No columns starting with a number were found.")
+    }
+    # Filter and mutate the results
+    target_df <- data.table::as.data.table(wider_dt[
+        "CONCEPT_ID" != 999999999 & "CONCEPT_ID" != "0"
+    ])
+    target_df[, CONCEPT_ID := as.character(CONCEPT_ID)]
 
-  target <- object$data_patients %>% dplyr::filter(ABSTRACTION_LEVEL == abstractionLevel) %>%
-    filter(COHORT_DEFINITION_ID == 'target') %>%
-    select(-COHORT_DEFINITION_ID) %>%#--ABSTRACTION_LEVEL
-    left_join(concepts, by = c("CONCEPT_ID", "CONCEPT_NAME", "HERITAGE", "ABSTRACTION_LEVEL")) %>%
-    filter(!is.na(PREVALENCE_DIFFERENCE_RATIO))
+    target_df[, CONCEPT_NAME := gsub("(.{45})", "\\1\n", CONCEPT_NAME)] # nolint
+    # Create target_row_annotation as a data.frame with rownames
+    target_row_annotation <- as.data.frame(target_df[, .SD, .SDcols = !"CONCEPT_ID"])
+    rownames(target_row_annotation) <- target_df$CONCEPT_ID
+    target_row_annotation$CONCEPT_ID <- NULL
 
-  target_df <- target %>%
-    mutate(NPATIENTS = length(unique(PERSON_ID))) %>%
-    mutate(PRESENT = 1) %>%
-    group_by(CONCEPT_ID) %>%
-    mutate(NCONCEPTS = n()) %>%
-    ungroup() %>%
-    mutate(PREVALENCE = NCONCEPTS / NPATIENTS) %>%
-    bind_rows(
-      target %>%
-        group_by(PERSON_ID) %>%
-        summarize(
-          CONCEPT_ID = 999999999,
-          CONCEPT_NAME = "None",
-          PREVALENCE = 99999,
-          HERITAGE = "none",
-          PREVALENCE_DIFFERENCE_RATIO = -1,
-          .groups = 'drop'
-        )
-    ) %>%
-    pivot_wider(
-      id_cols = c(
-        CONCEPT_ID,
-        CONCEPT_NAME,
-        HERITAGE,
-        PREVALENCE_DIFFERENCE_RATIO,
-        PREVALENCE
-      ),
-      values_from = PRESENT,
-      values_fill = 0,
-      names_from = PERSON_ID,
-      names_prefix = "PID_"
-    ) %>%
-    filter(CONCEPT_ID != 999999999) %>%
-    mutate(CONCEPT_ID = as.character(CONCEPT_ID)) %>%
-    filter(CONCEPT_ID != "0") %>%
-    mutate(CONCEPT_NAME = gsub("(.{45})", "\\1\n", CONCEPT_NAME)) # Wrap names
-
-  target_row_annotation <- target_df %>%
-    as.data.frame() %>%
-    column_to_rownames("CONCEPT_ID") %>%
-    select(-starts_with("PID_"))
-
-  target_matrix <- target_df %>%
-    as.data.frame() %>%
-    column_to_rownames("CONCEPT_ID") %>%
-    select(starts_with("PID_")) %>%
-    as.matrix()
-
-  # Demographics
-  # Process the data to ensure one row per person using the earliest cohort start date
-  target_col_annotation <- object$data_person %>%
-    inner_join(
-      object$data_initial %>%
-        filter(COHORT_DEFINITION_ID == 'target') %>%
-        group_by(SUBJECT_ID) %>%
-        filter(COHORT_START_DATE == min(COHORT_START_DATE)) %>%
-        select(PERSON_ID = SUBJECT_ID, COHORT_START_DATE),
-      by = "PERSON_ID"
-    ) %>%
-    mutate(AGE = floor(as.numeric(
-      COHORT_START_DATE - as_date(str_glue("{YEAR_OF_BIRTH}-01-01"))
-    ) / 365.25)) %>%
-    select(PERSON_ID, GENDER_CONCEPT_ID, AGE) %>%
-    mutate(GENDER = factor(
-      GENDER_CONCEPT_ID,
-      levels = c(8507, 8532),
-      labels = c("Male", "Female")
-    )) %>%
-    mutate(PERSON_ID = str_c("PID_", PERSON_ID)) %>%
-    as.data.frame() %>%
-    column_to_rownames("PERSON_ID") %>%
-    select(-GENDER_CONCEPT_ID)
-
-  res <- list(
-    target_matrix = target_matrix,
-    target_row_annotation = target_row_annotation,
-    target_col_annotation = target_col_annotation
-  )
-
-  return(res)
+    target_matrix <- as.matrix(target_df[, .SD, .SDcols = patterns("^PID_")])
+    rownames(target_matrix) <- target_df$CONCEPT_ID
+    # Demographics
+    target_col_annotation <- merge(
+        data$data_person,
+        data$data_initial[COHORT_DEFINITION_ID == "target", .SD[which.min(COHORT_START_DATE)], by = SUBJECT_ID][, .(PERSON_ID = SUBJECT_ID, COHORT_START_DATE)],
+        by = "PERSON_ID"
+    )[, `:=`(
+        AGE = floor(as.numeric(difftime(COHORT_START_DATE, as.Date(paste0(YEAR_OF_BIRTH, "-01-01")), units = "days")) / 365.25),
+        GENDER = factor(GENDER_CONCEPT_ID, levels = c(8507, 8532), labels = c("Male", "Female"))
+    )][, PERSON_ID := paste0("PID_", PERSON_ID)][, .SD, .SDcols = !c("GENDER_CONCEPT_ID")]
+    target_col_annotation = as.data.frame(target_col_annotation)
+    rownames(target_col_annotation) = target_col_annotation$PERSON_ID
+    res <- list(
+        target_matrix = target_matrix,
+        target_row_annotation = target_row_annotation,
+        target_col_annotation = target_col_annotation
+    )
+    return(res)
 }
 
-filter_target = function(target, prevalence_thereshold = 0.01, prevalence_ratio_threshold = 1, domain, removeUntreated){
-  res = target
-  res$target_row_annotation = res$target_row_annotation %>%
-    filter(PREVALENCE > prevalence_thereshold) %>%
-    filter(PREVALENCE_DIFFERENCE_RATIO > prevalence_ratio_threshold) %>%
-    filter(HERITAGE %in% domain)
-  res$target_matrix =  res$target_matrix[rownames(res$target_row_annotation), , drop = FALSE]
+filter_target <- function(target, prevalence_threshold = 0.01, prevalence_ratio_threshold = 1, domains, removeUntreated = FALSE) {
+    res <- target
+    # Apply filters using data.table
+    res$target_row_annotation <- res$target_row_annotation[
+      res$target_row_annotation$PREVALENCE >= prevalence_threshold &
+        res$target_row_annotation$PREVALENCE_DIFFERENCE_RATIO > prevalence_ratio_threshold &
+        res$target_row_annotation$HERITAGE %in% domains
+    ,]
 
-  if (removeUntreated) {
-    column_sums <- colSums(res$target_matrix, na.rm = TRUE)
-    non_zero_colnames <- colnames(res$target_matrix)[column_sums != 0]
-    # Subset the matrix to keep only columns where the sum is not zero
-    res$target_matrix = res$target_matrix[, non_zero_colnames]
-    res$target_col_annotation <- res$target_col_annotation[rownames(res$target_col_annotation) %in% colnames(res$target_matrix),]
-  }
+    # Ensure rownames are aligned with res$target_matrix
+    if (!all(rownames(res$target_row_annotation) %in% rownames(res$target_matrix))) {
+        stop("Error: Row names in target_row_annotation do not match those in target_matrix.")
+    }
 
-  return(res)
-}
+    # Update target_matrix to only include rows from filtered target_row_annotation
+    res$target_matrix <- res$target_matrix[rownames(res$target_row_annotation), ]
 
-plot_prevalence = function(filtered_target){
-  # Check if the input is NULL or empty
-  if (is.null(filtered_target) || nrow(filtered_target$target_row_annotation) == 0) {
-    return(ggplot() +
-             annotate("text", x = 0.5, y = 0.5, label = "After filtering there are no concepts left",
-                      hjust = 0.5, vjust = 0.5, size = 20, fontface = "bold", color = "black") +
-             theme_void())
-  }
-  # TODO: IF nrow(filtered_target$target_matrix) is NULL print some relevant wanring message, it means too harsh filters 0 people will remain
-  plotdata = filtered_target$target_row_annotation %>%
-    rownames_to_column("CONCEPT_ID") %>%
-    as_tibble() %>%
-    left_join(
-      tibble(
-        CONCEPT_ID = rownames(filtered_target$target_matrix),
-        PRESENCE = lapply(seq_len(nrow(filtered_target$target_matrix)), function(i) filtered_target$target_matrix[i, ])
-      ),
-      by = "CONCEPT_ID"
-    ) %>%
-    mutate(PREVALENCE = map_dbl(PRESENCE, mean)) %>%
-    mutate(AVERAGE_AGE = map_dbl(PRESENCE, ~ mean(filtered_target$target_col_annotation[names(.x), "AGE"][as.logical(.x)], na.rm = TRUE))) %>%
-    mutate(AVERAGE_AGE_OVERALL = mean(filtered_target$target_col_annotation$AGE, na.rm = TRUE)) %>%
-    mutate(AGE_DIFF = map(PRESENCE, ~ {
-      data = filtered_target$target_col_annotation[names(.x), "AGE"][as.logical(.x)]
-      if(length(data[!is.na(data)]) >= 2 && length(unique(data[!is.na(data)])) > 1) {  # Ensure there are at least two non-NA observations
-        t.test(data)
-      } else {
-        list(estimate = mean(data, na.rm = TRUE), conf.int = c(mean(data, na.rm = TRUE), mean(data, na.rm = TRUE)), p.value = NA)  # Returning a list similar to t.test output structure
-      }
-    })) %>%
-    mutate(AGE_DIFF_ESTIMATE = map_dbl(AGE_DIFF, ~ .x$estimate[1])) %>%
-    mutate(AGE_DIFF_LOW = map_dbl(AGE_DIFF, ~ .x$conf.int[1])) %>%
-    mutate(AGE_DIFF_HIGH = map_dbl(AGE_DIFF, ~ .x$conf.int[2])) %>%
-    mutate(AGE_DIFF_SIGNIFICANT = if_else((AGE_DIFF_HIGH > AVERAGE_AGE_OVERALL) & (AGE_DIFF_LOW < AVERAGE_AGE_OVERALL), FALSE, TRUE)) %>%
-    mutate(MALE_PROP = map_dbl(PRESENCE, ~ mean(filtered_target$target_col_annotation[names(.x), "GENDER"][as.logical(.x)] == "Male", na.rm = TRUE))) %>%
-    mutate(MALE_PROP_OVERALL = mean(filtered_target$target_col_annotation$GENDER == "Male", na.rm = TRUE)) %>%
-    mutate(MALE_PROP_DIFF = map(PRESENCE, ~ {
-      data = filtered_target$target_col_annotation[names(.x), "GENDER"][as.logical(.x)] == "Male"
-      if(sum(data, na.rm = TRUE) >= 2 && length(unique(data[!is.na(data)])) > 1) {  # Ensure there are at least two non-NA observations
-        t.test(data)
-      } else {
-        list(estimate = mean(data, na.rm = TRUE), conf.int = c(mean(data, na.rm = TRUE), mean(data, na.rm = TRUE)), p.value = NA)
-      }
-    })) %>%
-    mutate(MALE_PROP_DIFF_ESTIMATE = map_dbl(MALE_PROP_DIFF, ~ .x$estimate)) %>%
-    mutate(MALE_PROP_DIFF_LOW = map_dbl(MALE_PROP_DIFF, ~ .x$conf.int[1])) %>%
-    mutate(MALE_PROP_DIFF_HIGH = map_dbl(MALE_PROP_DIFF, ~ .x$conf.int[2])) %>%
-    mutate(MALE_PROP_DIFF_SIGNIFICANT = if_else((MALE_PROP_DIFF_HIGH > MALE_PROP_OVERALL) & (MALE_PROP_DIFF_LOW < MALE_PROP_OVERALL), FALSE, TRUE)) %>%
-    mutate(PREVALENCE_LOG = if_else(PREVALENCE_DIFFERENCE_RATIO < 1, 0, if_else(PREVALENCE_DIFFERENCE_RATIO > 100, 2, log10(PREVALENCE_DIFFERENCE_RATIO))))
-  # Plot
-  p1 <- ggplot(plotdata, aes(x = PREVALENCE, y = CONCEPT_NAME, fill = PREVALENCE_LOG)) +
-    geom_bar(stat = "identity") +
-    facet_grid(HERITAGE ~ ., space = "free_y", scales = "free_y") +
-    scale_fill_viridis_c(
-      "Risk ratio (log10-scaled)\ncompared to background",
-      limits = c(0, 2),
-      oob = scales::squish
-    ) + # Ensure fill values are between 0 and 3
-    scale_x_continuous(labels = scales::label_percent()) +
-    ggtitle("Prevalence") +
-    theme_bw() +
-    theme(
-      axis.title = element_blank(),
-      legend.position = "bottom",
-      strip.background = element_blank(),
-      strip.text = element_blank(),
-      axis.text.y = element_text(size = 15) # Adjust the size as needed
-    )
+    if (removeUntreated) {
+        # Calculate column sums and filter out columns with zero sum
+        column_sums <- colSums(res$target_matrix, na.rm = TRUE)
+        non_zero_colnames <- colnames(res$target_matrix)[column_sums != 0]
 
-  p2 <- ggplot(plotdata, aes(y = CONCEPT_NAME, color = AGE_DIFF_SIGNIFICANT)) +
-    geom_point(aes(x = AGE_DIFF_ESTIMATE)) +
-    geom_errorbar(aes(xmin = AGE_DIFF_LOW, xmax = AGE_DIFF_HIGH), linewidth = 5) +
-    geom_vline(aes(xintercept = AVERAGE_AGE_OVERALL), color = "darkgreen") +
-    scale_color_manual(values = c("grey60", "blue"), breaks = c(FALSE, TRUE)) +
-    facet_grid(HERITAGE ~ ., space = "free_y", scales = "free_y") +
-    ggtitle("AGE in group") +
-    theme_bw() +
-    theme(
-      axis.title = element_blank(),
-      axis.text.y = element_blank(),
-      axis.ticks.y = element_blank(),
-      strip.background = element_blank(),
-      strip.text = element_blank(),
-      legend.position = "none"
-    )
-
-  p3 <- ggplot(plotdata, aes(y = CONCEPT_NAME, color = MALE_PROP_DIFF_SIGNIFICANT)) +
-    geom_point(aes(x = MALE_PROP_DIFF_ESTIMATE)) +
-    geom_errorbar(aes(xmin = MALE_PROP_DIFF_LOW, xmax = MALE_PROP_DIFF_HIGH), linewidth = 5) +
-    geom_vline(aes(xintercept = MALE_PROP_OVERALL), color = "darkgreen") +
-    scale_color_manual(values = c("grey60", "blue"), breaks = c(FALSE, TRUE)) +
-    scale_x_continuous(labels = scales::label_percent()) +
-    facet_grid(HERITAGE ~ ., space = "free_y", scales = "free_y") +
-    ggtitle("Male percentage in group") +
-    theme_bw() +
-    theme(
-      axis.title = element_blank(),
-      axis.text.y = element_blank(),
-      axis.ticks.y = element_blank(),
-      legend.position = "none"
-    )
-
-  # Combine plots
-  p <- p1 + p2 + p3 + plot_layout(nrow = 1, heights = c(1, 1, 1))
-
-  return(p)
-}
-
-plot_heatmap = function(filtered_target){
-  # Check if the input is NULL or empty
-  if (is.null(filtered_target) || nrow(filtered_target$target_row_annotation) == 0) {
-    return(ggplot() +
-             annotate("text", x = 0.5, y = 0.5, label = "After filtering there are no concepts left",
-                      hjust = 0.5, vjust = 0.5, size = 12, fontface = "bold", color = "black") +
-             theme_void())
-  }
-  # Patient clustering
-  col_clustering = hclust(dist(t(filtered_target$target_matrix)))
-
-  # Row reordering
-  reordering = filtered_target$target_row_annotation %>%
-    rownames_to_column("CONCEPT_ID") %>%
-    group_by(HERITAGE) %>% arrange(desc(CONCEPT_NAME)) %>%
-    summarize(CONCEPT_ID = list(CONCEPT_ID)) %>%
-    mutate(MATRIX = purrr::map(CONCEPT_ID, ~ filtered_target$target_matrix[.x, , drop = F])) %>%
-    mutate(MATRIX = purrr::map(
-      MATRIX,
-      function(x){
-        if(nrow(x) > 1){
-          x = x[hclust(dist(x))$order, ]
+        # Check if any columns have non-zero sums
+        if (length(non_zero_colnames) == 0) {
+            stop("Error: No columns with non-zero sums found in target_matrix.")
         }
 
-        return(x)
-      }
-    ))
+        # Subset the matrix to keep only columns where the sum is not zero
+        res$target_matrix <- res$target_matrix[, non_zero_colnames, drop = FALSE]
 
-  tm = do.call(rbind, reordering$MATRIX)
-  tm_gaps = purrr::map_int(reordering$MATRIX, nrow) %>% cumsum()
+        # Filter target_col_annotation to match the filtered target_matrix
+        res$target_col_annotation <- res$target_col_annotation[
+            rownames(res$target_col_annotation) %in% colnames(res$target_matrix), ,
+            drop = FALSE
+        ]
+    }
 
-  # save(tm, target_row_annotation, person, file = str_c(pathToResults, "/matrix.RData"))
-
-  tm2 = tm
-  rownames(tm2) = filtered_target$target_row_annotation[rownames(tm), ]$CONCEPT_NAME
-
-  annotation_row = filtered_target$target_row_annotation %>%
-    arrange(CONCEPT_NAME) %>%
-    remove_rownames() %>%
-    column_to_rownames("CONCEPT_NAME") %>%
-    select(-PREVALENCE_DIFFERENCE_RATIO)
-  annotation_col = filtered_target$target_col_annotation
-
-  # annotation_row = filtered_target$target_row_annotation %>%
-  #   rownames_to_column("CONCEPT_ID") %>%
-  #   filter(CONCEPT_ID %in% rownames(tm)) %>%
-  #   arrange(match(CONCEPT_NAME, rownames(tm))) %>%
-  #   column_to_rownames("CONCEPT_NAME") %>%
-  #   select(-PREVALENCE_DIFFERENCE_RATIO)
-
-  # Heritage colors pre-defined
-  heritage_colors <- c(
-    procedure_occurrence = "darkblue",
-    condition_occurrence = "orange",
-    drug_exposure = "lightblue",
-    measurement = "pink",
-    observation = "brown",
-    visit_occurrence ="darkgreen",
-    visit_detail = "lightgreen"
-  )
-
-  active_gender_colors <-  c(Male = "purple", Female = "pink", Other = "lightblue")
-
-  # Filter heritage colors based on what's present in annotation_row
-  active_heritage_colors <- heritage_colors[names(heritage_colors) %in% unique(annotation_row$HERITAGE)]
-  active_gender_colors <- active_gender_colors[names(active_gender_colors) %in% unique(annotation_col$GENDER)]
-
-
-  # Specify colors including a dynamic gradient for AGE
-  annotation_colors = list(
-    AGE = colorRampPalette(c("lightblue", "firebrick"))(length(unique(annotation_col$AGE))),
-    GENDER = active_gender_colors,
-    HERITAGE = active_heritage_colors,
-    PREVALENCE = colorRampPalette(c("white", "purple"))(length(unique(annotation_row$PREVALENCE)))
-  )
-
-  # tm2 <- tm2[order(rownames(tm2), decreasing = TRUE), ]
-  # annotation_row
-
-  annotation_row <- annotation_row %>%
-    rownames_to_column("CONCEPT_NAME") %>%
-    arrange(HERITAGE, desc(toupper(CONCEPT_NAME))) %>%
-    column_to_rownames("CONCEPT_NAME")
-
-  # Apply the same order to the matrix
-  tm2 <- tm2[rownames(annotation_row), ]
-
-
-  pheatmap::pheatmap(
-    tm2,
-    show_colnames = F,
-    annotation_row = annotation_row,
-    annotation_col = annotation_col,
-    annotation_colors = annotation_colors,
-    cluster_cols = col_clustering,
-    cluster_rows = FALSE,
-    gaps_row = tm_gaps,
-    color = c("#e5f5f9", "#2ca25f"),
-    legend_breaks = c(0.25, 0.75),
-    legend_labels = c("Absent", "Present")
-  )
+    return(res)
 }
 
 
-# Example function to update the data_features based on scaled prevalence
-update_features <- function(features, scaled_prev) {
-  scaled_prev <- scaled_prev %>% dplyr::group_by(CONCEPT_ID, COHORT_DEFINITION_ID) %>%
-    dplyr::summarise(AVG_SCALED_PREVALENCE = median(SCALED_PREVALENCE, na.rm = TRUE)) %>%
-    # Pivot to wide format to separate the prevalences for different cohort IDs
-    tidyr::pivot_wider(
-      names_from = COHORT_DEFINITION_ID,
-      values_from = AVG_SCALED_PREVALENCE,
-      names_prefix = "COHORT_"
+plot_prevalence <- function(filtered_target) {
+    # Check if the input is NULL or empty
+    if (is.null(filtered_target) || nrow(filtered_target$target_row_annotation) == 0) {
+        return(ggplot2::ggplot() +
+            ggplot2::annotate("text",
+                x = 0.5, y = 0.5, label = "After filtering there are no concepts left",
+                hjust = 0.5, vjust = 0.5, size = 20, fontface = "bold", color = "black"
+            ) +
+            ggplot2::theme_void())
+    }
+    # TODO: IF nrow(filtered_target$target_matrix) is NULL print some relevant wanring message, it means too harsh filters 0 people will remain
+  plotdata <- as.data.frame(filtered_target$target_row_annotation) %>%
+        tibble::rownames_to_column("CONCEPT_ID") %>%
+        tibble::as_tibble() %>%
+        dplyr::left_join(
+            tibble::tibble(
+                CONCEPT_ID = rownames(filtered_target$target_row_annotation),
+                PRESENCE = if (is.null(nrow(filtered_target$target_matrix)) || nrow(filtered_target$target_matrix) == 1) {
+                  list(as.matrix(filtered_target$target_matrix)[, 1])
+                } else {
+                  lapply(seq_len(nrow(filtered_target$target_matrix)), function(i) as.matrix(filtered_target$target_matrix)[i, ])
+                }
+            ),
+            by = "CONCEPT_ID"
+        ) %>%
+        dplyr::mutate(PREVALENCE = purrr::map_dbl(.data$PRESENCE, mean)) %>%
+        dplyr::mutate(AVERAGE_AGE = purrr::map_dbl(.data$PRESENCE, ~ mean(
+            filtered_target$target_col_annotation[names(.x), "AGE"][as.logical(.x)],
+            na.rm = TRUE
+        ))) %>%
+        dplyr::mutate(AVERAGE_AGE_OVERALL = mean(filtered_target$target_col_annotation$AGE, na.rm = TRUE)) %>%
+        dplyr::mutate(AGE_DIFF = purrr::map(.data$PRESENCE, ~ {
+            data <- filtered_target$target_col_annotation[names(.x), "AGE"][as.logical(.x)]
+            if (length(data[!is.na(data)]) >= 2 && length(unique(data[!is.na(data)])) > 1) { # Ensure there are at least two non-NA observations
+                t.test(data)
+            } else {
+                list(estimate = mean(data, na.rm = TRUE), conf.int = c(mean(data, na.rm = TRUE), mean(data, na.rm = TRUE)), p.value = NA) # Returning a list similar to t.test output structure
+            }
+        })) %>%
+        dplyr::mutate(AGE_DIFF_ESTIMATE = purrr::map_dbl(AGE_DIFF, ~ .x$estimate[1])) %>%
+        dplyr::mutate(AGE_DIFF_LOW = purrr::map_dbl(AGE_DIFF, ~ .x$conf.int[1])) %>%
+        dplyr::mutate(AGE_DIFF_HIGH = purrr::map_dbl(AGE_DIFF, ~ .x$conf.int[2])) %>%
+        dplyr::mutate(AGE_DIFF_SIGNIFICANT = dplyr::if_else((AGE_DIFF_HIGH > AVERAGE_AGE_OVERALL) & (.data$AGE_DIFF_LOW < .data$AVERAGE_AGE_OVERALL), FALSE, TRUE)) %>%
+        dplyr::mutate(MALE_PROP = purrr::map_dbl(.data$PRESENCE, ~ mean(filtered_target$target_col_annotation[names(.x), "GENDER"][as.logical(.x)] == "Male", na.rm = TRUE))) %>%
+        dplyr::mutate(MALE_PROP_OVERALL = mean(filtered_target$target_col_annotation$GENDER == "Male", na.rm = TRUE)) %>%
+        dplyr::mutate(MALE_PROP_DIFF = purrr::map(.data$PRESENCE, ~ {
+            data <- filtered_target$target_col_annotation[names(.x), "GENDER"][as.logical(.x)] == "Male"
+            if (sum(data, na.rm = TRUE) >= 2 && length(unique(data[!is.na(data)])) > 1) { # Ensure there are at least two non-NA observations
+                t.test(data)
+            } else {
+                list(estimate = mean(data, na.rm = TRUE), conf.int = c(mean(data, na.rm = TRUE), mean(data, na.rm = TRUE)), p.value = NA)
+            }
+        })) %>%
+        dplyr::mutate(MALE_PROP_DIFF_ESTIMATE = purrr::map_dbl(.data$MALE_PROP_DIFF, ~ .x$estimate)) %>%
+        dplyr::mutate(MALE_PROP_DIFF_LOW = purrr::map_dbl(.data$MALE_PROP_DIFF, ~ .x$conf.int[1])) %>%
+        dplyr::mutate(MALE_PROP_DIFF_HIGH = purrr::map_dbl(.data$MALE_PROP_DIFF, ~ .x$conf.int[2])) %>%
+        dplyr::mutate(MALE_PROP_DIFF_SIGNIFICANT = dplyr::if_else((.data$MALE_PROP_DIFF_HIGH > MALE_PROP_OVERALL) & (.data$MALE_PROP_DIFF_LOW < MALE_PROP_OVERALL), FALSE, TRUE)) %>%
+        dplyr::mutate(PREVALENCE_LOG = dplyr::if_else(.data$PREVALENCE_DIFFERENCE_RATIO < 1, 0, dplyr::if_else(.data$PREVALENCE_DIFFERENCE_RATIO > 100, 2, log10(.data$PREVALENCE_DIFFERENCE_RATIO))))
+        # Plot
+    p1 <- ggplot2::ggplot(plotdata, ggplot2::aes(x = .data$PREVALENCE, y = .data$CONCEPT_NAME, fill = .data$PREVALENCE_LOG)) +
+        geom_bar(stat = "identity") +
+        ggplot2::facet_grid(.data$HERITAGE ~ ., space = "free_y", scales = "free_y") +
+        scale_fill_viridis_c(
+            "Risk ratio (log10-scaled)\ncompared to background",
+            limits = c(0, 2),
+            oob = scales::squish
+        ) + # Ensure fill values are between 0 and 3
+        scale_x_continuous(labels = scales::label_percent()) +
+        ggtitle("Prevalence") +
+        theme_bw() +
+        theme(
+            axis.title = element_blank(),
+            legend.position = "bottom",
+            strip.background = element_blank(),
+            strip.text = element_blank(),
+            axis.text.y = element_text(size = 15) # Adjust the size as needed
+        )
+
+    p2 <- ggplot2::ggplot(plotdata, ggplot2::aes(y = .data$CONCEPT_NAME, color = .data$AGE_DIFF_SIGNIFICANT)) +
+        ggplot2::geom_point(ggplot2::aes(x = AGE_DIFF_ESTIMATE)) +
+        ggplot2::geom_errorbar(ggplot2::aes(xmin = .data$AGE_DIFF_LOW, xmax = .data$AGE_DIFF_HIGH), linewidth = 5) +
+        ggplot2::geom_vline(ggplot2::aes(xintercept = .data$AVERAGE_AGE_OVERALL), color = "darkgreen") +
+        ggplot2::scale_color_manual(values = c("grey60", "blue"), breaks = c(FALSE, TRUE)) +
+        ggplot2::facet_grid(.data$HERITAGE ~ ., space = "free_y", scales = "free_y") +
+        ggplot2::ggtitle("AGE in group") +
+        ggplot2::theme_bw() +
+        ggplot2::theme(
+            axis.title = ggplot2::element_blank(),
+            axis.text.y = ggplot2::element_blank(),
+            axis.ticks.y = ggplot2::element_blank(),
+            strip.background = ggplot2::element_blank(),
+            strip.text = ggplot2::element_blank(),
+            legend.position = "none"
+        )
+
+    p3 <- ggplot2::ggplot(plotdata, ggplot2::aes(y = .data$CONCEPT_NAME, color = .data$MALE_PROP_DIFF_SIGNIFICANT)) +
+        ggplot2::geom_point(ggplot2::aes(x = .data$MALE_PROP_DIFF_ESTIMATE)) +
+        ggplot2::geom_errorbar(ggplot2::aes(xmin = .data$MALE_PROP_DIFF_LOW, xmax = .data$MALE_PROP_DIFF_HIGH), linewidth = 5) +
+        ggplot2::geom_vline(ggplot2::aes(xintercept = MALE_PROP_OVERALL), color = "darkgreen") +
+        ggplot2::scale_color_manual(values = c("grey60", "blue"), breaks = c(FALSE, TRUE)) +
+        ggplot2::scale_x_continuous(labels = scales::label_percent()) +
+        ggplot2::facet_grid(.data$HERITAGE ~ ., space = "free_y", scales = "free_y") +
+        ggplot2::ggtitle("Male percentage in group") +
+        ggplot2::theme_bw() +
+        ggplot2::theme(
+            axis.title = ggplot2::element_blank(),
+            axis.text.y = ggplot2::element_blank(),
+            axis.ticks.y = ggplot2::element_blank(),
+            legend.position = "none"
+        )
+
+    # Combine plots
+    p <- p1 + p2 + p3 + patchwork::plot_layout(nrow = 1, heights = c(1, 1, 1))
+
+    return(p)
+}
+
+plot_heatmap <- function(filtered_target) {
+    # Check if the input is NULL or empty
+    if (is.null(filtered_target) || nrow(filtered_target$target_row_annotation) == 0) {
+        return(ggplot2::ggplot() +
+            ggplot2::annotate("text",
+                x = 0.5, y = 0.5, label = "After filtering there are no concepts left",
+                hjust = 0.5, vjust = 0.5, size = 12, fontface = "bold", color = "black"
+            ) +
+            ggplot2::theme_void())
+    } else if (is.null(nrow(filtered_target$target_matrix))){
+      filtered_target$target_matrix <- t(as.matrix(filtered_target$target_matrix)[1:length(filtered_target$target_matrix),, drop = FALSE])
+      rownames(filtered_target$target_matrix) <- rownames(filtered_target$target_row_annotation)
+      }
+
+    filtered_target$target_row_annotation <- as.data.frame(filtered_target$target_row_annotation)
+    filtered_target$target_col_annotation <- as.data.frame(filtered_target$target_col_annotation)
+    rownames(filtered_target$target_col_annotation) <- filtered_target$target_col_annotation$PERSON_ID
+
+    # Patient clustering
+    col_clustering <- stats::hclust(stats::dist(t(filtered_target$target_matrix)))
+    # Row reordering
+    reordering <- filtered_target$target_row_annotation %>%
+        tibble::rownames_to_column("CONCEPT_ID") %>%
+        dplyr::group_by(.data$HERITAGE) %>%
+        dplyr::arrange(dplyr::desc(.data$CONCEPT_NAME)) %>%
+        dplyr::summarize(CONCEPT_ID = list(.data$CONCEPT_ID)) %>%
+        dplyr::mutate(MATRIX = purrr::map(.data$CONCEPT_ID, ~ filtered_target$target_matrix[.x, , drop = F])) %>%
+        dplyr::mutate(MATRIX = purrr::map(
+            MATRIX,
+            function(x) {
+                if (nrow(x) > 1) {
+                    x <- x[stats::hclust(stats::dist(x))$order, ]
+                }
+
+                return(x)
+            }
+        ))
+    tm <- as.data.frame(do.call(rbind, reordering$MATRIX))
+    tm_gaps <- purrr::map_int(reordering$MATRIX, nrow) %>% cumsum()
+    tm2 <- as.matrix(tm)
+    rownames(tm2) <- filtered_target$target_row_annotation[rownames(tm), ]$CONCEPT_NAME
+    annotation_row <- filtered_target$target_row_annotation %>%
+        dplyr::arrange(.data$CONCEPT_NAME) %>%
+        tibble::remove_rownames() %>%
+        tibble::column_to_rownames("CONCEPT_NAME") %>%
+        dplyr::select(-.data$PREVALENCE_DIFFERENCE_RATIO)
+    annotation_col <- filtered_target$target_col_annotation
+    # Heritage colors pre-defined
+    heritage_colors <- c(
+        procedure_occurrence = "darkblue",
+        condition_occurrence = "orange",
+        drug_exposure = "lightblue",
+        measurement = "pink",
+        observation = "brown",
+        visit_occurrence = "darkgreen",
+        visit_detail = "lightgreen"
     )
 
-      # Replace NA with specific values to handle cases where a cohort might be missing
-  scaled_prev = scaled_prev %>%   replace_na(list(COHORT_control = -1, COHORT_target = -1)) %>%
-    # Calculate the ratio or set to -1 if any cohort data is missing
-   dplyr:: mutate(
-      PREVALENCE_DIFFERENCE_RATIO = if_else(COHORT_control == -1, COHORT_target / 1, if_else(COHORT_target == -1, 1/COHORT_control, COHORT_target / COHORT_control)
-    )) %>%
-    # Optionally, select relevant columns
-    dplyr::select(CONCEPT_ID, PREVALENCE_DIFFERENCE_RATIO)
-  features = features %>% dplyr::select(-PREVALENCE_DIFFERENCE_RATIO) %>%
-    dplyr::left_join(scaled_prev, by = "CONCEPT_ID")
+    active_gender_colors <- c(Male = "purple", Female = "pink", Other = "lightblue")
+
+    # Filter heritage colors based on what's present in annotation_row
+    active_heritage_colors <- heritage_colors[names(heritage_colors) %in% unique(annotation_row$HERITAGE)]
+    active_gender_colors <- active_gender_colors[names(active_gender_colors) %in% unique(annotation_col$GENDER)]
+
+
+    # Specify colors including a dynamic gradient for AGE
+    annotation_colors <- list(
+        AGE = colorRampPalette(c("lightblue", "firebrick"))(length(unique(annotation_col$AGE))),
+        GENDER = active_gender_colors,
+        HERITAGE = active_heritage_colors,
+        PREVALENCE = colorRampPalette(c("white", "purple"))(length(unique(annotation_row$PREVALENCE)))
+    )
+
+    # tm2 <- tm2[order(rownames(tm2), decreasing = TRUE), ]
+    # annotation_row
+    annotation_row <- annotation_row %>%
+        tibble::rownames_to_column("CONCEPT_NAME") %>%
+        dplyr::arrange(.data$HERITAGE, dplyr::desc(toupper(.data$CONCEPT_NAME))) %>%
+        tibble::column_to_rownames("CONCEPT_NAME")
+    # Apply the same order to the matrix
+    tm2 <- tm2[rownames(annotation_row), ]
+
+    pheatmap::pheatmap(
+        tm2,
+        show_colnames = FALSE,
+        annotation_row = annotation_row %>% dplyr::select(HERITAGE),
+        annotation_col = annotation_col %>% dplyr::select(AGE, GENDER),
+        annotation_colors = annotation_colors,
+        cluster_cols = col_clustering,
+        cluster_rows = FALSE,
+        gaps_row = tm_gaps,
+        color = c("#e5f5f9", "#2ca25f"),
+        legend_breaks = c(0.25, 0.75),
+        legend_labels = c("Absent", "Present")
+    )
+}
+
+
+update_features <- function(features, scaled_prev) {
+    # Convert scaled_prev to data.table if not already
+    scaled_prev <- data.table::as.data.table(scaled_prev)
+
+    # Calculate AVG_SCALED_PREVALENCE by grouping by CONCEPT_ID and COHORT_DEFINITION_ID
+    scaled_prev <- scaled_prev[, .(AVG_SCALED_PREVALENCE = stats::median(SCALED_PREVALENCE, na.rm = TRUE)),
+        by = .(CONCEPT_ID, COHORT_DEFINITION_ID)
+    ]
+
+    # Pivot to wide format
+    scaled_prev <- data.table::dcast(
+      scaled_prev,
+      CONCEPT_ID ~ COHORT_DEFINITION_ID,
+      value.var = "AVG_SCALED_PREVALENCE",
+      fill = -1
+    )
+
+    # Add the prefix "COHORT_" to the new columns (excluding the first column, which is CONCEPT_ID)
+    data.table::setnames(scaled_prev, old = names(scaled_prev)[-1], new = paste0("COHORT_", names(scaled_prev)[-1]))
+    # Calculate PREVALENCE_DIFFERENCE_RATIO
+    scaled_prev[, PREVALENCE_DIFFERENCE_RATIO := data.table::fifelse(
+      COHORT_control == -1, COHORT_target / 1,
+      data.table::fifelse(COHORT_target == -1, 1 / COHORT_control, COHORT_target / COHORT_control)
+    )]
+    # Select relevant columns
+    scaled_prev <- scaled_prev[, .(CONCEPT_ID, PREVALENCE_DIFFERENCE_RATIO)]
+    # Convert features to data.table if not already
+    features <- data.table::as.data.table(features)
+    # Remove existing PREVALENCE_DIFFERENCE_RATIO column if it exists
+    features <- features[, !"PREVALENCE_DIFFERENCE_RATIO", with = FALSE]
+    # Join the updated scaled_prev data back into the features
+    features <- features[scaled_prev, on = "CONCEPT_ID", nomatch = 0]
+    return(features)
 }

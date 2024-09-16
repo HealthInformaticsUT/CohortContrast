@@ -3,7 +3,8 @@
 \name{CohortContrast}
 \alias{CohortContrast}
 \title{CohortContrast analysis function
-After running this function on your CDM instance successfully you can either use the extracted outputs or run the CohortContrast shiny app.}
+After running this function on your CDM instance successfully you can
+either use the extracted outputs or run the CohortContrast shiny app.}
 \usage{
 CohortContrast(
   cdm,
@@ -20,9 +21,11 @@ CohortContrast(
   runZTests = TRUE,
   runLogitTests = TRUE,
   getAllAbstractions = FALSE,
+  maximumAbstractionLevel = 10,
   createOutputFiles = TRUE,
   complName = NULL,
-  numCores = parallel::detectCores() - 1
+  numCores = parallel::detectCores() - 1,
+  safeRun = FALSE
 )
 }
 \arguments{
@@ -32,17 +35,22 @@ CohortContrast(
 
 \item{controlTable}{Table for control cohort (tbl)}
 
-\item{pathToResults}{Path to the results folder, can be project's working directory}
+\item{pathToResults}{Path to the results folder,
+can be project's working directory}
 
 \item{domainsIncluded}{list of CDM domains to include}
 
-\item{prevalenceCutOff}{numeric > if set, removes all of the concepts which are not present (in target) more than prevalenceCutOff times}
+\item{prevalenceCutOff}{numeric > if set, removes all of the concepts
+which are not present (in target) more than prevalenceCutOff times}
 
-\item{topK}{numeric > if set, keeps this number of features in the analysis. Maximum number of features exported.}
+\item{topK}{numeric > if set, keeps this number of features in the analysis.
+Maximum number of features exported.}
 
-\item{presenceFilter}{numeric > if set, removes all features represented less than the given percentage}
+\item{presenceFilter}{numeric > if set, removes all features represented
+less than the given percentage}
 
-\item{complementaryMappingTable}{Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,}
+\item{complementaryMappingTable}{Mappingtable for mapping concept_ids if
+present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,}
 
 \item{createC2TInput}{Boolean for creating Cohort2Trajectory input dataframe}
 
@@ -50,17 +58,24 @@ CohortContrast(
 
 \item{runLogitTests}{boolean for logit-tests}
 
-\item{getAllAbstractions}{boolean for creating abstractions' levels for the imported data, this is useful when using GUI and exploring data}
+\item{getAllAbstractions}{boolean for creating abstractions' levels for
+the imported data, this is useful when using GUI and exploring data}
 
-\item{createOutputFiles}{Boolean for creating output files, the default value is TRUE}
+\item{maximumAbstractionLevel}{Maximum level of abstraction allowed}
+
+\item{createOutputFiles}{Boolean for creating output files,
+the default value is TRUE}
 
 \item{complName}{Name of the output file}
 
 \item{numCores}{Number of cores to allocate to parallel proccessing}
+
+\item{safeRun}{boolean for only returning summarized data}
 }
 \description{
 CohortContrast analysis function
-After running this function on your CDM instance successfully you can either use the extracted outputs or run the CohortContrast shiny app.
+After running this function on your CDM instance successfully you can
+either use the extracted outputs or run the CohortContrast shiny app.
 }
 \examples{
 # Example of setting up CohortContrast tables with a dummy database

@@ -4,7 +4,7 @@
 \alias{saveResult}
 \title{This function saves the resulting data object}
 \usage{
-saveResult(data, pathToResults, complName = NULL)
+saveResult(data, pathToResults)
 }
 \arguments{
 \item{data}{Data list object}

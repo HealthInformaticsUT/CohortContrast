@@ -1,23 +1,33 @@
 #' @importFrom foreach %dopar%
 
 #' @title CohortContrast analysis function
-#' After running this function on your CDM instance successfully you can either use the extracted outputs or run the CohortContrast shiny app.
+#' After running this function on your CDM instance successfully you can
+#' either use the extracted outputs or run the CohortContrast shiny app.
 #' @param cdm Connection to database
 #' @param targetTable Table for target cohort (tbl)
 #' @param controlTable Table for control cohort (tbl)
-#' @param pathToResults Path to the results folder, can be project's working directory
+#' @param pathToResults Path to the results folder,
+#' can be project's working directory
 #' @param domainsIncluded list of CDM domains to include
-#' @param prevalenceCutOff numeric > if set, removes all of the concepts which are not present (in target) more than prevalenceCutOff times
-#' @param topK numeric > if set, keeps this number of features in the analysis. Maximum number of features exported.
-#' @param presenceFilter numeric > if set, removes all features represented less than the given percentage
-#' @param complementaryMappingTable Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,
+#' @param prevalenceCutOff numeric > if set, removes all of the concepts
+#' which are not present (in target) more than prevalenceCutOff times
+#' @param topK numeric > if set, keeps this number of features in the analysis.
+#' Maximum number of features exported.
+#' @param presenceFilter numeric > if set, removes all features represented
+#' less than the given percentage
+#' @param complementaryMappingTable Mappingtable for mapping concept_ids if
+#' present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,
 #' @param createC2TInput Boolean for creating Cohort2Trajectory input dataframe
 #' @param runZTests boolean for Z-tests
 #' @param runLogitTests boolean for logit-tests
-#' @param getAllAbstractions boolean for creating abstractions' levels for the imported data, this is useful when using GUI and exploring data
-#' @param createOutputFiles Boolean for creating output files, the default value is TRUE
+#' @param getAllAbstractions boolean for creating abstractions' levels for
+#' the imported data, this is useful when using GUI and exploring data
+#' @param maximumAbstractionLevel Maximum level of abstraction allowed
+#' @param createOutputFiles Boolean for creating output files,
+#' the default value is TRUE
 #' @param complName Name of the output file
 #' @param numCores Number of cores to allocate to parallel proccessing
+#' @param safeRun boolean for only returning summarized data
 #'
 #' @importFrom dplyr %>%
 #' @importFrom foreach %dopar%
@@ -105,20 +115,35 @@ CohortContrast <- function(cdm,
                            runZTests = TRUE,
                            runLogitTests = TRUE,
                            getAllAbstractions = FALSE,
+                           maximumAbstractionLevel = 10,
                            createOutputFiles = TRUE,
                            complName = NULL,
-                           numCores = parallel::detectCores() - 1) {
+                           numCores = parallel::detectCores() - 1,
+                           safeRun = FALSE) {
   # Setup
   assertRequiredCohortTable(targetTable)
   assertRequiredCohortTable(controlTable)
   cdm <- createCohortContrastCdm(cdm = cdm, targetTable = targetTable, controlTable = controlTable)
   targetCohortId = 2
 
+  config = list(
+    complName = complName,
+    domainsIncluded = domainsIncluded,
+    topK = topK,
+    prevalenceCutOff = prevalenceCutOff,
+    presenceFilter = presenceFilter,
+    runZTests = runZTests,
+    runLogitTests = runLogitTests,
+    getAllAbstractions = getAllAbstractions,
+    createC2TInput = createC2TInput,
+    safeRun = safeRun
+  )
+
   data = generateTables(
     cdm = cdm,
     domainsIncluded = domainsIncluded,
   )
-
+  data$config = config
   cl <- parallel::makeCluster(numCores)
   doParallel::registerDoParallel(cl)
 
@@ -136,15 +161,15 @@ if (is.data.frame(complementaryMappingTable) | getAllAbstractions) {
     printCustomMessage("Get data for all concept abstraction levels ...")
     max_min_levels <- concept_ancestor %>%
       dplyr::group_by(.data$descendant_concept_id) %>%
-      dplyr::summarise(maximum_minimal_separation = max(.data$min_levels_of_separation))
+      dplyr::summarise(maximum_minimal_separation = max(.data$max_levels_of_separation))
     updateMapping <- updateMapping
     generateMappingTable <- generateMappingTable
     handleMapping <- handleMapping
     maxAbstraction <- NULL
-    new_data_patients <- foreach::foreach(maxAbstraction = 5:0, .combine = rbind, .packages = c("CohortContrast", "dplyr"), .export = c("maxAbstraction")) %dopar% {
+    new_data_patients <- foreach::foreach(maxAbstraction = maximumAbstractionLevel:0, .combine = rbind, .packages = c("CohortContrast", "dplyr"), .export = c("maxAbstraction")) %dopar% {
       # Load necessary libraries in each worker
-      complementaryMappingTable = generateMappingTable(cdm = cdm, maxAbstraction = maxAbstraction, data = data, concept_ancestor = concept_ancestor, concept = concept, maxMinDataFrame =max_min_levels)
-      complimentaryMappingTable <- updateMapping(complementaryMappingTable)
+      complementaryMappingTable = generateMappingTable(cdm = cdm, abstractionLevel = maxAbstraction, data = data, concept_ancestor = concept_ancestor, concept = concept, maxMinDataFrame =max_min_levels)
+      complementaryMappingTable1 <- updateMapping(complementaryMappingTable)
       newData <- handleMapping(data = data, complementaryMappingTable = complementaryMappingTable, abstractionLevel = maxAbstraction)
       newData$PERSON_ID = as.integer(newData$PERSON_ID)
       return(newData)
@@ -173,7 +198,7 @@ if (is.data.frame(complementaryMappingTable) | getAllAbstractions) {
 
   if (createOutputFiles){
     createPathToResults(pathToResults = pathToResults)
-    saveResult(data, pathToResults, complName)
+    saveResult(data, pathToResults)
   }
 
   return(data)
@@ -411,6 +436,17 @@ performPrevalenceAnalysis <- function(data_patients,
               ABSTRACTION_LEVEL = abstraction_level
             )
           )
+        }
+        else if (prevalence_cohort_1 == 0 | prevalence_cohort_2 == 0) {
+          level_results <- rbind(
+            level_results,
+            data.frame(
+              CONCEPT_ID = concept_id,
+              ZTEST = TRUE,
+              ZTEST_P_VALUE = NA,
+              ABSTRACTION_LEVEL = abstraction_level
+            )
+          )
         } else {
           level_results <- rbind(
             level_results,
@@ -483,6 +519,7 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
         )
 
       prevalence_cohort_2 <- ifelse(is.na(sum(concept_data$PREVALENCE[concept_data$TARGET == 1])), 0, sum(concept_data$PREVALENCE[concept_data$TARGET == 1]))
+      prevalence_cohort_1 <- ifelse(is.na(sum(concept_data$PREVALENCE[concept_data$CONTROL == 1])), 0, sum(concept_data$PREVALENCE[concept_data$CONTROL == 1]))
 
       if (prevalence_cohort_2 / sample_2_n < presenceFilter) {
         level_results <- rbind(
@@ -514,7 +551,19 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
             ABSTRACTION_LEVEL = abstraction_level
           )
         )
-      } else {
+      }
+      else if (prevalence_cohort_1 == 0 | prevalence_cohort_2 == 0) {
+        level_results <- rbind(
+          level_results,
+          data.frame(
+            CONCEPT_ID = concept_id,
+            LOGITTEST = TRUE,
+            LOGITTEST_P_VALUE = NA,
+            ABSTRACTION_LEVEL = abstraction_level
+          )
+        )
+      }
+      else {
         level_results <- rbind(
           level_results,
           data.frame(
@@ -856,6 +905,10 @@ createC2TInputFunction <-
            createC2TInput,
            complementaryMappingTable = FALSE) {
     if (createC2TInput) {
+      if(length(data$trajectoryDataList$selectedFeatureNames) < 1) {
+        printCustomMessage("WARNING: No features left for creating Cohort2Trajectory input.")
+        return(data)
+      }
       data_selected_patients = dplyr::select(
         dplyr::filter(
           data$data_patients,
@@ -902,9 +955,9 @@ createC2TInputFunction <-
           "COHORT_END_DATE")
 
       data$trajectoryDataList$trajectoryData = rbind(data_target, data_states)
+      # Convert from int64 to integer
+      data$trajectoryDataList$trajectoryData$SUBJECT_ID = as.integer(data$trajectoryDataList$trajectoryData$SUBJECT_ID)
     }
-    # Convert from int64 to integer
-    data$trajectoryDataList$trajectoryData$SUBJECT_ID = as.integer(data$trajectoryDataList$trajectoryData$SUBJECT_ID)
     return(data)
   }
 
@@ -916,16 +969,26 @@ createC2TInputFunction <-
 #'
 #' @keywords internal
 
-saveResult <- function(data, pathToResults, complName = NULL) {
+saveResult <- function(data, pathToResults) {
   # Generate a timestamp
   timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
   # Create the full file path with the timestamp included in the filename
   filePath <- file.path(pathToResults, paste0("CohortContrast_", timestamp, ".rds"))
-  if(!is.null(complName)){
-    filePath <- file.path(pathToResults, paste0(complName, ".rds"))
+  if(!is.null(data$config$complName)){
+    filePath <- file.path(pathToResults, paste0(data$config$complName, ".rds"))
   }
+  else{data$config$complName = paste0("CohortContrast_", timestamp)}
+
   data$data_patients = dplyr::mutate(data$data_patients, COHORT_DEFINITION_ID = dplyr::if_else(.data$COHORT_DEFINITION_ID == 2, "target", "control"))
   data$data_initial = dplyr::mutate(data$data_initial, COHORT_DEFINITION_ID = dplyr::if_else(.data$COHORT_DEFINITION_ID == 2, "target", "control"))
+  if(data$config$safeRun)
+  {
+    formated_output = format_results(data = data, applyZTest = data$config$runZTests, applyLogitTest =  data$config$runLogitTests, abstractionLevel = -1)
+    data$formattedResults = formated_output
+    data$data_patients = NULL
+    data$data_person = NULL
+    # TODO export plots?
+  }
   save_object(data, path = filePath)
   printCustomMessage(paste("Saved the result to ", filePath, sep = ""))
 }
