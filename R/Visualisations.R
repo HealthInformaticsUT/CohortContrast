@@ -1,3 +1,8 @@
+#' @importFrom data.table fread
+#' @importFrom data.table :=
+#' @importFrom grDevices colorRampPalette
+
+
 #' @keywords internal
 format_results <- function(data, autoScaleRate, applyInverseTarget, applyZTest, applyLogitTest, abstractionLevel) {
   # Convert data frames to data.table
@@ -6,9 +11,9 @@ format_results <- function(data, autoScaleRate, applyInverseTarget, applyZTest, 
   data$data_patients <- data.table::as.data.table(data$data_patients)
   data$data_person <- data.table::as.data.table(data$data_person)
   # Calculate the number of patients in target and control groups
-  n_patients <- data$data_initial[, data.table::.N, by = COHORT_DEFINITION_ID]
+  n_patients <- data$data_initial[, data.table::.N, by = get("COHORT_DEFINITION_ID")]
 
-  n_patients <- reshape2::dcast(n_patients, 1 ~ .data$COHORT_DEFINITION_ID, value.var = "N", fill = 0)
+  n_patients <- reshape2::dcast(n_patients, 1 ~ get("COHORT_DEFINITION_ID"), value.var = "N", fill = 0)
 
   count_target <- n_patients$target
 
@@ -17,66 +22,66 @@ format_results <- function(data, autoScaleRate, applyInverseTarget, applyZTest, 
 
 
   # Update data features with prevalence calculations
-  data_features_temp <- data$data_features[ABSTRACTION_LEVEL == abstractionLevel, .(CONCEPT_ID, ZTEST, LOGITTEST, ABSTRACTION_LEVEL)]
+  data_features_temp <- data$data_features[get("ABSTRACTION_LEVEL") == abstractionLevel, list(get("CONCEPT_ID"), get("ZTEST"), get("LOGITTEST"), get("ABSTRACTION_LEVEL"))]
 
   # First, calculate the counts for target and control subjects
   data$data_features <- data$data_patients[
-    ABSTRACTION_LEVEL == abstractionLevel,
-    .(
-      TARGET_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == "target" & PREVALENCE > 0),
-      CONTROL_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == "control" & PREVALENCE > 0)
+    get("ABSTRACTION_LEVEL") == abstractionLevel,
+    list(
+      TARGET_SUBJECT_COUNT = sum(get("COHORT_DEFINITION_ID") == "target" & PREVALENCE > 0),
+      CONTROL_SUBJECT_COUNT = sum(get("COHORT_DEFINITION_ID") == "control" & PREVALENCE > 0)
     ),
-    by = .(CONCEPT_ID, CONCEPT_NAME)
+    by = list(get("CONCEPT_ID"), get("CONCEPT_NAME"))
   ]
 
   # Now, calculate the prevalences
   data$data_features[, `:=`(
-    TARGET_SUBJECT_PREVALENCE = TARGET_SUBJECT_COUNT / count_target,
-    CONTROL_SUBJECT_PREVALENCE = CONTROL_SUBJECT_COUNT / count_control
+    TARGET_SUBJECT_PREVALENCE = get("TARGET_SUBJECT_COUNT") / count_target,
+    CONTROL_SUBJECT_PREVALENCE = get("CONTROL_SUBJECT_COUNT") / count_control
   )]
 
   # Finally, calculate the PREVALENCE_DIFFERENCE_RATIO
-  data$data_features[, PREVALENCE_DIFFERENCE_RATIO := data.table::fifelse(
-    is.na(TARGET_SUBJECT_PREVALENCE) | TARGET_SUBJECT_PREVALENCE == 0, 0,
+  data$data_features[, get("PREVALENCE_DIFFERENCE_RATIO") := data.table::fifelse(
+    is.na(get("TARGET_SUBJECT_PREVALENCE")) | get("TARGET_SUBJECT_PREVALENCE") == 0, 0,
     data.table::fifelse(
-      (is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0) & is.na(TARGET_SUBJECT_PREVALENCE), -1,
+      (is.na(get("CONTROL_SUBJECT_PREVALENCE")) | get("CONTROL_SUBJECT_PREVALENCE") == 0) & is.na(get("TARGET_SUBJECT_PREVALENCE")), -1,
       data.table::fifelse(
-        is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0, 100,
-        TARGET_SUBJECT_PREVALENCE / CONTROL_SUBJECT_PREVALENCE
+        is.na(get("CONTROL_SUBJECT_PREVALENCE")) | get("CONTROL_SUBJECT_PREVALENCE") == 0, 100,
+        get("TARGET_SUBJECT_PREVALENCE") / get("CONTROL_SUBJECT_PREVALENCE")
       )
     )
   )]
 
   # Join with data_features_temp
-  data$data_features <- data$data_features[data_features_temp, on = .(CONCEPT_ID), nomatch = 0]
+  data$data_features <- data$data_features[data_features_temp, on = list(get("CONCEPT_ID")), nomatch = 0]
 
   if (applyZTest) {
-    data$data_features <- data$data_features[ZTEST == TRUE]
+    data$data_features <- data$data_features[get("ZTEST") == TRUE]
   }
 
   if (applyLogitTest) {
-    data$data_features <- data$data_features[LOGITTEST == TRUE]
+    data$data_features <- data$data_features[get("LOGITTEST") == TRUE]
   }
 
   if (applyInverseTarget) {
     # Invert target and control groups
-    data$data_patients[ABSTRACTION_LEVEL == abstractionLevel, COHORT_DEFINITION_ID := data.table::fifelse(COHORT_DEFINITION_ID == "control", "target", "control")]
-    data$data_initial[, COHORT_DEFINITION_ID := data.table::fifelse(COHORT_DEFINITION_ID == "control", "target", "control")]
+    data$data_patients[get("ABSTRACTION_LEVEL") == abstractionLevel, get("COHORT_DEFINITION_ID") := data.table::fifelse(get("COHORT_DEFINITION_ID") == "control", "target", "control")]
+    data$data_initial[, get("COHORT_DEFINITION_ID") := data.table::fifelse(get("COHORT_DEFINITION_ID") == "control", "target", "control")]
 
-    data$data_features <- data$data_features[ABSTRACTION_LEVEL == abstractionLevel, `:=`(
-      TARGET_SUBJECT_COUNT = CONTROL_SUBJECT_COUNT,
-      CONTROL_SUBJECT_COUNT = TARGET_SUBJECT_COUNT,
-      TARGET_SUBJECT_PREVALENCE = CONTROL_SUBJECT_PREVALENCE,
-      CONTROL_SUBJECT_PREVALENCE = TARGET_SUBJECT_PREVALENCE
-    )][, PREVALENCE_DIFFERENCE_RATIO := data.table::fifelse(
-      is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0 & is.na(TARGET_SUBJECT_PREVALENCE), -1,
+    data$data_features <- data$data_features[get("ABSTRACTION_LEVEL") == abstractionLevel, `:=`(
+      TARGET_SUBJECT_COUNT = get("CONTROL_SUBJECT_COUNT"),
+      CONTROL_SUBJECT_COUNT = get("TARGET_SUBJECT_COUNT"),
+      TARGET_SUBJECT_PREVALENCE = get("CONTROL_SUBJECT_PREVALENCE"),
+      CONTROL_SUBJECT_PREVALENCE = get("TARGET_SUBJECT_PREVALENCE")
+    )][, get("PREVALENCE_DIFFERENCE_RATIO") := data.table::fifelse(
+      is.na(get("CONTROL_SUBJECT_PREVALENCE")) | get("CONTROL_SUBJECT_PREVALENCE") == 0 & is.na(get("TARGET_SUBJECT_PREVALENCE")), -1,
       data.table::fifelse(
-        is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0,
-        TARGET_SUBJECT_PREVALENCE / (1 / count_control),
+        is.na(get("CONTROL_SUBJECT_PREVALENCE")) | get("CONTROL_SUBJECT_PREVALENCE") == 0,
+        get("TARGET_SUBJECT_PREVALENCE") / (1 / count_control),
         data.table::fifelse(
-          is.na(TARGET_SUBJECT_PREVALENCE) | TARGET_SUBJECT_PREVALENCE == 0,
-          (1 / count_target) / CONTROL_SUBJECT_PREVALENCE,
-          TARGET_SUBJECT_PREVALENCE / CONTROL_SUBJECT_PREVALENCE
+          is.na(get("TARGET_SUBJECT_PREVALENCE")) | get("TARGET_SUBJECT_PREVALENCE") == 0,
+          (1 / count_target) / get("CONTROL_SUBJECT_PREVALENCE"),
+          get("TARGET_SUBJECT_PREVALENCE") / get("CONTROL_SUBJECT_PREVALENCE")
         )
       )
     )]
@@ -84,55 +89,55 @@ format_results <- function(data, autoScaleRate, applyInverseTarget, applyZTest, 
 
   if (autoScaleRate) {
     # Calculate the duration in the cohort in days
-    data$data_initial[, COHORT_DURATION := as.integer(difftime(as.Date(COHORT_END_DATE), as.Date(COHORT_START_DATE), units = "days"))]
+    data$data_initial[, get("COHORT_DURATION") := as.integer(difftime(as.Date(get("COHORT_END_DATE")), as.Date(get("COHORT_START_DATE")), units = "days"))]
 
     # Calculate the scaled prevalence for each PERSON_ID
     scaled_prevalence <- merge(
-      data$data_patients[ABSTRACTION_LEVEL == abstractionLevel],
-      data$data_initial[, .(SUBJECT_ID, COHORT_DURATION)],
+      data$data_patients[get("ABSTRACTION_LEVEL") == abstractionLevel],
+      data$data_initial[, list(get("SUBJECT_ID"), get("COHORT_DURATION"))],
       by.x = "PERSON_ID", by.y = "SUBJECT_ID"
-    )[, SCALED_PREVALENCE := PREVALENCE / (COHORT_DURATION / 365)]
+    )[, get("SCALED_PREVALENCE") := get("PREVALENCE") / (get("COHORT_DURATION") / 365)]
 
     # Update features with scaled prevalence
-    data$data_features <- update_features(data$data_features, scaled_prevalence)[, .(
-      CONCEPT_ID,
-      CONCEPT_NAME,
-      PREVALENCE_DIFFERENCE_RATIO,
-      TARGET_SUBJECT_COUNT,
-      CONTROL_SUBJECT_COUNT,
-      TARGET_SUBJECT_PREVALENCE,
-      CONTROL_SUBJECT_PREVALENCE,
-      ABSTRACTION_LEVEL
+    data$data_features <- update_features(data$data_features, scaled_prevalence)[, list(
+      get("CONCEPT_ID"),
+      get("CONCEPT_NAME"),
+      get("PREVALENCE_DIFFERENCE_RATIO"),
+      get("TARGET_SUBJECT_COUNT"),
+      get("CONTROL_SUBJECT_COUNT"),
+      get("TARGET_SUBJECT_PREVALENCE"),
+      get("CONTROL_SUBJECT_PREVALENCE"),
+      get("ABSTRACTION_LEVEL")
     )]
   }
 
-  concepts <- unique(data$data_patients[ABSTRACTION_LEVEL == abstractionLevel, .(CONCEPT_ID, CONCEPT_NAME, HERITAGE, ABSTRACTION_LEVEL)]
-                     [CONCEPT_ID != 0])[data$data_features, on = .(CONCEPT_ID, CONCEPT_NAME, ABSTRACTION_LEVEL), nomatch = 0][
-                       !is.na(PREVALENCE_DIFFERENCE_RATIO)
+  concepts <- unique(data$data_patients[get("ABSTRACTION_LEVEL") == abstractionLevel, list(get("CONCEPT_ID"), get("CONCEPT_NAME"), get("HERITAGE"), get("ABSTRACTION_LEVEL"))]
+                     [get("CONCEPT_ID") != 0])[data$data_features, on = list(get("CONCEPT_ID"), get("CONCEPT_NAME"), get("ABSTRACTION_LEVEL")), nomatch = 0][
+                       !is.na(get("PREVALENCE_DIFFERENCE_RATIO"))
                      ]
   target <- merge(
-    data$data_patients[ABSTRACTION_LEVEL == abstractionLevel & COHORT_DEFINITION_ID == "target"],
+    data$data_patients[get("ABSTRACTION_LEVEL") == abstractionLevel & get("COHORT_DEFINITION_ID") == "target"],
     concepts,
     by = c("CONCEPT_ID", "CONCEPT_NAME", "HERITAGE", "ABSTRACTION_LEVEL")
-  )[!is.na(PREVALENCE_DIFFERENCE_RATIO)]
+  )[!is.na(get("PREVALENCE_DIFFERENCE_RATIO"))]
 
   # Calculate target_df with appropriate type handling
   target_dt <- data.table::as.data.table(target)
 
   # Calculate NPATIENTS and PRESENT
-  target_dt[, NPATIENTS := data.table::uniqueN(PERSON_ID)]
-  target_dt[, PRESENT := 1]
+  target_dt[, get("NPATIENTS") := data.table::uniqueN(get("PERSON_ID"))]
+  target_dt[, get("PRESENT") := 1]
 
   # Calculate NCONCEPTS by grouping by CONCEPT_ID
-  target_dt[, NCONCEPTS := data.table::.N, by = CONCEPT_ID]
+  target_dt[, get("NCONCEPTS") := data.table::.N, by = get("CONCEPT_ID")]
 
   # Calculate PREVALENCE
-  target_dt[, PREVALENCE := NCONCEPTS / NPATIENTS]
+  target_dt[, get("PREVALENCE") := get("NCONCEPTS") / get("NPATIENTS")]
 
   # Pivot wider
   wider_dt <- data.table::dcast(
     target_dt,
-    CONCEPT_ID + CONCEPT_NAME + HERITAGE + PREVALENCE_DIFFERENCE_RATIO + PREVALENCE ~ PERSON_ID,
+    get("CONCEPT_ID") + get("CONCEPT_NAME") + get("HERITAGE") + get("PREVALENCE_DIFFERENCE_RATIO") + get("PREVALENCE") ~ get("PERSON_ID"),
     value.var = "PRESENT",
     fill = 0
   )
@@ -153,25 +158,25 @@ format_results <- function(data, autoScaleRate, applyInverseTarget, applyZTest, 
   target_df <- data.table::as.data.table(wider_dt[
     "CONCEPT_ID" != 999999999 & "CONCEPT_ID" != "0"
   ])
-  target_df[, CONCEPT_ID := as.character(.data$CONCEPT_ID)]
+  target_df[, get("CONCEPT_ID") := as.character(get("CONCEPT_ID"))]
 
-  target_df[, CONCEPT_NAME := gsub("(.{45})", "\\1\n", CONCEPT_NAME)] # nolint
+  target_df[, get("CONCEPT_NAME") := gsub("(.{45})", "\\1\n", get("CONCEPT_NAME"))] # nolint
   # Create target_row_annotation as a data.frame with rownames
   target_row_annotation <- as.data.frame(target_df[, data.table::.SD, .SDcols = !"CONCEPT_ID"])
   rownames(target_row_annotation) <- target_df$CONCEPT_ID
   target_row_annotation$CONCEPT_ID <- NULL
 
-  target_matrix <- as.matrix(target_df[, data.table::.SD, .SDcols = patterns("^PID_")])
+  target_matrix <- as.matrix(target_df[, data.table::.SD, .SDcols = data.table:::patterns("^PID_")])
   rownames(target_matrix) <- target_df$CONCEPT_ID
   # Demographics
   target_col_annotation <- merge(
     data$data_person,
-    data$data_initial[.data$COHORT_DEFINITION_ID == "target", data.table::.SD[which.min(.data$COHORT_START_DATE)], by = .data$SUBJECT_ID][, .(PERSON_ID = .data$SUBJECT_ID, .data$COHORT_START_DATE)],
+    data$data_initial[get("COHORT_DEFINITION_ID") == "target", data.table::.SD[which.min(get("COHORT_START_DATE"))], by = get("SUBJECT_ID")][, list(PERSON_ID = get("SUBJECT_ID"), get("COHORT_START_DATE"))],
     by = "PERSON_ID"
   )[, `:=`(
-    AGE = floor(as.numeric(difftime(.data$COHORT_START_DATE, as.Date(paste0(.data$YEAR_OF_BIRTH, "-01-01")), units = "days")) / 365.25),
-    GENDER = factor(.data$GENDER_CONCEPT_ID, levels = c(8507, 8532), labels = c("Male", "Female"))
-  )][, PERSON_ID := paste0("PID_", .data$PERSON_ID)][, data.table::.SD, .SDcols = !c("GENDER_CONCEPT_ID")]
+    AGE = floor(as.numeric(difftime(get("COHORT_START_DATE"), as.Date(paste0(get("YEAR_OF_BIRTH"), "-01-01")), units = "days")) / 365.25),
+    GENDER = factor(get("GENDER_CONCEPT_ID"), levels = c(8507, 8532), labels = c("Male", "Female"))
+  )][, get("PERSON_ID") := paste0("PID_", get("PERSON_ID"))][, data.table::.SD, .SDcols = !c("GENDER_CONCEPT_ID")]
   target_col_annotation = as.data.frame(target_col_annotation)
   rownames(target_col_annotation) = target_col_annotation$PERSON_ID
   res <- list(
@@ -262,10 +267,10 @@ plot_prevalence <- function(filtered_target) {
         list(estimate = mean(data, na.rm = TRUE), conf.int = c(mean(data, na.rm = TRUE), mean(data, na.rm = TRUE)), p.value = NA) # Returning a list similar to t.test output structure
       }
     })) %>%
-    dplyr::mutate(AGE_DIFF_ESTIMATE = purrr::map_dbl(AGE_DIFF, ~ .x$estimate[1])) %>%
-    dplyr::mutate(AGE_DIFF_LOW = purrr::map_dbl(AGE_DIFF, ~ .x$conf.int[1])) %>%
-    dplyr::mutate(AGE_DIFF_HIGH = purrr::map_dbl(AGE_DIFF, ~ .x$conf.int[2])) %>%
-    dplyr::mutate(AGE_DIFF_SIGNIFICANT = dplyr::if_else((AGE_DIFF_HIGH > AVERAGE_AGE_OVERALL) & (.data$AGE_DIFF_LOW < .data$AVERAGE_AGE_OVERALL), FALSE, TRUE)) %>%
+    dplyr::mutate(AGE_DIFF_ESTIMATE = purrr::map_dbl(.data$AGE_DIFF, ~ .x$estimate[1])) %>%
+    dplyr::mutate(AGE_DIFF_LOW = purrr::map_dbl(.data$AGE_DIFF, ~ .x$conf.int[1])) %>%
+    dplyr::mutate(AGE_DIFF_HIGH = purrr::map_dbl(.data$AGE_DIFF, ~ .x$conf.int[2])) %>%
+    dplyr::mutate(AGE_DIFF_SIGNIFICANT = dplyr::if_else((.data$AGE_DIFF_HIGH > .data$AVERAGE_AGE_OVERALL) & (.data$AGE_DIFF_LOW < .data$AVERAGE_AGE_OVERALL), FALSE, TRUE)) %>%
     dplyr::mutate(MALE_PROP = purrr::map_dbl(.data$PRESENCE, ~ mean(filtered_target$target_col_annotation[names(.x), "GENDER"][as.logical(.x)] == "Male", na.rm = TRUE))) %>%
     dplyr::mutate(MALE_PROP_OVERALL = mean(filtered_target$target_col_annotation$GENDER == "Male", na.rm = TRUE)) %>%
     dplyr::mutate(MALE_PROP_DIFF = purrr::map(.data$PRESENCE, ~ {
@@ -279,7 +284,7 @@ plot_prevalence <- function(filtered_target) {
     dplyr::mutate(MALE_PROP_DIFF_ESTIMATE = purrr::map_dbl(.data$MALE_PROP_DIFF, ~ .x$estimate)) %>%
     dplyr::mutate(MALE_PROP_DIFF_LOW = purrr::map_dbl(.data$MALE_PROP_DIFF, ~ .x$conf.int[1])) %>%
     dplyr::mutate(MALE_PROP_DIFF_HIGH = purrr::map_dbl(.data$MALE_PROP_DIFF, ~ .x$conf.int[2])) %>%
-    dplyr::mutate(MALE_PROP_DIFF_SIGNIFICANT = dplyr::if_else((.data$MALE_PROP_DIFF_HIGH > MALE_PROP_OVERALL) & (.data$MALE_PROP_DIFF_LOW < MALE_PROP_OVERALL), FALSE, TRUE)) %>%
+    dplyr::mutate(MALE_PROP_DIFF_SIGNIFICANT = dplyr::if_else((.data$MALE_PROP_DIFF_HIGH > .data$MALE_PROP_OVERALL) & (.data$MALE_PROP_DIFF_LOW < .data$MALE_PROP_OVERALL), FALSE, TRUE)) %>%
     dplyr::mutate(PREVALENCE_LOG = dplyr::if_else(.data$PREVALENCE_DIFFERENCE_RATIO < 1, 0, dplyr::if_else(.data$PREVALENCE_DIFFERENCE_RATIO > 100, 2, log10(.data$PREVALENCE_DIFFERENCE_RATIO))))
   # Plot
   p1 <- ggplot2::ggplot(plotdata, ggplot2::aes(x = .data$PREVALENCE, y = .data$CONCEPT_NAME, fill = .data$PREVALENCE_LOG)) +
@@ -302,7 +307,7 @@ plot_prevalence <- function(filtered_target) {
     )
 
   p2 <- ggplot2::ggplot(plotdata, ggplot2::aes(y = .data$CONCEPT_NAME, color = .data$AGE_DIFF_SIGNIFICANT)) +
-    ggplot2::geom_point(ggplot2::aes(x = AGE_DIFF_ESTIMATE)) +
+    ggplot2::geom_point(ggplot2::aes(x = .data$AGE_DIFF_ESTIMATE)) +
     ggplot2::geom_errorbar(ggplot2::aes(xmin = .data$AGE_DIFF_LOW, xmax = .data$AGE_DIFF_HIGH), linewidth = 5) +
     ggplot2::geom_vline(ggplot2::aes(xintercept = .data$AVERAGE_AGE_OVERALL), color = "darkgreen") +
     ggplot2::scale_color_manual(values = c("grey60", "blue"), breaks = c(FALSE, TRUE)) +
@@ -321,7 +326,7 @@ plot_prevalence <- function(filtered_target) {
   p3 <- ggplot2::ggplot(plotdata, ggplot2::aes(y = .data$CONCEPT_NAME, color = .data$MALE_PROP_DIFF_SIGNIFICANT)) +
     ggplot2::geom_point(ggplot2::aes(x = .data$MALE_PROP_DIFF_ESTIMATE)) +
     ggplot2::geom_errorbar(ggplot2::aes(xmin = .data$MALE_PROP_DIFF_LOW, xmax = .data$MALE_PROP_DIFF_HIGH), linewidth = 5) +
-    ggplot2::geom_vline(ggplot2::aes(xintercept = MALE_PROP_OVERALL), color = "darkgreen") +
+    ggplot2::geom_vline(ggplot2::aes(xintercept = .data$MALE_PROP_OVERALL), color = "darkgreen") +
     ggplot2::scale_color_manual(values = c("grey60", "blue"), breaks = c(FALSE, TRUE)) +
     ggplot2::scale_x_continuous(labels = scales::label_percent()) +
     ggplot2::facet_grid(.data$HERITAGE ~ ., space = "free_y", scales = "free_y") +
@@ -368,7 +373,7 @@ plot_heatmap <- function(filtered_target) {
     dplyr::summarize(CONCEPT_ID = list(.data$CONCEPT_ID)) %>%
     dplyr::mutate(MATRIX = purrr::map(.data$CONCEPT_ID, ~ filtered_target$target_matrix[.x, , drop = F])) %>%
     dplyr::mutate(MATRIX = purrr::map(
-      MATRIX,
+      .data$MATRIX,
       function(x) {
         if (nrow(x) > 1) {
           x <- x[stats::hclust(stats::dist(x))$order, ]
@@ -407,10 +412,10 @@ plot_heatmap <- function(filtered_target) {
 
   # Specify colors including a dynamic gradient for AGE
   annotation_colors <- list(
-    AGE = colorRampPalette(c("lightblue", "firebrick"))(length(unique(annotation_col$AGE))),
+    AGE = grDevices::colorRampPalette(c("lightblue", "firebrick"))(length(unique(annotation_col$AGE))),
     GENDER = active_gender_colors,
     HERITAGE = active_heritage_colors,
-    PREVALENCE = colorRampPalette(c("white", "purple"))(length(unique(annotation_row$PREVALENCE)))
+    PREVALENCE = grDevices::colorRampPalette(c("white", "purple"))(length(unique(annotation_row$PREVALENCE)))
   )
 
   # tm2 <- tm2[order(rownames(tm2), decreasing = TRUE), ]
@@ -425,8 +430,8 @@ plot_heatmap <- function(filtered_target) {
   pheatmap::pheatmap(
     tm2,
     show_colnames = FALSE,
-    annotation_row = annotation_row %>% dplyr::select(HERITAGE),
-    annotation_col = annotation_col %>% dplyr::select(AGE, GENDER),
+    annotation_row = annotation_row %>% dplyr::select(.data$HERITAGE),
+    annotation_col = annotation_col %>% dplyr::select(.data$AGE, .data$GENDER),
     annotation_colors = annotation_colors,
     cluster_cols = col_clustering,
     cluster_rows = FALSE,
@@ -443,26 +448,26 @@ update_features <- function(features, scaled_prev) {
   scaled_prev <- data.table::as.data.table(scaled_prev)
 
   # Calculate AVG_SCALED_PREVALENCE by grouping by CONCEPT_ID and COHORT_DEFINITION_ID
-  scaled_prev <- scaled_prev[, .(AVG_SCALED_PREVALENCE = stats::median(SCALED_PREVALENCE, na.rm = TRUE)),
-                             by = .(CONCEPT_ID, COHORT_DEFINITION_ID)
+  scaled_prev <- scaled_prev[, list(AVG_SCALED_PREVALENCE = stats::median(get("SCALED_PREVALENCE"), na.rm = TRUE)),
+                             by = list(get("CONCEPT_ID"), get("COHORT_DEFINITION_ID"))
   ]
 
   # Pivot to wide format
-  scaled_prev <- data.table::dcast(scaled_prev, CONCEPT_ID ~ COHORT_DEFINITION_ID,
+  scaled_prev <- data.table::dcast(scaled_prev, get("CONCEPT_ID") ~ get("COHORT_DEFINITION_ID"),
                                    value.var = "AVG_SCALED_PREVALENCE",
                                    fill = -1,
                                    prefix = "COHORT_"
   )
 
   # Calculate PREVALENCE_DIFFERENCE_RATIO
-  scaled_prev[, PREVALENCE_DIFFERENCE_RATIO := data.table::fcase(
-    COHORT_control == -1, COHORT_target / 1,
-    COHORT_target == -1, 1 / COHORT_control,
-    default = COHORT_target / COHORT_control
+  scaled_prev[, get("PREVALENCE_DIFFERENCE_RATIO") := data.table::fcase(
+    get("COHORT_control") == -1, get("COHORT_target") / 1,
+    get("COHORT_target") == -1, 1 / get("COHORT_control"),
+    default = get("COHORT_target") / get("COHORT_control")
   )]
 
   # Select relevant columns
-  scaled_prev <- scaled_prev[, .(CONCEPT_ID, PREVALENCE_DIFFERENCE_RATIO)]
+  scaled_prev <- scaled_prev[, list(get("CONCEPT_ID"), get("PREVALENCE_DIFFERENCE_RATIO"))]
 
   # Convert features to data.table if not already
   features <- data.table::as.data.table(features)
