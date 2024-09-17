@@ -188,6 +188,64 @@ sanitize <- function(input_strings) {
   sapply(input_strings, sanitize_single)
 }
 
+#' Match Pattern in Column Names
+#'
+#' This function searches for specified patterns within column names provided.
+#' It takes one or more patterns as input and returns a list of matches. Each pattern
+#' is applied to the list of column names, and if a pattern does not match any column,
+#' an error is thrown.
+#'
+#' @param ... Character, patterns to search for within the column names. You can
+#'   provide multiple patterns as separate arguments.
+#' @param cols A character vector of column names against which the patterns will
+#'   be matched. Defaults to an empty character vector, and it expects the actual
+#'   column names to be provided to function properly.
+#'
+#' @return A list where each element corresponds to a pattern provided in `...`.
+#'   Each list element contains the indices of the column names in `cols` that match
+#'   the respective pattern. If a pattern does not match any column names, the function
+#'   will stop and throw an error indicating which pattern(s) did not match.
+#' @keywords internal
+patterns <- function (..., cols = character(0L))
+{
+  L = list(...)
+  p = unlist(L, use.names = any(nzchar(names(L))))
+  if (!is.character(p))
+    stop_with_format("Input patterns must be of type character.")
+  matched = lapply(p, grep, cols)
+  if (length(idx <- which(sapply(matched, length) == 0L)))
+  matched
+}
+
+
+#' Stop with Formatted and Translated Error Message
+#'
+#' This function stops execution by throwing an error with a formatted message.
+#' The message can be translated based on the specified domain. This is typically
+#' used within a package to standardize error messages and potentially support
+#' multilingual error outputs.
+#'
+#' @param fmt A character string providing a formatting template for the message.
+#'   This string can include placeholders that will be filled with data from
+#'   additional arguments passed to `...`.
+#' @param ... Additional arguments to be used for formatting the message string.
+#'   These are typically values or variables that are inserted into the `fmt`
+#'   template.
+#' @param domain Character string specifying the translation domain. This is useful
+#'   for packages that provide translations for their messages. Defaults to
+#'   "R-data.table", which should be changed to reflect the domain of your package
+#'   if used for translation.
+#'
+#' @return This function does not return a value; it interrupts function execution
+#'   by throwing an error with a formatted and possibly translated message.
+#'
+#' @keywords internal
+stop_with_format <- function (fmt, ..., domain = "R-data.table")
+{
+  stop(gettextf(fmt, ..., domain = domain), domain = NA, call. = FALSE)
+}
+
+
 #' Function to check if target and control schemas and tables are defined sufficiently
 #' @param targetTableName Name of the table where target cohort is defined
 #' @param controlTableName Name of the table where control cohort is defined
