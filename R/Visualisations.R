@@ -28,8 +28,8 @@ format_results <- function(data, autoScaleRate, applyInverseTarget, applyZTest, 
   data$data_features <- data$data_patients[
     get("ABSTRACTION_LEVEL") == abstractionLevel,
     list(
-      TARGET_SUBJECT_COUNT = sum(get("COHORT_DEFINITION_ID") == "target" & PREVALENCE > 0),
-      CONTROL_SUBJECT_COUNT = sum(get("COHORT_DEFINITION_ID") == "control" & PREVALENCE > 0)
+      TARGET_SUBJECT_COUNT = sum(get("COHORT_DEFINITION_ID") == "target" & get("PREVALENCE") > 0),
+      CONTROL_SUBJECT_COUNT = sum(get("COHORT_DEFINITION_ID") == "control" & get("PREVALENCE") > 0)
     ),
     by = list(get("CONCEPT_ID"), get("CONCEPT_NAME"))
   ]
@@ -166,7 +166,7 @@ format_results <- function(data, autoScaleRate, applyInverseTarget, applyZTest, 
   rownames(target_row_annotation) <- target_df$CONCEPT_ID
   target_row_annotation$CONCEPT_ID <- NULL
 
-  target_matrix <- as.matrix(target_df[, data.table::.SD, .SDcols = data.table:::patterns("^PID_")])
+  target_matrix <- as.matrix(target_df[, data.table::.SD, .SDcols = patterns("^PID_")])
   rownames(target_matrix) <- target_df$CONCEPT_ID
   # Demographics
   target_col_annotation <- merge(
