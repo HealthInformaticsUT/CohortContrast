@@ -97,7 +97,8 @@ data = CohortContrast::CohortContrast(
   runZTests = TRUE,
   runLogitTests = FALSE,
   createOutputFiles = TRUE,
-  safeRun = FALSE)
+  safeRun = FALSE,
+  complName = "CohortContrastStudy")
   
  CohortContrast::runCohortContrastGUI(
  pathToResults = pathToResults
