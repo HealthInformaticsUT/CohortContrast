@@ -160,11 +160,13 @@ format_results <- function(data, autoScaleRate, applyInverseTarget, applyZTest, 
 
     target_df[, CONCEPT_NAME := gsub("(.{45})", "\\1\n", CONCEPT_NAME)] # nolint
     # Create target_row_annotation as a data.frame with rownames
+
     target_row_annotation <- as.data.frame(target_df[, .SD, .SDcols = !"CONCEPT_ID"])
     rownames(target_row_annotation) <- target_df$CONCEPT_ID
     target_row_annotation$CONCEPT_ID <- NULL
 
-    target_matrix <- as.matrix(target_df[, .SD, .SDcols = patterns("^PID_")])
+    pid_cols <- grep("^PID_", colnames(target_df), value = TRUE)
+    target_matrix <- as.matrix(target_df[, ..pid_cols])
     rownames(target_matrix) <- target_df$CONCEPT_ID
     # Demographics
     target_col_annotation <- merge(
@@ -285,57 +287,71 @@ plot_prevalence <- function(filtered_target) {
         dplyr::mutate(MALE_PROP_DIFF_SIGNIFICANT = dplyr::if_else((.data$MALE_PROP_DIFF_HIGH > MALE_PROP_OVERALL) & (.data$MALE_PROP_DIFF_LOW < MALE_PROP_OVERALL), FALSE, TRUE)) %>%
         dplyr::mutate(PREVALENCE_LOG = dplyr::if_else(.data$PREVALENCE_DIFFERENCE_RATIO < 1, 0, dplyr::if_else(.data$PREVALENCE_DIFFERENCE_RATIO > 100, 2, log10(.data$PREVALENCE_DIFFERENCE_RATIO))))
         # Plot
-    p1 <- ggplot2::ggplot(plotdata, ggplot2::aes(x = .data$PREVALENCE, y = .data$CONCEPT_NAME, fill = .data$PREVALENCE_LOG)) +
-        geom_bar(stat = "identity") +
-        ggplot2::facet_grid(.data$HERITAGE ~ ., space = "free_y", scales = "free_y") +
-        scale_fill_viridis_c(
-            "Risk ratio (log10-scaled)\ncompared to background",
-            limits = c(0, 2),
-            oob = scales::squish
-        ) + # Ensure fill values are between 0 and 3
-        scale_x_continuous(labels = scales::label_percent()) +
-        ggtitle("Prevalence") +
-        theme_bw() +
-        theme(
-            axis.title = element_blank(),
-            legend.position = "bottom",
-            strip.background = element_blank(),
-            strip.text = element_blank(),
-            axis.text.y = element_text(size = 15) # Adjust the size as needed
-        )
+  # Merge the colors into the main dataset
+  plotdata <- merge(plotdata, heritage_colors, by = "HERITAGE", all.x = TRUE)
+  # Plot
+  # Plot
+  p1 <- ggplot2::ggplot(plotdata, ggplot2::aes(x = .data$PREVALENCE, y = .data$CONCEPT_NAME, fill = .data$PREVALENCE_LOG)) +
+    geom_bar(stat = "identity") +
+    ggplot2::facet_grid(.data$HERITAGE ~ ., space = "free_y", scales = "free_y") +
+    scale_fill_viridis_c(
+      "Risk ratio (log10-scaled)\ncompared to background",
+      limits = c(0, 2),
+      oob = scales::squish
+    ) + # Ensure fill values are between 0 and 3
+    scale_x_continuous(labels = scales::label_percent()) +
+    ggtitle("Prevalence") +
+    theme_bw() +
+    theme(
+      axis.title = element_blank(),
+      legend.position = "bottom",
+      strip.background = element_blank(),
+      strip.text = element_blank(),
+      axis.text.y = element_text(size = 15) # Adjust the size as needed
+    )
 
-    p2 <- ggplot2::ggplot(plotdata, ggplot2::aes(y = .data$CONCEPT_NAME, color = .data$AGE_DIFF_SIGNIFICANT)) +
-        ggplot2::geom_point(ggplot2::aes(x = AGE_DIFF_ESTIMATE)) +
-        ggplot2::geom_errorbar(ggplot2::aes(xmin = .data$AGE_DIFF_LOW, xmax = .data$AGE_DIFF_HIGH), linewidth = 5) +
-        ggplot2::geom_vline(ggplot2::aes(xintercept = .data$AVERAGE_AGE_OVERALL), color = "darkgreen") +
-        ggplot2::scale_color_manual(values = c("grey60", "blue"), breaks = c(FALSE, TRUE)) +
-        ggplot2::facet_grid(.data$HERITAGE ~ ., space = "free_y", scales = "free_y") +
-        ggplot2::ggtitle("AGE in group") +
-        ggplot2::theme_bw() +
-        ggplot2::theme(
-            axis.title = ggplot2::element_blank(),
-            axis.text.y = ggplot2::element_blank(),
-            axis.ticks.y = ggplot2::element_blank(),
-            strip.background = ggplot2::element_blank(),
-            strip.text = ggplot2::element_blank(),
-            legend.position = "none"
-        )
+  p2 <- ggplot2::ggplot(plotdata, ggplot2::aes(y = .data$CONCEPT_NAME, color = .data$AGE_DIFF_SIGNIFICANT)) +
+    geom_rect(aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, fill = .data$HERITAGE), alpha = 0.5) +  # Use alpha to adjust visibility
+    ggplot2::geom_point(ggplot2::aes(x = .data$AGE_DIFF_ESTIMATE)) +
+    ggplot2::geom_errorbar(ggplot2::aes(xmin = .data$AGE_DIFF_LOW, xmax = .data$AGE_DIFF_HIGH), linewidth = 5) +
+    ggplot2::geom_vline(ggplot2::aes(xintercept = .data$AVERAGE_AGE_OVERALL), color = "darkgreen") +
+    scale_fill_manual(values = stats::setNames(heritage_colors$color, heritage_colors$HERITAGE)) +  # Assign colors
+    ggplot2::scale_color_manual(values = c("grey60", "blue"), breaks = c(FALSE, TRUE)) +
+    ggplot2::facet_grid(.data$HERITAGE ~ ., space = "free_y", scales = "free_y") +
+    ggplot2::ggtitle("AGE in group") +
+    ggplot2::theme_bw() +
+    #scale_color_manual(values = setNames(heritage_colors$color, heritage_colors$HERITAGE)) +
+    ggplot2::theme(
+      axis.title = ggplot2::element_blank(),
+      axis.text.y = ggplot2::element_blank(),
+      axis.ticks.y = ggplot2::element_blank(),
+      strip.background = ggplot2::element_blank(),
+      strip.text = ggplot2::element_blank(),
+      legend.position = "none"
+    )
 
-    p3 <- ggplot2::ggplot(plotdata, ggplot2::aes(y = .data$CONCEPT_NAME, color = .data$MALE_PROP_DIFF_SIGNIFICANT)) +
-        ggplot2::geom_point(ggplot2::aes(x = .data$MALE_PROP_DIFF_ESTIMATE)) +
-        ggplot2::geom_errorbar(ggplot2::aes(xmin = .data$MALE_PROP_DIFF_LOW, xmax = .data$MALE_PROP_DIFF_HIGH), linewidth = 5) +
-        ggplot2::geom_vline(ggplot2::aes(xintercept = MALE_PROP_OVERALL), color = "darkgreen") +
-        ggplot2::scale_color_manual(values = c("grey60", "blue"), breaks = c(FALSE, TRUE)) +
-        ggplot2::scale_x_continuous(labels = scales::label_percent()) +
-        ggplot2::facet_grid(.data$HERITAGE ~ ., space = "free_y", scales = "free_y") +
-        ggplot2::ggtitle("Male percentage in group") +
-        ggplot2::theme_bw() +
-        ggplot2::theme(
-            axis.title = ggplot2::element_blank(),
-            axis.text.y = ggplot2::element_blank(),
-            axis.ticks.y = ggplot2::element_blank(),
-            legend.position = "none"
-        )
+
+  # Create the plot with backgrounds
+  p3 <- ggplot(plotdata, aes(y = .data$CONCEPT_NAME, color = .data$MALE_PROP_DIFF_SIGNIFICANT)) +
+    geom_rect(aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, fill = .data$HERITAGE), alpha = 0.5) +  # Use alpha to adjust visibility
+    geom_point(aes(x = .data$MALE_PROP_DIFF_ESTIMATE)) +
+    geom_errorbar(aes(xmin = .data$MALE_PROP_DIFF_LOW, xmax = .data$MALE_PROP_DIFF_HIGH), linewidth = 5) +
+    geom_vline(aes(xintercept = .data$MALE_PROP_OVERALL), color = "darkgreen") +
+    scale_fill_manual(values = stats::setNames(heritage_colors$color, heritage_colors$HERITAGE)) +  # Assign colors for HERITAGE
+    scale_color_manual(values = c("grey60", "blue"), breaks = c(FALSE, TRUE)) +  # Colors for significant differences
+    scale_x_continuous(labels = scales::label_percent()) +
+    facet_grid(.data$HERITAGE ~ ., space = "free_y", scales = "free_y") +
+    ggtitle("Male percentage in group") +
+    theme_bw() +
+    guides(color = "none") +  # Hide the color guide
+    theme(
+      panel.spacing = unit(1, "lines"),  # Adjust spacing between panels
+      strip.background = element_blank(),  # Hide the strip background
+      legend.position = "bottom",  # Place the fill guide (HERITAGE) at the bottom
+      axis.title = element_blank(),
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank()
+    )
 
     # Combine plots
     p <- p1 + p2 + p3 + patchwork::plot_layout(nrow = 1, heights = c(1, 1, 1))

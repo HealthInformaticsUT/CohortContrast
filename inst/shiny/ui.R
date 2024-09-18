@@ -141,6 +141,7 @@ body <- shinydashboard::dashboardBody(
             shiny::textOutput("applyLogitTestValue")
           )
         ),
+
         shiny::column(
           width = 4,
           shiny::div(
@@ -156,6 +157,7 @@ body <- shinydashboard::dashboardBody(
         )
       ),
       hr(),
+      shiny::actionButton("visual_snapshot", "Create snapshot!"),
       tabsetPanel(
         tabPanel("Prevalence plot",
                  plotOutput("prevalence")),

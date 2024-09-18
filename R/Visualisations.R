@@ -286,6 +286,15 @@ plot_prevalence <- function(filtered_target) {
     dplyr::mutate(MALE_PROP_DIFF_HIGH = purrr::map_dbl(.data$MALE_PROP_DIFF, ~ .x$conf.int[2])) %>%
     dplyr::mutate(MALE_PROP_DIFF_SIGNIFICANT = dplyr::if_else((.data$MALE_PROP_DIFF_HIGH > .data$MALE_PROP_OVERALL) & (.data$MALE_PROP_DIFF_LOW < .data$MALE_PROP_OVERALL), FALSE, TRUE)) %>%
     dplyr::mutate(PREVALENCE_LOG = dplyr::if_else(.data$PREVALENCE_DIFFERENCE_RATIO < 1, 0, dplyr::if_else(.data$PREVALENCE_DIFFERENCE_RATIO > 100, 2, log10(.data$PREVALENCE_DIFFERENCE_RATIO))))
+
+   heritage_colors <-
+    data.frame(HERITAGE = c("procedure_occurrence", "condition_occurrence", "drug_exposure", "measurement", "observation", "visit_occurrence", "visit_detail"),
+               color = c("darkblue", "orange", "lightblue", "pink", "brown", "darkgreen", "lightgreen")
+    )
+
+
+  # Merge the colors into the main dataset
+  plotdata <- merge(plotdata, heritage_colors, by = "HERITAGE", all.x = TRUE)
   # Plot
   p1 <- ggplot2::ggplot(plotdata, ggplot2::aes(x = .data$PREVALENCE, y = .data$CONCEPT_NAME, fill = .data$PREVALENCE_LOG)) +
     geom_bar(stat = "identity") +
@@ -307,13 +316,16 @@ plot_prevalence <- function(filtered_target) {
     )
 
   p2 <- ggplot2::ggplot(plotdata, ggplot2::aes(y = .data$CONCEPT_NAME, color = .data$AGE_DIFF_SIGNIFICANT)) +
+    geom_rect(aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, fill = .data$HERITAGE), alpha = 0.5) +  # Use alpha to adjust visibility
     ggplot2::geom_point(ggplot2::aes(x = .data$AGE_DIFF_ESTIMATE)) +
     ggplot2::geom_errorbar(ggplot2::aes(xmin = .data$AGE_DIFF_LOW, xmax = .data$AGE_DIFF_HIGH), linewidth = 5) +
     ggplot2::geom_vline(ggplot2::aes(xintercept = .data$AVERAGE_AGE_OVERALL), color = "darkgreen") +
+    scale_fill_manual(values = stats::setNames(heritage_colors$color, heritage_colors$HERITAGE)) +  # Assign colors
     ggplot2::scale_color_manual(values = c("grey60", "blue"), breaks = c(FALSE, TRUE)) +
     ggplot2::facet_grid(.data$HERITAGE ~ ., space = "free_y", scales = "free_y") +
     ggplot2::ggtitle("AGE in group") +
     ggplot2::theme_bw() +
+    #scale_color_manual(values = setNames(heritage_colors$color, heritage_colors$HERITAGE)) +
     ggplot2::theme(
       axis.title = ggplot2::element_blank(),
       axis.text.y = ggplot2::element_blank(),
@@ -323,20 +335,27 @@ plot_prevalence <- function(filtered_target) {
       legend.position = "none"
     )
 
-  p3 <- ggplot2::ggplot(plotdata, ggplot2::aes(y = .data$CONCEPT_NAME, color = .data$MALE_PROP_DIFF_SIGNIFICANT)) +
-    ggplot2::geom_point(ggplot2::aes(x = .data$MALE_PROP_DIFF_ESTIMATE)) +
-    ggplot2::geom_errorbar(ggplot2::aes(xmin = .data$MALE_PROP_DIFF_LOW, xmax = .data$MALE_PROP_DIFF_HIGH), linewidth = 5) +
-    ggplot2::geom_vline(ggplot2::aes(xintercept = .data$MALE_PROP_OVERALL), color = "darkgreen") +
-    ggplot2::scale_color_manual(values = c("grey60", "blue"), breaks = c(FALSE, TRUE)) +
-    ggplot2::scale_x_continuous(labels = scales::label_percent()) +
-    ggplot2::facet_grid(.data$HERITAGE ~ ., space = "free_y", scales = "free_y") +
-    ggplot2::ggtitle("Male percentage in group") +
-    ggplot2::theme_bw() +
-    ggplot2::theme(
-      axis.title = ggplot2::element_blank(),
-      axis.text.y = ggplot2::element_blank(),
-      axis.ticks.y = ggplot2::element_blank(),
-      legend.position = "none"
+
+  # Create the plot with backgrounds
+  p3 <- ggplot(plotdata, aes(y = .data$CONCEPT_NAME, color = .data$MALE_PROP_DIFF_SIGNIFICANT)) +
+    geom_rect(aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, fill = .data$HERITAGE), alpha = 0.5) +  # Use alpha to adjust visibility
+    geom_point(aes(x = .data$MALE_PROP_DIFF_ESTIMATE)) +
+    geom_errorbar(aes(xmin = .data$MALE_PROP_DIFF_LOW, xmax = .data$MALE_PROP_DIFF_HIGH), linewidth = 5) +
+    geom_vline(aes(xintercept = .data$MALE_PROP_OVERALL), color = "darkgreen") +
+    scale_fill_manual(values = stats::setNames(heritage_colors$color, heritage_colors$HERITAGE)) +  # Assign colors for HERITAGE
+    scale_color_manual(values = c("grey60", "blue"), breaks = c(FALSE, TRUE)) +  # Colors for significant differences
+    scale_x_continuous(labels = scales::label_percent()) +
+    facet_grid(.data$HERITAGE ~ ., space = "free_y", scales = "free_y") +
+    ggtitle("Male percentage in group") +
+    theme_bw() +
+    guides(color = "none") +  # Hide the color guide
+    theme(
+      panel.spacing = unit(1, "lines"),  # Adjust spacing between panels
+      strip.background = element_blank(),  # Hide the strip background
+      legend.position = "bottom",  # Place the fill guide (HERITAGE) at the bottom
+      axis.title = element_blank(),
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank()
     )
 
   # Combine plots
@@ -479,4 +498,49 @@ update_features <- function(features, scaled_prev) {
   features <- features[scaled_prev, on = "CONCEPT_ID", nomatch = 0]
 
   return(features)
+}
+
+
+#' Generate a Prevalence Plot
+#'
+#' This function generates a prevalence plot using the CohortContrast GUI object.
+#' It extracts necessary components from the ccObject and passes them to the
+#' `plot_prevalence` function to generate the plot.
+#'
+#' @param ccObject An object returned by the CohortContrast GUI, typically created
+#'        when the "Create Snapshot" button is pressed. It should contain
+#'        target_row_annotation, target_col_annotation, and target_matrix components.
+#' @return A plot object generated by `plot_prevalence`.
+#' @examples
+#' \dontrun{
+#' # Assuming `ccObject` is already created via CohortContrast GUI
+#' getPrevalencePlot(ccObject)
+#' }
+#' @export
+getPrevalencePlot <- function(ccObject){
+  plot_prevalence(list(target_row_annotation = ccObject$target_row_annotation,
+                       target_col_annotation = ccObject$target_col_annotation,
+                       target_matrix = ccObject$target_matrix))
+}
+
+#' Generate a Heatmap Plot
+#'
+#' This function generates a heatmap using the CohortContrast GUI object.
+#' It extracts necessary components from the ccObject and passes them to the
+#' `plot_heatmap` function to generate the plot.
+#'
+#' @param ccObject An object returned by the CohortContrast GUI, typically created
+#'        when the "Create Snapshot" button is pressed. It should contain
+#'        target_row_annotation, target_col_annotation, and target_matrix components.
+#' @return A plot object generated by `plot_heatmap`.
+#' @examples
+#' \dontrun{
+#' # Assuming `ccObject` is already created via CohortContrast GUI
+#' getHeatmapPlot(ccObject)
+#' }
+#' @export
+getHeatmapPlot <- function(ccObject){
+  plot_heatmap(list(target_row_annotation = ccObject$target_row_annotation,
+                    target_col_annotation = ccObject$target_col_annotation,
+                    target_matrix = ccObject$target_matrix))
 }

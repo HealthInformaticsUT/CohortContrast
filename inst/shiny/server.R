@@ -22,6 +22,9 @@ server <- function(input, output, session) {
   data_features <- shiny::reactiveVal(NULL)
   data_patients <- shiny::reactiveVal(NULL)
   data_initial <- shiny::reactiveVal(NULL)
+  target_row_annotation <- shiny::reactiveVal(NULL)
+  target_col_annotation <- shiny::reactiveVal(NULL)
+  target_matrix <- shiny::reactiveVal(NULL)
   selected_filters <- shiny::reactiveVal(list())
   selected_patient_filters <- shiny::reactiveVal(list())
   complementaryMappingTable <- shiny::reactiveVal(data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), ABSTRACTION_LEVEL = integer(), stringsAsFactors = FALSE))
@@ -29,6 +32,9 @@ server <- function(input, output, session) {
   removeButtonCounterMap <- shiny::reactiveValues()
   filterButtonCounter <- shiny::reactiveVal(0)
   filterButtonCounterMap <- shiny::reactiveValues()
+  # Reactive values to store the last state of input counters
+  last_add_filter_value <- reactiveVal(0)
+  last_disregard_filter_value <- reactiveVal(0)
 
   # Waiters
   fullScreenWaiter <- waiter::Waiter$new(
@@ -111,10 +117,12 @@ server <- function(input, output, session) {
 
   # Update dropdown choices
   shiny::observe({
+    fullScreenWaiter$show()
     choices_filtering <- sapply(names(study_info()), function(name) {
       paste(name, "(", study_info()[[name]], "patients)")
     })
     shiny::updateSelectInput(session, "studyName", choices = as.vector(choices_filtering))
+    fullScreenWaiter$hide()
   })
 
   # Load data based on selection
@@ -206,6 +214,9 @@ server <- function(input, output, session) {
       removeUntreated = if (input$removeUntreated) TRUE else FALSE
     )
     fullScreenWaiter$hide()
+    target_row_annotation(result$target_row_annotation)
+    target_col_annotation(result$target_col_annotation)
+    target_matrix(result$target_matrix)
     result
   })
 
@@ -225,7 +236,7 @@ server <- function(input, output, session) {
       prevalencePlotWaiter$hide()
       result
     },
-    height = 950
+   # height = 950
   )
 
   output$heatmap <- shiny::renderPlot(
@@ -243,13 +254,42 @@ server <- function(input, output, session) {
       heatmapPlotWaiter$hide()
       result
     },
-    height = 950
+  #  height = 950
   )
+
+  shiny::observeEvent(input$visual_snapshot, {
+      shiny::showModal(shiny::modalDialog(
+        title = "Save snapshot",
+        textInput("new_visual_snapshot_name", "Enter New Snapshot Name:", ""),
+        footer = htmltools::tagList(
+          shiny::modalButton("Cancel"),
+          shiny::actionButton("accept_btn_visual_snaphot", "Accept")
+        )
+      ))
+  })
+
+  # Combine concepts
+  shiny::observeEvent(input$accept_btn_visual_snaphot, {
+    combiningWaiter$show()
+    shiny::removeModal()
+    fileName <- paste(pathToResults, "/",CohortContrast:::sanitize_single(input$new_visual_snapshot_name),".rds", sep = "")
+    ccObject <- list(
+      data_features = data_features(),
+      target_matrix = target_matrix(),
+      target_row_annotation = target_row_annotation(),
+      target_col_annotation = target_col_annotation(),
+      config = loaded_data()$config
+    )
+    CohortContrast:::save_object(object = ccObject, path = fileName)
+    combiningWaiter$hide()
+  })
 
   # Mapping table related stuff
   shiny::observe({
+    fullScreenWaiter$show()
     shiny::req(data_features())
     target_mod(data_features())
+    fullScreenWaiter$hide()
   })
 
   filtered_data <- shiny::reactive({
@@ -309,6 +349,7 @@ server <- function(input, output, session) {
 
   # Reset data to original
   shiny::observeEvent(input$reset_btn_mappings, {
+    fullScreenWaiter$show()
     initial_data <- list(
       data_initial = original_data()$data_initial,
       data_patients = original_data()$data_patients,
@@ -328,7 +369,8 @@ server <- function(input, output, session) {
 
     data_features(data_features())
     complementaryMappingTable(if (!is.null(original_data()$complementaryMappingTable)) complementaryMappingTable(original_data()$complementaryMappingTable) else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), ABSTRACTION_LEVE = integer(), stringsAsFactors = FALSE))
-  })
+    fullScreenWaiter$hide()
+    })
 
   # Save data to file on button press
   shiny::observeEvent(input$save_btn, {
@@ -395,6 +437,7 @@ server <- function(input, output, session) {
 
   # Server-side search for selectizeInput
   shiny::observeEvent(input$search_query_filtering, {
+    fullScreenWaiter$show()
     query_filtering <- input$search_query_filtering
     data_filtering <- data_features()
 
@@ -406,10 +449,12 @@ server <- function(input, output, session) {
 
     # Send the matched choices to the selectizeInput
     shiny::updateSelectizeInput(session, "filter_concept_id", choices = matched_choices_filtering, server = TRUE)
+    fullScreenWaiter$hide()
   })
 
   # Observe when the "Add Filter" button is clicked
   shiny::observeEvent(input$add_filter, {
+    fullScreenWaiter$show()
     # Retrieve current filters
     filters <- selected_filters()
     # Get the selected CONCEPT_NAME based on the selected CONCEPT_ID
@@ -422,6 +467,7 @@ server <- function(input, output, session) {
       filters <- append(filters, list(list(id = input$filter_concept_id, name = concept_name)))
       selected_filters(filters)
     }
+    fullScreenWaiter$hide()
   })
 
   output$selected_filters_list <- shiny::renderUI({
@@ -451,6 +497,7 @@ server <- function(input, output, session) {
 
   # Manage observers for removal buttons
   shiny::observe({
+    fullScreenWaiter$show()
     filters <- selected_filters()
     current_ids <- names(removeButtonCounterMap)
 
@@ -505,9 +552,11 @@ server <- function(input, output, session) {
         ) # Ensure the observer is only triggered once
       }
     })
+    fullScreenWaiter$hide()
   })
 
   shiny::observe({
+    fullScreenWaiter$show()
     filters <- selected_filters()
 
     # Retrieve the current values of data_features and data_patients
@@ -538,6 +587,7 @@ server <- function(input, output, session) {
       complementaryMappingTable = loaded_data()$complementaryMappingTable,
       config = loaded_data()$config
     ))
+    fullScreenWaiter$hide()
   })
 
 
@@ -568,13 +618,15 @@ server <- function(input, output, session) {
       ),
       shiny::column(
         width = 6,
-        shiny::actionButton("add_patients_filter", "Filter by concept", icon = shiny::icon("filter"))
+        shiny::actionButton("add_patients_filter", "Filter with concept", icon = shiny::icon("user-plus")),
+        shiny::actionButton("disregard_patients_filter", "Filter without concept", icon = shiny::icon("user-minus"))
       )
     )
   })
 
   # Server-side search for selectizeInput
   shiny::observeEvent(input$search_patient_query_filtering, {
+    fullScreenWaiter$show()
     query_filtering <- input$search_patient_query_filtering
     data_filtering <- data_features()
 
@@ -586,12 +638,42 @@ server <- function(input, output, session) {
 
     # Send the matched choices to the selectizeInput
     shiny::updateSelectizeInput(session, "filter_patient_concept_id_selection", choices = matched_choices_filtering, server = TRUE)
+    fullScreenWaiter$false()
   })
 
   # Observe when the "Add Filter" button is clicked
   shiny::observeEvent(input$add_patients_filter, {
+    fullScreenWaiter$show()
+    # If the value has changed since the last observation
+    if (input$add_patients_filter > last_add_filter_value()) {
+      # Update last seen value
+      last_add_filter_value(input$add_patients_filter)
+
+      # Perform the add filter logic
+      add_filter_logic("with")
+    }
+    fullScreenWaiter$hide()
+  })
+
+  # Observe when the "Disregard Filter" button is clicked
+  shiny::observeEvent(input$disregard_patients_filter, {
+    fullScreenWaiter$show()
+    # If the value has changed since the last observation
+    if (input$disregard_patients_filter > last_disregard_filter_value()) {
+      # Update last seen value
+      last_disregard_filter_value(input$disregard_patients_filter)
+
+      # Perform the disregard filter logic
+      add_filter_logic("without")
+    }
+    fullScreenWaiter$hide()
+  })
+
+  # Function to handle the addition of filters
+  add_filter_logic <- function(filter_type) {
     # Retrieve current filters
     filters <- selected_patient_filters()
+
     # Get the selected CONCEPT_NAME based on the selected CONCEPT_ID
     concept_name <- data_features()$CONCEPT_NAME[
       data_features()$CONCEPT_ID == input$filter_patient_concept_id_selection
@@ -599,16 +681,21 @@ server <- function(input, output, session) {
 
     # Check if the pair is unique and add it to the list
     if (!(input$filter_patient_concept_id_selection %in% sapply(filters, `[[`, "id"))) {
-      filters <- append(filters, list(list(id = input$filter_patient_concept_id_selection, name = concept_name)))
+      filters <- append(filters, list(list(
+        id = input$filter_patient_concept_id_selection,
+        name = concept_name,
+        type = filter_type
+      )))
       selected_patient_filters(filters)
     }
-  })
-
+  }
   output$selected_patient_filters_list <- shiny::renderUI({
     filters <- selected_patient_filters()
+
     if (length(filters) == 0) {
       return(NULL)
     }
+
     htmltools::tags$ul(
       lapply(seq_along(filters), function(i) {
         # Increment the counter within an isolated context
@@ -616,13 +703,23 @@ server <- function(input, output, session) {
           counter <- filterButtonCounter() + 1
           filterButtonCounter(counter) # Update the reactive value, but isolated
         })
+
         # Map the counter to the filter ID
         filterButtonCounterMap[[as.character(counter)]] <- filters[[i]]$id
-        # Create the UI element for the filter with the remove button
+
+        # Determine icon based on filter type
+        filter_icon <- if (filters[[i]]$type == "without") {
+          icon("user-minus")
+        } else {
+          icon("user-plus")
+        }
+
+        # Create the UI element for the filter with the appropriate icon
         filterTagItem <- htmltools::tags$li(
           paste(filters[[i]]$id, "-", filters[[i]]$name),
-          shiny::actionButton(inputId = paste0("add_filter_", counter), label = "Remove", icon = icon("xmark"))
+          shiny::actionButton(inputId = paste0("add_filter_", counter), label = "Remove", icon = filter_icon)
         )
+
         return(filterTagItem)
       })
     )
@@ -631,6 +728,7 @@ server <- function(input, output, session) {
 
   # Manage observers for removal buttons
   shiny::observe({
+    fullScreenWaiter$show()
     filters <- selected_patient_filters()
     current_ids <- names(filterButtonCounterMap)
 
@@ -661,13 +759,16 @@ server <- function(input, output, session) {
         ) # Ensure the observer is only triggered once
       }
     })
+    fullScreenWaiter$hide()
   })
 
 
   shiny::observe({
+    fullScreenWaiter$show()
     shiny::req(data_patients())
     filters <- selected_patient_filters()
     keepUsersWithConcepts(filters)
+    fullScreenWaiter$hide()
   })
   # Function to combine selected concepts
   combineSelectedConcepts <- function(new_concept_name) {
@@ -850,9 +951,12 @@ server <- function(input, output, session) {
 
       # Step 2: Select distinct PERSON_IDs
       currentPersonIds <- unique(currentPersonIds)
-
       # Step 3: Pull the PERSON_ID column and convert to integer
       currentPersonIds <- as.integer(currentPersonIds$PERSON_ID)
+
+      if(filter$type == "without"){
+      currentPersonIds <- setdiff(unique(data_patients_target$PERSON_ID), currentPersonIds)
+      }
 
       # Intersect with the previous PERSON_IDs
       personIdsToKeep <- intersect(personIdsToKeep, currentPersonIds)
