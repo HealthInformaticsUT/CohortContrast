@@ -123,6 +123,7 @@ CohortContrast <- function(cdm,
   # Setup
   assertRequiredCohortTable(targetTable)
   assertRequiredCohortTable(controlTable)
+  pathToResults = convertToAbsolutePath(pathToResults)
   cdm <- createCohortContrastCdm(cdm = cdm, targetTable = targetTable, controlTable = controlTable)
   targetCohortId = 2
 

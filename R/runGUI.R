@@ -16,12 +16,13 @@ runCohortContrastGUI <- function(pathToResults = NULL) {
   # Creating global variables
   #
   ################################################################################
-
   if (!is.null(pathToResults)) {
+    pathToResults <- convertToAbsolutePath(pathToResults)
     pathToResults <<- pathToResults
   }
   else {
     printCustomMessage("ERROR: pathToResults variable not defined!")
+    stop("ERROR: pathToResults variable not defined!")
   }
   ###############################################################################
   #
