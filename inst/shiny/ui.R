@@ -23,14 +23,17 @@ body <- shinydashboard::dashboardBody(
     # Dashboard tab
     shinydashboard::tabItem(
       tabName = "dashboard",
+      shinyjs::useShinyjs(),  # Initialize shinyjs
       fluidRow(
-        h3("Dashboard panel"),
-        div(id = "studyName_container",  # Wrap selectInput in a div with an ID
-            selectInput("studyName", "Choose a study:", choices = NULL)
+        h3("Dashboard Panel"),
+        div(id = "studyName_container",
+            uiOutput("study_buttons")  # Place to render buttons dynamically
+        ),
+        shinyjs::hidden(  # Hidden input field to store the selected study
+          textInput("studyName", "Selected Study", value = "")
         )
-        # selectInput("studyName", "Choose a study:",
-        #             choices = get_study_names(pathToResults))
       ),
+      verbatimTextOutput("selected_study"),
       hr(),
       fluidRow(
         column(
@@ -162,7 +165,9 @@ body <- shinydashboard::dashboardBody(
         tabPanel("Prevalence plot",
                  plotOutput("prevalence")),
         tabPanel("Heatmap",
-                 plotOutput("heatmap"))
+                 plotOutput("heatmap")),
+        tabPanel("Time panel",
+                 plotOutput("time_panel"))
       )
     ),
     shinydashboard::tabItem(
