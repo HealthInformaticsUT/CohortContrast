@@ -116,15 +116,43 @@ server <- function(input, output, session) {
   })
 
   # Update dropdown choices
-  shiny::observe({
+  # shiny::observe({
+  #   fullScreenWaiter$show()
+  #   choices_filtering <- sapply(names(study_info()), function(name) {
+  #     paste(name, "(", study_info()[[name]], "patients)")
+  #   })
+  #   shiny::updateSelectInput(session, "studyName", choices = as.vector(choices_filtering))
+  #   fullScreenWaiter$hide()
+  # })
+
+  output$study_buttons <- renderUI({
     fullScreenWaiter$show()
-    choices_filtering <- sapply(names(study_info()), function(name) {
-      paste(name, "(", study_info()[[name]], "patients)")
+    study_list <- study_info()  # Your function to get study info
+    study_btns <- lapply(names(study_list), function(study) {
+      fluidRow(
+        actionButton(inputId = paste0("btn_study_", study), label = paste0(study, " (", study_list[[study]], " patients)"), style = "width:100%; margin-bottom:5px;")
+      )
     })
-    shiny::updateSelectInput(session, "studyName", choices = as.vector(choices_filtering))
     fullScreenWaiter$hide()
+    do.call(tagList, study_btns)
   })
 
+  # Observing clicks on dynamically created buttons
+  observe({
+    for(study in names(study_info())) {
+      local({
+        local_study <- study
+        observeEvent(input[[paste0("btn_study_", local_study)]], {
+          # Use updateTextInput to ensure reactivity is triggered
+          updateTextInput(session, "studyName", value = local_study)
+          # Optional: Update display or perform other actions
+          output$selected_study <- renderText({
+            paste("Selected study:", local_study)
+          })
+        })
+      })
+    }
+  })
   # Load data based on selection
   shiny::observeEvent(input$studyName, {
     fullScreenWaiter$show()
@@ -236,7 +264,7 @@ server <- function(input, output, session) {
       prevalencePlotWaiter$hide()
       result
     },
-   # height = 950
+   height = 950
   )
 
   output$heatmap <- shiny::renderPlot(
@@ -254,7 +282,25 @@ server <- function(input, output, session) {
       heatmapPlotWaiter$hide()
       result
     },
-  #  height = 950
+    height = 950
+  )
+
+  output$time_panel <- shiny::renderPlot(
+    {
+      heatmapPlotWaiter$show()
+      result <- tryCatch(
+        {
+          plot_time(target_filtered())
+        },
+        error = function(e) {
+          print(e)
+          plot_heatmap(NULL)
+        }
+      )
+      heatmapPlotWaiter$hide()
+      result
+    },
+    height = 950
   )
 
   shiny::observeEvent(input$visual_snapshot, {
@@ -295,6 +341,7 @@ server <- function(input, output, session) {
   filtered_data <- shiny::reactive({
     # Filter the data based on the user's selected abstraction level
     shiny::req(input$abstraction_lvl) # Ensure the input is available before proceeding
+    shiny::req(input$studyName)
     filtered_data <- target_mod()[
       ABSTRACTION_LEVEL == input$abstraction_lvl
     ]
@@ -833,7 +880,10 @@ server <- function(input, output, session) {
     ]
     # Step 5: Summarize by grouping and calculating prevalence
     data_patients <- data_patients[
-      , .(PREVALENCE = sum(PREVALENCE)),
+      , .(PREVALENCE = sum(PREVALENCE),
+          TIME_FIRST = min(TIME_FIRST),
+          TIME_MEDIAN = median(TIME_FIRST),
+          TIME_LAST = max(TIME_LAST)),
       by = .(COHORT_DEFINITION_ID, PERSON_ID, CONCEPT_ID, CONCEPT_NAME, HERITAGE, ABSTRACTION_LEVEL)
     ]
     # Assuming data_features and data_patients are data.tables
