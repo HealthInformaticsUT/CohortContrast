@@ -30,7 +30,9 @@ Imports:
     foreach,
     data.table,
     reshape2,
-    scales
+    scales,
+    Cohort2Trajectory,
+    TrajectoryViz
 Suggests: 
     testthat (>= 3.0.0),
     PatientProfiles (>= 1.1.0),
@@ -39,5 +41,7 @@ Suggests:
     readr
 Remotes:
     Appsilon/shiny.fluent,
+    HealthInformaticsUT/Cohort2Trajectory,
+    HealthInformaticsUT/TrajectoryViz
 Config/testthat/edition: 3
 Config/testthat/parallel: true

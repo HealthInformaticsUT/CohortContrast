@@ -195,6 +195,11 @@ if (is.data.frame(complementaryMappingTable) | getAllAbstractions) {
                         targetCohortId,
                         createC2TInput,
                         complementaryMappingTable)
+
+  # Change ids to explicitly state "target" or "cohort"
+  data$data_patients = dplyr::mutate(data$data_patients, COHORT_DEFINITION_ID = dplyr::if_else(.data$COHORT_DEFINITION_ID == 2, "target", "control"))
+  data$data_initial = dplyr::mutate(data$data_initial, COHORT_DEFINITION_ID = dplyr::if_else(.data$COHORT_DEFINITION_ID == 2, "target", "control"))
+
   data = create_CohortContrast_object(data)
 
   if (createOutputFiles){
@@ -610,6 +615,9 @@ calculate_data_features <-
                                      .data$PREVALENCE > 0),
         CONTROL_SUBJECT_COUNT = sum(.data$COHORT_DEFINITION_ID == 1 &
                                       .data$PREVALENCE > 0),
+        TIME_FIRST = stats::median(.data$TIME_FIRST[.data$COHORT_DEFINITION_ID == 2], na.rm = TRUE),
+        TIME_MEDIAN = stats::median(.data$TIME_MEDIAN[.data$COHORT_DEFINITION_ID == 2], na.rm = TRUE),
+        TIME_LAST = stats::median(.data$TIME_LAST[.data$COHORT_DEFINITION_ID == 2], na.rm = TRUE),
         .groups = 'drop'
       ) %>%
       dplyr::mutate(
@@ -680,6 +688,9 @@ handleMapping <- function(data, complementaryMappingTable, abstractionLevel = -1
                     .data$CONCEPT_NAME,
                     .data$HERITAGE) %>%
     dplyr::summarise(PREVALENCE = sum(.data$PREVALENCE, na.rm = TRUE),
+                     TIME_FIRST = min(.data$TIME_FIRST, na.rm = TRUE),
+                     TIME_MEDIAN = stats::median(.data$TIME_MEDIAN, na.rm = TRUE),
+                     TIME_LAST = max(.data$TIME_LAST, na.rm = TRUE),
                      .groups = 'drop')
   final_data_summarized <- final_data %>%
     dplyr::group_by(.data$CONCEPT_ID, .data$HERITAGE) %>%
@@ -702,6 +713,9 @@ handleMapping <- function(data, complementaryMappingTable, abstractionLevel = -1
                     .data$CONCEPT_NAME,
                     .data$HERITAGE) %>%
     dplyr::summarise(PREVALENCE = sum(.data$PREVALENCE, na.rm = TRUE),
+                     TIME_FIRST = min(.data$TIME_FIRST, na.rm = TRUE),
+                     TIME_MEDIAN = stats::median(.data$TIME_MEDIAN, na.rm = TRUE),
+                     TIME_LAST = max(.data$TIME_LAST, na.rm = TRUE),
                      .groups = 'drop') %>% as.data.frame()
   # Add abstraction level identifier
   result$ABSTRACTION_LEVEL = abstractionLevel
@@ -980,9 +994,7 @@ saveResult <- function(data, pathToResults) {
   }
   else{data$config$complName = paste0("CohortContrast_", timestamp)}
 
-  data$data_patients = dplyr::mutate(data$data_patients, COHORT_DEFINITION_ID = dplyr::if_else(.data$COHORT_DEFINITION_ID == 2, "target", "control"))
-  data$data_initial = dplyr::mutate(data$data_initial, COHORT_DEFINITION_ID = dplyr::if_else(.data$COHORT_DEFINITION_ID == 2, "target", "control"))
-  if(data$config$safeRun)
+if(data$config$safeRun)
   {
     formated_output = format_results(data = data, applyZTest = data$config$runZTests, applyLogitTest =  data$config$runLogitTests, abstractionLevel = -1)
     data$formattedResults = formated_output
