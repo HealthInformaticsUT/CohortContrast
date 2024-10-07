@@ -74,8 +74,17 @@ server <- function(input, output, session) {
     )
   )
 
+  timePanelWaiter <- waiter::Waiter$new(
+    id = "timePlot", # Targeting the heatmap plot
+    html = htmltools::tagList(
+      htmltools::div(style = "color: white; font-size: 18px; text-align: center;", "Loading Time Panel..."),
+      waiter::spin_3()
+    )
+  )
+
   # Function to load data and update study_info
   load_study_data <- function() {
+    fullScreenWaiter$show()
     names_and_rows <- list()
     CohortContrast:::printCustomMessage("EXECUTION: Loading studies from working directory ...")
     study_names <- CohortContrast:::get_study_names(pathToResults)
@@ -104,15 +113,13 @@ server <- function(input, output, session) {
     shiny::isolate({
       study_info(names_and_rows)
     })
-
+    fullScreenWaiter$hide()
     CohortContrast:::printCustomMessage("COMPLETED: Loading studies from working directory")
   }
 
   # Initialize data on app start (load once)
   shiny::observe({
-    fullScreenWaiter$show() # Show the loading screen
     load_study_data()
-    fullScreenWaiter$hide() # Hide the loading screen
   })
 
   # Update dropdown choices
@@ -155,10 +162,11 @@ server <- function(input, output, session) {
   })
   # Load data based on selection
   shiny::observeEvent(input$studyName, {
-    fullScreenWaiter$show()
     shiny::req(input$studyName)
-    split_name <- unlist(strsplit(input$studyName, " ", fixed = TRUE))
-    correct_study_name <- split_name[1]
+    fullScreenWaiter$show()
+    #split_name <- input$studyName
+      #unlist(strsplit(input$studyName, " ", fixed = TRUE))
+    correct_study_name <- input$studyName# split_name[1]
     CohortContrast:::printCustomMessage(paste("EXECUTION: Loading study", correct_study_name, "from working directory ...", sep = " "))
     file_path <- stringr::str_c(pathToResults, "/", correct_study_name, ".rds")
     studyName(correct_study_name)
@@ -210,12 +218,10 @@ server <- function(input, output, session) {
     } else {
       print("File not found")
     }
-    fullScreenWaiter$hide() # Hide the loading screen
   })
 
   # Reactive expressions
   target <- shiny::reactive({
-    fullScreenWaiter$show()
     shiny::req(studyName(), pathToResults, loaded_data())
     autoScaleRate <- if (!is.null(input$scaleRate) && input$scaleRate) TRUE else FALSE
     applyInverseTarget <- if (!is.null(input$applyInverseTarget) && input$applyInverseTarget) TRUE else FALSE
@@ -241,10 +247,10 @@ server <- function(input, output, session) {
       input$domain,
       removeUntreated = if (input$removeUntreated) TRUE else FALSE
     )
-    fullScreenWaiter$hide()
     target_row_annotation(result$target_row_annotation)
     target_col_annotation(result$target_col_annotation)
     target_matrix(result$target_matrix)
+    fullScreenWaiter$hide()
     result
   })
 
@@ -252,6 +258,9 @@ server <- function(input, output, session) {
   output$prevalence <- shiny::renderPlot(
     {
       prevalencePlotWaiter$show()
+      on.exit({
+        prevalencePlotWaiter$hide()
+      })
       result <- tryCatch(
         {
           plot_prevalence(target_filtered())
@@ -261,7 +270,6 @@ server <- function(input, output, session) {
           plot_prevalence(NULL)
         }
       )
-      prevalencePlotWaiter$hide()
       result
     },
    height = 950
@@ -270,6 +278,9 @@ server <- function(input, output, session) {
   output$heatmap <- shiny::renderPlot(
     {
       heatmapPlotWaiter$show()
+      on.exit({
+        heatmapPlotWaiter$hide()
+      })
       result <- tryCatch(
         {
           plot_heatmap(target_filtered())
@@ -279,7 +290,6 @@ server <- function(input, output, session) {
           plot_heatmap(NULL)
         }
       )
-      heatmapPlotWaiter$hide()
       result
     },
     height = 950
@@ -287,7 +297,10 @@ server <- function(input, output, session) {
 
   output$time_panel <- shiny::renderPlot(
     {
-      heatmapPlotWaiter$show()
+      timePanelWaiter$show()
+      on.exit({
+        timePanelWaiter$hide()
+      })
       result <- tryCatch(
         {
           plot_time(target_filtered())
@@ -297,7 +310,7 @@ server <- function(input, output, session) {
           plot_heatmap(NULL)
         }
       )
-      heatmapPlotWaiter$hide()
+      timePanelWaiter$hide()
       result
     },
     height = 950
@@ -332,10 +345,8 @@ server <- function(input, output, session) {
 
   # Mapping table related stuff
   shiny::observe({
-    fullScreenWaiter$show()
     shiny::req(data_features())
     target_mod(data_features())
-    fullScreenWaiter$hide()
   })
 
   filtered_data <- shiny::reactive({
@@ -352,7 +363,11 @@ server <- function(input, output, session) {
       DT::datatable(
         filtered_data(),
         selection = "multiple",
-        filter = "top"
+        filter = "top",
+        options = list(
+          columnDefs = list(
+            list(targets = which(names(filtered_data()) %in% c("TIME_TO_EVENT", "ABSTRACTION_LEVEL")), visible = FALSE))
+        )
       )
     },
     server = TRUE
@@ -396,7 +411,6 @@ server <- function(input, output, session) {
 
   # Reset data to original
   shiny::observeEvent(input$reset_btn_mappings, {
-    fullScreenWaiter$show()
     initial_data <- list(
       data_initial = original_data()$data_initial,
       data_patients = original_data()$data_patients,
@@ -416,7 +430,6 @@ server <- function(input, output, session) {
 
     data_features(data_features())
     complementaryMappingTable(if (!is.null(original_data()$complementaryMappingTable)) complementaryMappingTable(original_data()$complementaryMappingTable) else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), ABSTRACTION_LEVE = integer(), stringsAsFactors = FALSE))
-    fullScreenWaiter$hide()
     })
 
   # Save data to file on button press
@@ -453,6 +466,7 @@ server <- function(input, output, session) {
     )
   })
 
+  # TODO sometimes does not load, cannot always recreate
   # Server-side selectize input for filtering by CONCEPT_ID and CONCEPT_NAME
   output$dynamic_concepts_removal <- shiny::renderUI({
     shiny::fluidRow(
@@ -484,7 +498,6 @@ server <- function(input, output, session) {
 
   # Server-side search for selectizeInput
   shiny::observeEvent(input$search_query_filtering, {
-    fullScreenWaiter$show()
     query_filtering <- input$search_query_filtering
     data_filtering <- data_features()
 
@@ -496,12 +509,10 @@ server <- function(input, output, session) {
 
     # Send the matched choices to the selectizeInput
     shiny::updateSelectizeInput(session, "filter_concept_id", choices = matched_choices_filtering, server = TRUE)
-    fullScreenWaiter$hide()
   })
 
   # Observe when the "Add Filter" button is clicked
   shiny::observeEvent(input$add_filter, {
-    fullScreenWaiter$show()
     # Retrieve current filters
     filters <- selected_filters()
     # Get the selected CONCEPT_NAME based on the selected CONCEPT_ID
@@ -514,7 +525,6 @@ server <- function(input, output, session) {
       filters <- append(filters, list(list(id = input$filter_concept_id, name = concept_name)))
       selected_filters(filters)
     }
-    fullScreenWaiter$hide()
   })
 
   output$selected_filters_list <- shiny::renderUI({
@@ -544,7 +554,6 @@ server <- function(input, output, session) {
 
   # Manage observers for removal buttons
   shiny::observe({
-    fullScreenWaiter$show()
     filters <- selected_filters()
     current_ids <- names(removeButtonCounterMap)
 
@@ -599,11 +608,9 @@ server <- function(input, output, session) {
         ) # Ensure the observer is only triggered once
       }
     })
-    fullScreenWaiter$hide()
   })
 
   shiny::observe({
-    fullScreenWaiter$show()
     filters <- selected_filters()
 
     # Retrieve the current values of data_features and data_patients
@@ -634,7 +641,6 @@ server <- function(input, output, session) {
       complementaryMappingTable = loaded_data()$complementaryMappingTable,
       config = loaded_data()$config
     ))
-    fullScreenWaiter$hide()
   })
 
 
@@ -673,7 +679,6 @@ server <- function(input, output, session) {
 
   # Server-side search for selectizeInput
   shiny::observeEvent(input$search_patient_query_filtering, {
-    fullScreenWaiter$show()
     query_filtering <- input$search_patient_query_filtering
     data_filtering <- data_features()
 
@@ -685,12 +690,10 @@ server <- function(input, output, session) {
 
     # Send the matched choices to the selectizeInput
     shiny::updateSelectizeInput(session, "filter_patient_concept_id_selection", choices = matched_choices_filtering, server = TRUE)
-    fullScreenWaiter$false()
   })
 
   # Observe when the "Add Filter" button is clicked
   shiny::observeEvent(input$add_patients_filter, {
-    fullScreenWaiter$show()
     # If the value has changed since the last observation
     if (input$add_patients_filter > last_add_filter_value()) {
       # Update last seen value
@@ -699,12 +702,10 @@ server <- function(input, output, session) {
       # Perform the add filter logic
       add_filter_logic("with")
     }
-    fullScreenWaiter$hide()
   })
 
   # Observe when the "Disregard Filter" button is clicked
   shiny::observeEvent(input$disregard_patients_filter, {
-    fullScreenWaiter$show()
     # If the value has changed since the last observation
     if (input$disregard_patients_filter > last_disregard_filter_value()) {
       # Update last seen value
@@ -713,7 +714,6 @@ server <- function(input, output, session) {
       # Perform the disregard filter logic
       add_filter_logic("without")
     }
-    fullScreenWaiter$hide()
   })
 
   # Function to handle the addition of filters
@@ -775,7 +775,6 @@ server <- function(input, output, session) {
 
   # Manage observers for removal buttons
   shiny::observe({
-    fullScreenWaiter$show()
     filters <- selected_patient_filters()
     current_ids <- names(filterButtonCounterMap)
 
@@ -806,16 +805,13 @@ server <- function(input, output, session) {
         ) # Ensure the observer is only triggered once
       }
     })
-    fullScreenWaiter$hide()
   })
 
 
   shiny::observe({
-    fullScreenWaiter$show()
     shiny::req(data_patients())
     filters <- selected_patient_filters()
     keepUsersWithConcepts(filters)
-    fullScreenWaiter$hide()
   })
   # Function to combine selected concepts
   combineSelectedConcepts <- function(new_concept_name) {
@@ -881,16 +877,14 @@ server <- function(input, output, session) {
     # Step 5: Summarize by grouping and calculating prevalence
     data_patients <- data_patients[
       , .(PREVALENCE = sum(PREVALENCE),
-          TIME_FIRST = min(TIME_FIRST),
-          TIME_MEDIAN = median(TIME_FIRST),
-          TIME_LAST = max(TIME_LAST)),
+          TIME_TO_EVENT = list(unlist(TIME_TO_EVENT))),
       by = .(COHORT_DEFINITION_ID, PERSON_ID, CONCEPT_ID, CONCEPT_NAME, HERITAGE, ABSTRACTION_LEVEL)
     ]
     # Assuming data_features and data_patients are data.tables
 
     # Step 1: Select specific columns from data_features
     data_features_temp <- data_features[
-      , .(CONCEPT_ID, ABSTRACTION_LEVEL, ZTEST,ZTEST_P_VALUE, LOGITTEST,LOGITTEST_P_VALUE)
+      , .(CONCEPT_ID, ABSTRACTION_LEVEL, ZTEST,ZTEST_P_VALUE, LOGITTEST,LOGITTEST_P_VALUE, KSTEST)
     ]
 
     # Step 2: Summarize data_patients by CONCEPT_ID, CONCEPT_NAME, and ABSTRACTION_LEVEL
@@ -898,7 +892,8 @@ server <- function(input, output, session) {
     data_features <- data_patients[
       , .(
         TARGET_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == "target" & PREVALENCE > 0),
-        CONTROL_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == "control" & PREVALENCE > 0)
+        CONTROL_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == "control" & PREVALENCE > 0),
+        TIME_TO_EVENT = list(unlist(TIME_TO_EVENT))
       ),
       by = .(CONCEPT_ID, CONCEPT_NAME, ABSTRACTION_LEVEL)
     ]
@@ -1049,16 +1044,16 @@ server <- function(input, output, session) {
 
     # Step 2: Select specific columns
     data_features_temp <- data_features[
-      , .(CONCEPT_ID, ABSTRACTION_LEVEL, ZTEST,ZTEST_P_VALUE, LOGITTEST,LOGITTEST_P_VALUE)
+      , .(CONCEPT_ID, ABSTRACTION_LEVEL, ZTEST,ZTEST_P_VALUE, LOGITTEST,LOGITTEST_P_VALUE, KSTEST)
     ]
-
     if (nrow(data_patients_filtering) == 0) {
       data_features_filtering <- data_features[0]
     } else {
       data_features_filtering <- data_patients_filtering[
         , .(
           TARGET_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == "target" & PREVALENCE > 0),
-          CONTROL_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == "control" & PREVALENCE > 0)
+          CONTROL_SUBJECT_COUNT = sum(COHORT_DEFINITION_ID == "control" & PREVALENCE > 0),
+          TIME_TO_EVENT = list(unlist(TIME_TO_EVENT))
         ),
         by = .(CONCEPT_ID, CONCEPT_NAME, ABSTRACTION_LEVEL)
       ][

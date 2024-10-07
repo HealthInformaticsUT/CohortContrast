@@ -10,6 +10,7 @@ handleTests(
   presenceFilter,
   runZTests = TRUE,
   runLogitTests = TRUE,
+  runKSTests = TRUE,
   numCores = parallel::detectCores() - 1
 )
 }
@@ -23,6 +24,8 @@ handleTests(
 \item{runZTests}{boolean for Z-tests}
 
 \item{runLogitTests}{boolean for logit-tests}
+
+\item{runKSTests}{boolean for KS-tests}
 }
 \description{
 Function for handling tests

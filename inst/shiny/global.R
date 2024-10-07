@@ -40,9 +40,7 @@ format_results <-
         CONCEPT_ID,
         ZTEST,
         LOGITTEST,
-        TIME_FIRST,
-        TIME_MEDIAN,
-        TIME_LAST,
+        KSTEST,
         ABSTRACTION_LEVEL
       )]
 
@@ -147,9 +145,6 @@ format_results <-
           CONTROL_SUBJECT_COUNT,
           TARGET_SUBJECT_PREVALENCE,
           CONTROL_SUBJECT_PREVALENCE,
-          TIME_FIRST,
-          TIME_MEDIAN,
-          TIME_LAST,
           ABSTRACTION_LEVEL
         )]
     }
@@ -192,11 +187,11 @@ format_results <-
     data.table::setkey(wider_dt, CONCEPT_ID)
     data.table::setkey(data$data_features, CONCEPT_ID)
 
-    # Perform the left join and select specific columns
-    wider_dt <-
-      wider_dt[data$data_features[, .(CONCEPT_ID, TIME_FIRST, TIME_MEDIAN, TIME_LAST)], nomatch = 0]
+    # # Perform the left join and select specific columns
+    # wider_dt <-
+    #   wider_dt[data$data_features[, .(CONCEPT_ID, TIME_TO_EVENT)], nomatch = 0]
 
-    #wider_dt = wider_dt %>% dplyr::left_join(data$data_features %>% dplyr::select(CONCEPT_ID, TIME_FIRST, TIME_MEDIAN, TIME_LAST), by = 'CONCEPT_ID')
+    #wider_dt = wider_dt %>% dplyr::left_join(data$data_features %>% dplyr::select(CONCEPT_ID, TIME_TO_EVENT), by = 'CONCEPT_ID')
     # Store the result of grep in a variable
     columns_to_rename <-
       grep("^[0-9]", names(wider_dt), value = TRUE)
@@ -247,8 +242,15 @@ format_results <-
 
     target_time_annotation <- data$data_patients[
       COHORT_DEFINITION_ID == "target" & ABSTRACTION_LEVEL == abstractionLevel,
-      .(PERSON_ID, CONCEPT_ID, CONCEPT_NAME, TIME_FIRST, TIME_MEDIAN, TIME_LAST, HERITAGE)
+      .(PERSON_ID, CONCEPT_ID, CONCEPT_NAME, TIME_TO_EVENT, HERITAGE)
     ]
+    target_time_annotation <- target_time_annotation[
+      data$data_features,
+      on = .(CONCEPT_ID),
+      .(PERSON_ID, CONCEPT_ID, CONCEPT_NAME, TIME_TO_EVENT, HERITAGE, KSTEST),
+      nomatch = 0L  # 0L in nomatch ensures all rows in x are returned, including those without a match in y
+    ]
+
     target_time_annotation[, CONCEPT_NAME := gsub("(.{30})", "\\1\n", CONCEPT_NAME)] # nolint
 
 
@@ -754,68 +756,82 @@ plot_time <- function(filtered_target) {
     visit_detail = "#AEC6CF"           # Pastel pink
   )
 
+
+  plot_data <- filtered_target$target_time_annotation %>% dplyr::mutate(TIME_MEDIAN = sapply(.data$TIME_TO_EVENT, stats::median, na.rm = TRUE)) %>%
+    dplyr::group_by(.data$CONCEPT_ID) %>%
+    dplyr::summarise(
+      CONCEPT_NAME = dplyr::first(.data$CONCEPT_NAME),  # Taking the first instance assuming uniformity across the group
+      HERITAGE = dplyr::first(.data$HERITAGE),          # Similarly for HERITAGE
+      TIME_TO_EVENT = list(unlist(.data$TIME_TO_EVENT)),
+      TIME_MEDIAN = list(.data$TIME_MEDIAN),
+      KSTEST = dplyr::first(.data$KSTEST),              # Similarly for KSTEST
+      .groups = "drop"                     # Drop grouping information after summarising
+    )
+
+  plot_data2 = plot_data %>% dplyr::select(.data$CONCEPT_NAME, .data$TIME_MEDIAN, .data$HERITAGE) %>% tidyr::unnest(.data$TIME_MEDIAN)  # Make sure TIME_MEDIAN is no longer a list
+  plot_data3 = plot_data %>% dplyr::select(.data$CONCEPT_NAME, .data$TIME_TO_EVENT, .data$HERITAGE, .data$KSTEST) %>% tidyr::unnest(.data$TIME_TO_EVENT)  # Make sure TIME_MEDIAN is no longer a list
+
   # Filter heritage colors based on what's present in annotation_row
   active_heritage_colors <-
     heritage_colors[names(heritage_colors) %in% unique(filtered_target$target_time_annotation$HERITAGE)]
 
-  p1 <- ggplot(filtered_target$target_time_annotation, aes(x = TIME_FIRST, y = stringr::str_sub(CONCEPT_NAME, 1, 60), fill = HERITAGE)) +
-    geom_boxplot(outlier.shape = NA) +  # Hide outliers
-    scale_fill_manual(values = heritage_colors) +  # Apply custom colors
-    facet_grid(HERITAGE ~ ., scales = "free_y", space = "free") +  # Use facet_grid for better control
-    theme_bw() +  # Apply minimal theme
-    labs( x = "Time (days)") +
-    ggtitle("First occurrance") +
-    theme(
-      strip.text.x = element_blank(),  # Remove facet labels
-      strip.background = element_blank(),
-      strip.text.y = element_blank(),
+  p1 <- ggplot2::ggplot(plot_data2, ggplot2::aes(x = .data$TIME_MEDIAN, y = stringr::str_sub(.data$CONCEPT_NAME, 1, 60), fill = .data$HERITAGE)) +
+    ggplot2::geom_boxplot(outlier.shape = NA) +  # Hide outliers
+    ggplot2::scale_fill_manual(values = heritage_colors) +  # Apply custom colors
+    ggplot2::facet_grid(.data$HERITAGE ~ ., scales = "free_y", space = "free") +  # Use facet_grid for better control
+    ggplot2::theme_bw()  +  # Apply minimal theme
+    ggplot2::labs( x = "Time (days)") +
+    ggplot2::labs(title = "Median event occurrence per subject",
+         x = "Time to Event",
+         y = "") +
+    ggplot2::theme(
+    # strip.text.x = element_blank(),  # Remove facet labels
+      strip.background = ggplot2::element_blank(),
+      strip.text.y = ggplot2::element_blank(),
       axis.title = ggplot2::element_blank(),
-      axis.text.y = element_text(size = 15),
-      panel.spacing = unit(0.5, "lines"),  # Reduce spacing between panels
+      axis.text.y = ggplot2::element_text(size = 15),
+      panel.spacing = ggplot2::unit(0.5, "lines"),  # Reduce spacing between panels
       legend.position = "none"
       )
 
+  time_min <- min(plot_data3$TIME_TO_EVENT, na.rm = TRUE)
+  time_max <- max(plot_data3$TIME_TO_EVENT, na.rm = TRUE)
+
   p2 <-
-    ggplot(filtered_target$target_time_annotation, aes(x = TIME_MEDIAN, y = stringr::str_sub(CONCEPT_NAME, 1, 60), fill = HERITAGE)) +
-    geom_boxplot(outlier.shape = NA) +  # Hide outliers
-    scale_fill_manual(values = heritage_colors) +  # Apply custom colors
-    facet_grid(HERITAGE ~ ., scales = "free_y", space = "free") +  # Use facet_grid for better control
-    theme_bw() +  # Apply minimal theme
-#    labs(title = "", y = "Concept Name", x = "Time (days)") +
-    ggtitle("Median occurrance") +
-    theme(
-      strip.text.x = element_blank(),  # Remove facet labels
-      strip.background = element_blank(),
-      strip.text.y = element_blank(),
-      panel.spacing = unit(0.5, "lines"),  # Reduce spacing between panels
-      axis.title = ggplot2::element_blank(),
+    ggplot2::ggplot(plot_data3, ggplot2::aes(y = .data$CONCEPT_NAME, x = .data$TIME_TO_EVENT, group = .data$CONCEPT_NAME)) +
+    # Add horizontal violin plot
+    ggplot2::geom_violin(ggplot2::aes(fill = .data$HERITAGE), alpha = 0.5, trim = FALSE) +
+    # Apply custom colors based on HERITAGE
+    ggplot2::scale_fill_manual(values = heritage_colors) +
+    # Add small lines for each occurrence, color based on KSTEST true/false
+    ggplot2::geom_segment(aes(y = .data$CONCEPT_NAME, yend = .data$CONCEPT_NAME,
+                     x = .data$TIME_TO_EVENT, xend = .data$TIME_TO_EVENT - 5,
+                     color = as.factor(.data$KSTEST)), size = 1) +
+    # Custom colors for KSTEST values
+    ggplot2::scale_color_manual(values = c("TRUE" = "black", "FALSE" = "gray")) +
+    # Draw connecting lines through the points, color based on KSTEST
+    ggplot2::geom_line(ggplot2::aes(color = as.factor(.data$KSTEST), group = .data$CONCEPT_NAME)) +
+    # Faceting by HERITAGE
+    ggplot2::facet_grid(.data$HERITAGE ~ ., scales = "free_y", space = "free") +
+    # Enhance the plot appearance with a minimal theme
+    ggplot2::theme_bw() +
+    ggplot2::xlim(time_min, time_max) +
+    ggplot2::labs(title = "Event occurrences over all subjects",
+         x = "Time to Event",
+         y = "") +
+    ggplot2::theme( # Adjust y-axis text size
+      legend.position = "none",  # Hide legend as needed
+      strip.background = ggplot2::element_blank(),  # Clean up strip background
+      strip.text.y = ggplot2::element_blank(),
       axis.text.y = ggplot2::element_blank(),
-      legend.position = "bottom"
+      # Hide strip text
+      panel.spacing = unit(0.5, "lines")  # Reduce spacing between panels
     )
-
-
-  # Create the plot with backgrounds
-  p3 <-
-    ggplot(filtered_target$target_time_annotation, aes(x = TIME_LAST, y = stringr::str_sub(CONCEPT_NAME, 1, 60), fill = HERITAGE)) +
-    geom_boxplot(outlier.shape = NA) +  # Hide outliers
-    scale_fill_manual(values = heritage_colors) +  # Apply custom colors
-    facet_grid(HERITAGE ~ ., scales = "free_y", space = "free") +  # Use facet_grid for better control
-    theme_bw() +
-    ggtitle("Last occurrance") +
-    theme(
-      strip.text.x = element_blank(),  # Remove facet labels
-      strip.background = element_blank(),
-      strip.text.y = element_blank(),
-      panel.spacing = unit(0.5, "lines"),  # Reduce spacing between panels
-      axis.title = ggplot2::element_blank(),
-      axis.text.y = ggplot2::element_blank(),
-      legend.position = "none"
-    )
-
+p2
   # Combine plots
-  p <-
-    p1 + p2 + p3 + patchwork::plot_layout(nrow = 1, heights = c(1, 1, 1))
-p
+p <- p1 + p2 +
+  patchwork::plot_layout(nrow = 1, widths = c(1, 2))
+return(p)
 }
 
 update_features <- function(features, scaled_prev) {
