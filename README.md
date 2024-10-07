@@ -111,3 +111,8 @@ The CohortContrast package generates the following outputs:
 
 1. Running `CohortContrast` returns a list of tables (patient level summarised data for target and control) as well as saves the object. These can be analysed in the GUI.
 2. Using GUI with `runCohortContrastGUI` generates plots as well as saves the last state of your analysis in the GUI.
+
+
+## Demo
+
+https://drive.google.com/file/d/1GqoSYIljBB79J8LXBup8Q7T6lkUWEiUp/view?usp=sharing
