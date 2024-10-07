@@ -115,4 +115,4 @@ The CohortContrast package generates the following outputs:
 
 ## Demo
 
-https://drive.google.com/file/d/1GqoSYIljBB79J8LXBup8Q7T6lkUWEiUp/view?usp=sharing
+[DEMO](https://drive.google.com/file/d/1GqoSYIljBB79J8LXBup8Q7T6lkUWEiUp/view?usp=sharing)
