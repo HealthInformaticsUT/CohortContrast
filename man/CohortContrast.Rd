@@ -20,6 +20,7 @@ CohortContrast(
   createC2TInput = FALSE,
   runZTests = TRUE,
   runLogitTests = TRUE,
+  runKSTests = TRUE,
   getAllAbstractions = FALSE,
   maximumAbstractionLevel = 10,
   createOutputFiles = TRUE,
@@ -57,6 +58,8 @@ present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,}
 \item{runZTests}{boolean for Z-tests}
 
 \item{runLogitTests}{boolean for logit-tests}
+
+\item{runKSTests}{boolean for Kolmogorov-Smirnov tests}
 
 \item{getAllAbstractions}{boolean for creating abstractions' levels for
 the imported data, this is useful when using GUI and exploring data}

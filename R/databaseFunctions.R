@@ -22,6 +22,8 @@ generateTables <- function(cdm,
                                "Visit detail"
                              )) {
   # Drug Exposure Patient Prevalence
+  cdmConcepts = cdm$concept %>% dplyr::collect()
+
   patient_drug_prevalence_table <- cdm$cohortcontrast_cohorts %>%
     dplyr::inner_join(cdm$drug_exposure, by = c("subject_id" = "person_id")) %>%
     dplyr::filter(
@@ -36,14 +38,13 @@ generateTables <- function(cdm,
       .data$drug_exposure_start_date,
       .data$cohort_start_date
     ) %>%
+    dplyr::collect() %>%
     dplyr::group_by(.data$cohort_definition_id,
                     .data$subject_id,
                     .data$drug_concept_id) %>%
     dplyr::summarize(
       prevalence = dplyr::n_distinct(.data$drug_exposure_id),
-      time_to_event_first = min(.data$drug_exposure_start_date - .data$cohort_start_date, na.rm = T),
-      time_to_event_median = stats::median(.data$drug_exposure_start_date - .data$cohort_start_date, na.rm = T),
-      time_to_event_last = max(.data$drug_exposure_start_date - .data$cohort_start_date, na.rm = T),
+      time_to_event = list(stats::na.omit(.data$drug_exposure_start_date - .data$cohort_start_date)),
       .groups = "drop"
     ) %>%
     dplyr::select(
@@ -51,20 +52,16 @@ generateTables <- function(cdm,
       .data$subject_id,
       .data$drug_concept_id,
       .data$prevalence,
-      .data$time_to_event_first,
-      .data$time_to_event_median,
-      .data$time_to_event_last
+      .data$time_to_event
     ) %>%
-    dplyr::left_join(cdm$concept, by = c("drug_concept_id" = "concept_id")) %>%
+    dplyr::left_join(cdmConcepts, by = c("drug_concept_id" = "concept_id")) %>%
     dplyr::select(
       .data$cohort_definition_id,
       .data$subject_id,
       concept_id = .data$drug_concept_id,
       .data$concept_name,
       .data$prevalence,
-      .data$time_to_event_first,
-      .data$time_to_event_median,
-      .data$time_to_event_last
+      .data$time_to_event
     ) %>%
     dplyr::mutate(heritage = "drug_exposure")
 
@@ -84,14 +81,13 @@ generateTables <- function(cdm,
       .data$condition_start_date,
       .data$cohort_start_date
     ) %>%
+    dplyr::collect() %>%
     dplyr::group_by(.data$cohort_definition_id,
                     .data$subject_id,
                     .data$condition_concept_id) %>%
     dplyr::summarize(
       prevalence = dplyr::n_distinct(.data$condition_occurrence_id),
-      time_to_event_first = min(.data$condition_start_date - .data$cohort_start_date, na.rm = T),
-      time_to_event_median = stats::median(.data$condition_start_date - .data$cohort_start_date, na.rm = T),
-      time_to_event_last = max(.data$condition_start_date - .data$cohort_start_date, na.rm = T),
+      time_to_event = list(stats::na.omit(.data$condition_start_date - .data$cohort_start_date)),
       .groups = "drop"
     ) %>%
     dplyr::select(
@@ -99,20 +95,16 @@ generateTables <- function(cdm,
       .data$subject_id,
       .data$condition_concept_id,
       .data$prevalence,
-      .data$time_to_event_first,
-      .data$time_to_event_median,
-      .data$time_to_event_last
+      .data$time_to_event
     ) %>%
-    dplyr::left_join(cdm$concept, by = c("condition_concept_id" = "concept_id")) %>%
+    dplyr::left_join(cdmConcepts, by = c("condition_concept_id" = "concept_id")) %>%
     dplyr::select(
       .data$cohort_definition_id,
       .data$subject_id,
       concept_id = .data$condition_concept_id,
       .data$concept_name,
       .data$prevalence,
-      .data$time_to_event_first,
-      .data$time_to_event_median,
-      .data$time_to_event_last
+      .data$time_to_event
     ) %>%
     dplyr::mutate(heritage = "condition_occurrence")
 
@@ -132,33 +124,28 @@ generateTables <- function(cdm,
       .data$measurement_date,
       .data$cohort_start_date
     ) %>%
+    dplyr::collect() %>%
     dplyr::group_by(.data$cohort_definition_id,
                     .data$subject_id,
                     .data$measurement_concept_id) %>%
     dplyr::summarize(prevalence = dplyr::n_distinct(.data$measurement_id),
-                     time_to_event_first = min(.data$measurement_date - .data$cohort_start_date, na.rm = T),
-                     time_to_event_median = stats::median(.data$measurement_date - .data$cohort_start_date, na.rm = T),
-                     time_to_event_last = max(.data$measurement_date - .data$cohort_start_date, na.rm = T),
+                     time_to_event = list(stats::na.omit(.data$measurement_date - .data$cohort_start_date)),
                      .groups = "drop") %>%
     dplyr::select(
       .data$cohort_definition_id,
       .data$subject_id,
       .data$measurement_concept_id,
       .data$prevalence,
-      .data$time_to_event_first,
-      .data$time_to_event_median,
-      .data$time_to_event_last
+      .data$time_to_event
     ) %>%
-    dplyr::left_join(cdm$concept, by = c("measurement_concept_id" = "concept_id")) %>%
+    dplyr::left_join(cdmConcepts, by = c("measurement_concept_id" = "concept_id")) %>%
     dplyr::select(
       .data$cohort_definition_id,
       .data$subject_id,
       concept_id = .data$measurement_concept_id,
       .data$concept_name,
       .data$prevalence,
-      .data$time_to_event_first,
-      .data$time_to_event_median,
-      .data$time_to_event_last
+      .data$time_to_event
     ) %>%
     dplyr::mutate(heritage = "measurement")
 
@@ -178,14 +165,13 @@ generateTables <- function(cdm,
       .data$procedure_date,
       .data$cohort_start_date
     ) %>%
+    dplyr::collect() %>%
     dplyr::group_by(.data$cohort_definition_id,
                     .data$subject_id,
                     .data$procedure_concept_id) %>%
     dplyr::summarize(
       prevalence = dplyr::n_distinct(.data$procedure_occurrence_id),
-      time_to_event_first = min(.data$procedure_date - .data$cohort_start_date, na.rm = T),
-      time_to_event_median = stats::median(.data$procedure_date - .data$cohort_start_date, na.rm = T),
-      time_to_event_last = max(.data$procedure_date - .data$cohort_start_date, na.rm = T),
+      time_to_event = list(stats::na.omit(.data$procedure_date - .data$cohort_start_date)),
       .groups = "drop"
     ) %>%
     dplyr::select(
@@ -193,20 +179,16 @@ generateTables <- function(cdm,
       .data$subject_id,
       .data$procedure_concept_id,
       .data$prevalence,
-      .data$time_to_event_first,
-      .data$time_to_event_median,
-      .data$time_to_event_last
+      .data$time_to_event
     ) %>%
-    dplyr::left_join(cdm$concept, by = c("procedure_concept_id" = "concept_id")) %>%
+    dplyr::left_join(cdmConcepts, by = c("procedure_concept_id" = "concept_id")) %>%
     dplyr::select(
       .data$cohort_definition_id,
       .data$subject_id,
       concept_id = .data$procedure_concept_id,
       .data$concept_name,
       .data$prevalence,
-      .data$time_to_event_first,
-      .data$time_to_event_median,
-      .data$time_to_event_last
+      .data$time_to_event
     ) %>%
     dplyr::mutate(heritage = "procedure_occurrence")
 
@@ -226,33 +208,28 @@ generateTables <- function(cdm,
       .data$observation_date,
       .data$cohort_start_date
     ) %>%
+    dplyr::collect() %>%
     dplyr::group_by(.data$cohort_definition_id,
                     .data$subject_id,
                     .data$observation_concept_id) %>%
     dplyr::summarize(prevalence = dplyr::n_distinct(.data$observation_id),
-                     time_to_event_first = min(.data$observation_date - .data$cohort_start_date, na.rm = T),
-                     time_to_event_median = stats::median(.data$observation_date - .data$cohort_start_date, na.rm = T),
-                     time_to_event_last = max(.data$observation_date - .data$cohort_start_date, na.rm = T),
+                     time_to_event = list(stats::na.omit(.data$observation_date - .data$cohort_start_date)),
                      .groups = "drop") %>%
     dplyr::select(
       .data$cohort_definition_id,
       .data$subject_id,
       .data$observation_concept_id,
       .data$prevalence,
-      .data$time_to_event_first,
-      .data$time_to_event_median,
-      .data$time_to_event_last
+      .data$time_to_event
     ) %>%
-    dplyr::left_join(cdm$concept, by = c("observation_concept_id" = "concept_id")) %>%
+    dplyr::left_join(cdmConcepts, by = c("observation_concept_id" = "concept_id")) %>%
     dplyr::select(
       .data$cohort_definition_id,
       .data$subject_id,
       concept_id = .data$observation_concept_id,
       .data$concept_name,
       .data$prevalence,
-      .data$time_to_event_first,
-      .data$time_to_event_median,
-      .data$time_to_event_last
+      .data$time_to_event
     ) %>%
     dplyr::mutate(heritage = "observation")
 
@@ -271,14 +248,13 @@ generateTables <- function(cdm,
       .data$visit_start_date,
       .data$cohort_start_date
     ) %>%
+    dplyr::collect() %>%
     dplyr::group_by(.data$cohort_definition_id,
                     .data$subject_id,
                     .data$visit_concept_id) %>%
     dplyr::summarize(
       prevalence = dplyr::n_distinct(.data$visit_occurrence_id),
-      time_to_event_first = min(.data$visit_start_date - .data$cohort_start_date, na.rm = T),
-      time_to_event_median = stats::median(.data$visit_start_date - .data$cohort_start_date, na.rm = T),
-      time_to_event_last = max(.data$visit_start_date - .data$cohort_start_date, na.rm = T),
+      time_to_event = list(stats::na.omit(.data$visit_start_date - .data$cohort_start_date)),
       .groups = "drop"
     ) %>%
     dplyr::select(
@@ -286,20 +262,16 @@ generateTables <- function(cdm,
       .data$subject_id,
       .data$visit_concept_id,
       .data$prevalence,
-      .data$time_to_event_first,
-      .data$time_to_event_median,
-      .data$time_to_event_last
+      .data$time_to_event
     ) %>%
-    dplyr::left_join(cdm$concept, by = c("visit_concept_id" = "concept_id")) %>%
+    dplyr::left_join(cdmConcepts, by = c("visit_concept_id" = "concept_id")) %>%
     dplyr::select(
       .data$cohort_definition_id,
       .data$subject_id,
       concept_id = .data$visit_concept_id,
       .data$concept_name,
       .data$prevalence,
-      .data$time_to_event_first,
-      .data$time_to_event_median,
-      .data$time_to_event_last
+      .data$time_to_event
     ) %>%
     dplyr::mutate(heritage = "visit_occurrence")
 
@@ -319,33 +291,28 @@ generateTables <- function(cdm,
       .data$visit_detail_start_date,
       .data$cohort_start_date
     ) %>%
+    dplyr::collect() %>%
     dplyr::group_by(.data$cohort_definition_id,
                     .data$subject_id,
                     .data$visit_detail_concept_id) %>%
     dplyr::summarize(prevalence = dplyr::n_distinct(.data$visit_detail_id),
-                     time_to_event_first = min(.data$visit_detail_start_date - .data$cohort_start_date, na.rm = T),
-                     time_to_event_median = stats::median(.data$visit_detail_start_date - .data$cohort_start_date, na.rm = T),
-                     time_to_event_last = max(.data$visit_detail_start_date - .data$cohort_start_date, na.rm = T),
+                     time_to_event = list(stats::na.omit(.data$visit_detail_start_date - .data$cohort_start_date)),
                      .groups = "drop") %>%
     dplyr::select(
       .data$cohort_definition_id,
       .data$subject_id,
       .data$visit_detail_concept_id,
       .data$prevalence,
-      .data$time_to_event_first,
-      .data$time_to_event_median,
-      .data$time_to_event_last
+      .data$time_to_event
     ) %>%
-    dplyr::left_join(cdm$concept, by = c("visit_detail_concept_id" = "concept_id")) %>%
+    dplyr::left_join(cdmConcepts, by = c("visit_detail_concept_id" = "concept_id")) %>%
     dplyr::select(
       .data$cohort_definition_id,
       .data$subject_id,
       concept_id = .data$visit_detail_concept_id,
       .data$concept_name,
       .data$prevalence,
-      .data$time_to_event_first,
-      .data$time_to_event_median,
-      .data$time_to_event_last
+      .data$time_to_event
     ) %>%
     dplyr::mutate(heritage = "visit_detail")
 
@@ -361,9 +328,7 @@ generateTables <- function(cdm,
     concept_id = integer(),
     concept_name = character(),
     prevalence = numeric(),
-    time_to_event_first = numeric(),
-    time_to_event_median = numeric(),
-    time_to_event_last = numeric(),
+    time_to_event = list(),
     heritage = character()
   )
 
@@ -390,9 +355,7 @@ generateTables <- function(cdm,
             .data$heritage
           ) %>%
           dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE),
-                           time_to_event_first = min(.data$time_to_event_first, na.rm = TRUE),
-                           time_to_event_median = stats::median(.data$time_to_event_median, na.rm = TRUE),
-                           time_to_event_last = max(.data$time_to_event_last, na.rm = TRUE),
+                           time_to_event = list(unlist(.data$time_to_event)),
                            .groups = "drop") %>%
           dplyr::filter(.data$concept_id != 0)
         data_patients <-
@@ -408,9 +371,7 @@ generateTables <- function(cdm,
             .data$heritage
           ) %>%
           dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE),
-                           time_to_event_first = min(.data$time_to_event_first, na.rm = TRUE),
-                           time_to_event_median = stats::median(.data$time_to_event_median, na.rm = TRUE),
-                           time_to_event_last = max(.data$time_to_event_last, na.rm = TRUE),
+                           time_to_event = list(unlist(.data$time_to_event)),
                            .groups = "drop") %>%
           dplyr::filter(.data$concept_id != 0)
         data_patients <-
@@ -426,9 +387,7 @@ generateTables <- function(cdm,
             .data$heritage
           ) %>%
           dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE),
-                           time_to_event_first = min(.data$time_to_event_first, na.rm = TRUE),
-                           time_to_event_median = stats::median(.data$time_to_event_median, na.rm = TRUE),
-                           time_to_event_last = max(.data$time_to_event_last, na.rm = TRUE),
+                           time_to_event = list(unlist(.data$time_to_event)),
                            .groups = "drop") %>%
           dplyr::filter(.data$concept_id != 0)
         data_patients <-
@@ -444,9 +403,7 @@ generateTables <- function(cdm,
             .data$heritage
           ) %>%
           dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE),
-                           time_to_event_first = min(.data$time_to_event_first, na.rm = TRUE),
-                           time_to_event_median = stats::median(.data$time_to_event_median, na.rm = TRUE),
-                           time_to_event_last = max(.data$time_to_event_last, na.rm = TRUE),
+                           time_to_event = list(unlist(.data$time_to_event)),
                            .groups = "drop") %>%
           dplyr::filter(.data$concept_id != 0)
         data_patients <-
@@ -462,9 +419,7 @@ generateTables <- function(cdm,
             .data$heritage
           ) %>%
           dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE),
-                           time_to_event_first = min(.data$time_to_event_first, na.rm = TRUE),
-                           time_to_event_median = stats::median(.data$time_to_event_median, na.rm = TRUE),
-                           time_to_event_last = max(.data$time_to_event_last, na.rm = TRUE),
+                           time_to_event = list(unlist(.data$time_to_event)),
                            .groups = "drop") %>%
           dplyr::filter(.data$concept_id != 0)
         data_patients <-
@@ -480,9 +435,7 @@ generateTables <- function(cdm,
             .data$heritage
           ) %>%
           dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE),
-                           time_to_event_first = min(.data$time_to_event_first, na.rm = TRUE),
-                           time_to_event_median = stats::median(.data$time_to_event_median, na.rm = TRUE),
-                           time_to_event_last = max(.data$time_to_event_last, na.rm = TRUE),
+                           time_to_event = list(unlist(.data$time_to_event)),
                            .groups = "drop") %>%
           dplyr::filter(.data$concept_id != 0)
         data_patients <-
@@ -498,9 +451,7 @@ generateTables <- function(cdm,
             .data$heritage
           ) %>%
           dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE),
-                           time_to_event_first = min(.data$time_to_event_first, na.rm = TRUE),
-                           time_to_event_median = stats::median(.data$time_to_event_median, na.rm = TRUE),
-                           time_to_event_last = max(.data$time_to_event_last, na.rm = TRUE),
+                           time_to_event = list(unlist(.data$time_to_event)),
                            .groups = "drop") %>%
           dplyr::filter(.data$concept_id != 0)
         data_patients <-
@@ -518,9 +469,7 @@ generateTables <- function(cdm,
       "CONCEPT_NAME",
       "HERITAGE",
       "PREVALENCE",
-      "TIME_FIRST",
-      "TIME_MEDIAN",
-      "TIME_LAST"
+      "TIME_TO_EVENT"
     )
 
   # aggregate rows in case of multiple observation periods in same cohort + remove void concepts

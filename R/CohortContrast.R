@@ -20,6 +20,7 @@
 #' @param createC2TInput Boolean for creating Cohort2Trajectory input dataframe
 #' @param runZTests boolean for Z-tests
 #' @param runLogitTests boolean for logit-tests
+#' @param runKSTests boolean for Kolmogorov-Smirnov tests
 #' @param getAllAbstractions boolean for creating abstractions' levels for
 #' the imported data, this is useful when using GUI and exploring data
 #' @param maximumAbstractionLevel Maximum level of abstraction allowed
@@ -114,6 +115,7 @@ CohortContrast <- function(cdm,
                            createC2TInput = FALSE,
                            runZTests = TRUE,
                            runLogitTests = TRUE,
+                           runKSTests = TRUE,
                            getAllAbstractions = FALSE,
                            maximumAbstractionLevel = 10,
                            createOutputFiles = TRUE,
@@ -135,6 +137,7 @@ CohortContrast <- function(cdm,
     presenceFilter = presenceFilter,
     runZTests = runZTests,
     runLogitTests = runLogitTests,
+    runKSTests = runKSTests,
     getAllAbstractions = getAllAbstractions,
     createC2TInput = createC2TInput,
     safeRun = safeRun
@@ -158,7 +161,7 @@ if (is.data.frame(complementaryMappingTable) | getAllAbstractions) {
     concept = cdm$concept %>% as.data.frame()
 
     data$data_patients$PERSON_ID = as.integer(data$data_patients$PERSON_ID)
-    assertAncestryCompleteness(cdm)
+   assertAncestryCompleteness(cdm)
     printCustomMessage("Get data for all concept abstraction levels ...")
     max_min_levels <- concept_ancestor %>%
       dplyr::group_by(.data$descendant_concept_id) %>%
@@ -186,6 +189,7 @@ if (is.data.frame(complementaryMappingTable) | getAllAbstractions) {
                      presenceFilter,
                      runZTests,
                      runLogitTests,
+                     runKSTests,
                      numCores)
 
   data = handleFeatureSelection(data = data, pathToResults = pathToResults, topK = topK, prevalenceCutOff = prevalenceCutOff, targetCohortId = targetCohortId, runZTests = runZTests, runLogitTests = runLogitTests, createOutputFiles = createOutputFiles)
@@ -587,6 +591,77 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
   return(significant_concepts)
 }
 
+
+#' @title This function performs kolmogorov-smirnov tests on the patient concept occurrence date data target vs uniform distribution
+#'
+#' @param data_features Summarised data of features
+#' @param targetCohortId Target cohort id
+#' @param numCores Number of cores to allocate to parallel processing
+#' @importFrom foreach %dopar%
+#'
+#' @keywords internal
+performKSAnalysis <- function(data_features,
+                                      targetCohortId,
+                                      numCores = parallel::detectCores() - 1) {
+  printCustomMessage("Running KS-tests ...")
+  # Aggregate the ocurrence date data for each concept within each cohort
+  agg_data <- data_features %>% dplyr::select(.data$CONCEPT_ID, .data$ABSTRACTION_LEVEL, .data$TIME_TO_EVENT)
+
+
+  # Prepare a data frame to hold the results
+  significant_concepts <- data.frame(CONCEPT_ID = integer(), KSTEST = logical(), KSTEST_P_VALUE = double(), ABSTRACTION_LEVEL = integer())
+  # Setup cores
+  cl <- parallel::makeCluster(numCores)
+  doParallel::registerDoParallel(cl)
+  abstraction_level = NULL
+
+  # Parallelize the loop over abstraction levels
+  significant_concepts <- foreach::foreach(abstraction_level = unique(agg_data$ABSTRACTION_LEVEL), .combine = rbind, .packages = c("dplyr"),.export = c("abstraction_level")) %dopar% {
+    agg_data_abstraction_subset <- dplyr::filter(agg_data, .data$ABSTRACTION_LEVEL == abstraction_level)
+    alpha <- 0.05 / length(unique(agg_data_abstraction_subset$CONCEPT_ID))
+
+    level_results <- data.frame(CONCEPT_ID = integer(), KSTEST = logical(), KSTEST_P_VALUE = double(), ABSTRACTION_LEVEL = integer())
+
+
+    # Perform statistical test for each CONCEPT_ID within the abstraction level
+    for (concept_id in unique(agg_data_abstraction_subset$CONCEPT_ID)) {
+
+      concept_date_array =  unlist(dplyr::filter(agg_data_abstraction_subset, .data$CONCEPT_ID == concept_id, .data$ABSTRACTION_LEVEL == abstraction_level)$TIME_TO_EVENT)
+      #concept_date_array_min = min(concept_date_array)
+
+      if (is.null(concept_date_array)) {
+
+        level_results <- rbind(
+          level_results,
+          data.frame(
+            CONCEPT_ID = concept_id,
+            KSTEST = FALSE,
+            KSTEST_P_VALUE = 1,
+            ABSTRACTION_LEVEL = abstraction_level
+          )
+        )
+      } else {
+        concept_date_array_min = min(concept_date_array) # 0
+        concept_date_array_max = max(concept_date_array)
+        ks_result <- stats::ks.test(jitter(concept_date_array, amount=0.1), "punif", min=concept_date_array_min, max=concept_date_array_max)
+                level_results <- rbind(
+          level_results,
+          data.frame(
+            CONCEPT_ID = concept_id,
+            KSTEST = ks_result$p.value < alpha,
+            KSTEST_P_VALUE = ks_result$p.value,
+            ABSTRACTION_LEVEL = abstraction_level
+          )
+        )
+      }
+    }
+    return(level_results)
+  }
+  parallel::stopCluster(cl)
+  return(significant_concepts)
+}
+
+
 #' This filters data based on prevalence difference ratio and return the nHighestPrevalenceDifference greates differences
 #' @param data Data list object
 #' @param nHighestPrevalenceDifference Number of features with highest prevalence difference ratio to keep
@@ -615,9 +690,7 @@ calculate_data_features <-
                                      .data$PREVALENCE > 0),
         CONTROL_SUBJECT_COUNT = sum(.data$COHORT_DEFINITION_ID == 1 &
                                       .data$PREVALENCE > 0),
-        TIME_FIRST = stats::median(.data$TIME_FIRST[.data$COHORT_DEFINITION_ID == 2], na.rm = TRUE),
-        TIME_MEDIAN = stats::median(.data$TIME_MEDIAN[.data$COHORT_DEFINITION_ID == 2], na.rm = TRUE),
-        TIME_LAST = stats::median(.data$TIME_LAST[.data$COHORT_DEFINITION_ID == 2], na.rm = TRUE),
+        TIME_TO_EVENT = list(unlist(.data$TIME_TO_EVENT[.data$COHORT_DEFINITION_ID == 2])),
         .groups = 'drop'
       ) %>%
       dplyr::mutate(
@@ -688,9 +761,7 @@ handleMapping <- function(data, complementaryMappingTable, abstractionLevel = -1
                     .data$CONCEPT_NAME,
                     .data$HERITAGE) %>%
     dplyr::summarise(PREVALENCE = sum(.data$PREVALENCE, na.rm = TRUE),
-                     TIME_FIRST = min(.data$TIME_FIRST, na.rm = TRUE),
-                     TIME_MEDIAN = stats::median(.data$TIME_MEDIAN, na.rm = TRUE),
-                     TIME_LAST = max(.data$TIME_LAST, na.rm = TRUE),
+                     TIME_TO_EVENT = list(unlist(.data$TIME_TO_EVENT)),
                      .groups = 'drop')
   final_data_summarized <- final_data %>%
     dplyr::group_by(.data$CONCEPT_ID, .data$HERITAGE) %>%
@@ -713,9 +784,7 @@ handleMapping <- function(data, complementaryMappingTable, abstractionLevel = -1
                     .data$CONCEPT_NAME,
                     .data$HERITAGE) %>%
     dplyr::summarise(PREVALENCE = sum(.data$PREVALENCE, na.rm = TRUE),
-                     TIME_FIRST = min(.data$TIME_FIRST, na.rm = TRUE),
-                     TIME_MEDIAN = stats::median(.data$TIME_MEDIAN, na.rm = TRUE),
-                     TIME_LAST = max(.data$TIME_LAST, na.rm = TRUE),
+                     TIME_TO_EVENT = list(unlist(.data$TIME_TO_EVENT)),
                      .groups = 'drop') %>% as.data.frame()
   # Add abstraction level identifier
   result$ABSTRACTION_LEVEL = abstractionLevel
@@ -741,6 +810,7 @@ createDataFeatures <- function(data, topK) {
 #' @param presenceFilter numeric > if set, removes all features represented less than the given percentage
 #' @param runZTests boolean for Z-tests
 #' @param runLogitTests boolean for logit-tests
+#' @param runKSTests boolean for KS-tests
 #'
 #' @keywords internal
 
@@ -750,6 +820,7 @@ handleTests <-
            presenceFilter,
            runZTests = TRUE,
            runLogitTests = TRUE,
+           runKSTests = TRUE,
            numCores = parallel::detectCores() - 1) {
     data_features = data$data_features
     data_patients = data$data_patients
@@ -762,7 +833,6 @@ handleTests <-
                                   targetCohortId,
                                   presenceFilter,
                                   numCores = numCores)
-      data_features <-
         data_features <- data_features %>%
         dplyr::left_join(significant_concepts,by = c("ABSTRACTION_LEVEL", "CONCEPT_ID"))
       printCustomMessage("Z-test on data executed!")
@@ -780,7 +850,6 @@ handleTests <-
                                           targetCohortId,
                                           presenceFilter,
                                           numCores = numCores)
-      data_features <-
         data_features <- data_features %>%
         dplyr::left_join(significant_concepts, by = c("ABSTRACTION_LEVEL", "CONCEPT_ID"))
       printCustomMessage("Logit-test on data executed!")
@@ -788,6 +857,20 @@ handleTests <-
       data_features <- data_features %>%
         dplyr::mutate(LOGITTEST = FALSE, LOGITTEST_P_VALUE = 1)
       printCustomMessage("Logit-tests were disabled!")
+    }
+
+    # KS test
+    if (runKSTests) {
+      significant_concepts <-
+        performKSAnalysis(data_features,
+                          numCores = numCores)
+        data_features <- data_features %>%
+        dplyr::left_join(significant_concepts, by = c("ABSTRACTION_LEVEL", "CONCEPT_ID"))
+      printCustomMessage("Kolmogorov-Smirnov tests on data executed!")
+    }  else {
+      data_features <- data_features %>%
+        dplyr::mutate(KSTEST = FALSE, KSTEST_P_VALUE = 1)
+      printCustomMessage("Kolmogorov-Smirnov tests were disabled!")
     }
 
     # Overwrite data_features to apply tests
@@ -827,7 +910,7 @@ handleFeatureSelection <-
     n_features_left = nrow(data_features)
     trajectoryDataList = list()
 
-    # Now, significant_concepts_data contains only the concepts significantly overrepresented in target cohort
+    # Now, significant_concepts_data contains only the concepts significantly over-represented in target cohort
     if (n_features_left == 0) {
       printCustomMessage("Running analysis END!")
       printCustomMessage("No features left. Perhaps use more lenient filters!")
@@ -841,7 +924,7 @@ handleFeatureSelection <-
         createPathToResults(pathToResults = pathToResults)
         saveResult(data, pathToResults)
       }
-      stop("No features left. Perhaps use more lenient filters! Exiting ...")
+      warning("No features left. Perhaps use more lenient filters! Exiting ...")
       return(data)
     }
 
@@ -936,7 +1019,7 @@ createC2TInputFunction <-
         .data$PERSON_ID,
         .data$HERITAGE
       )
-      # Creating target cohort & eligible patients dataset
+      # Creating target cohort and eligible patients dataset
       data_target = dplyr::mutate(
         dplyr::filter(
           data$data_initial,
@@ -987,7 +1070,7 @@ createC2TInputFunction <-
 saveResult <- function(data, pathToResults) {
   # Generate a timestamp
   timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-  # Create the full file path with the timestamp included in the filename
+  # Create the full file path with the time-stamp included in the filename
   filePath <- file.path(pathToResults, paste0("CohortContrast_", timestamp, ".rds"))
   if(!is.null(data$config$complName)){
     filePath <- file.path(pathToResults, paste0(data$config$complName, ".rds"))
