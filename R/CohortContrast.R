@@ -17,7 +17,6 @@
 #' less than the given percentage
 #' @param complementaryMappingTable Mappingtable for mapping concept_ids if
 #' present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,
-#' @param createC2TInput Boolean for creating Cohort2Trajectory input dataframe
 #' @param runZTests boolean for Z-tests
 #' @param runLogitTests boolean for logit-tests
 #' @param runKSTests boolean for Kolmogorov-Smirnov tests
@@ -86,8 +85,7 @@
 #'   prevalenceCutOff = 0.1,
 #'   topK = FALSE,
 #'   presenceFilter = 0.005,
-#'   complementaryMappingTable = FALSE,
-#'   createC2TInput = FALSE,
+#'   complementaryMappingTable = NULL,
 #'   runZTests = FALSE,
 #'   runLogitTests = FALSE,
 #'   createOutputFiles = FALSE,
@@ -111,8 +109,7 @@ CohortContrast <- function(cdm,
                            prevalenceCutOff = 10,
                            topK = FALSE,
                            presenceFilter = 0.005,
-                           complementaryMappingTable = FALSE,
-                           createC2TInput = FALSE,
+                           complementaryMappingTable = NULL,
                            runZTests = TRUE,
                            runLogitTests = TRUE,
                            runKSTests = TRUE,
@@ -139,7 +136,6 @@ CohortContrast <- function(cdm,
     runLogitTests = runLogitTests,
     runKSTests = runKSTests,
     getAllAbstractions = getAllAbstractions,
-    createC2TInput = createC2TInput,
     safeRun = safeRun
   )
 
@@ -170,7 +166,8 @@ if (is.data.frame(complementaryMappingTable) | getAllAbstractions) {
     generateMappingTable <- generateMappingTable
     handleMapping <- handleMapping
     maxAbstraction <- NULL
-    new_data_patients <- foreach::foreach(maxAbstraction = maximumAbstractionLevel:0, .combine = rbind, .packages = c("CohortContrast", "dplyr"), .export = c("maxAbstraction")) %dopar% {
+    new_data_patients <- foreach::foreach(maxAbstraction = maximumAbstractionLevel:0, .combine = rbind, .packages = c("CohortContrast", "dplyr"),
+                                          .export = c("maxAbstraction")) %dopar% {
       # Load necessary libraries in each worker
       complementaryMappingTable = generateMappingTable(cdm = cdm, abstractionLevel = maxAbstraction, data = data, concept_ancestor = concept_ancestor, concept = concept, maxMinDataFrame =max_min_levels)
       complementaryMappingTable1 <- updateMapping(complementaryMappingTable)
@@ -193,12 +190,6 @@ if (is.data.frame(complementaryMappingTable) | getAllAbstractions) {
                      numCores)
 
   data = handleFeatureSelection(data = data, pathToResults = pathToResults, topK = topK, prevalenceCutOff = prevalenceCutOff, targetCohortId = targetCohortId, runZTests = runZTests, runLogitTests = runLogitTests, createOutputFiles = createOutputFiles)
-
-  # Maybe create separate. function for this
-  data = createC2TInputFunction(data,
-                        targetCohortId,
-                        createC2TInput,
-                        complementaryMappingTable)
 
   # Change ids to explicitly state "target" or "cohort"
   data$data_patients = dplyr::mutate(data$data_patients, COHORT_DEFINITION_ID = dplyr::if_else(.data$COHORT_DEFINITION_ID == 2, "target", "control"))
@@ -227,13 +218,17 @@ queryHeritageData <-
   function(dataPatient,
            cdm,
            split_data,
-           complementaryMappingTable = FALSE) {
+           complementaryMappingTable = NULL) {
     results_list <- lapply(names(split_data), function(heritage) {
       printCustomMessage(paste("Querying eligible ", heritage, " data ...", sep = ""))
       unique_person_ids <- unique(split_data[[heritage]]$PERSON_ID)
+      complementaryMappingTable_ids = NULL
+      if(is.data.frame(complementaryMappingTable)){
+      complementaryMappingTable_ids = complementaryMappingTable$CONCEPT_ID
+      }
       # Filter for tests
-      unique_concept_ids <-
-        unique(split_data[[heritage]]$CONCEPT_ID)
+      unique_concept_ids <- unique(
+        c(unique(split_data[[heritage]]$CONCEPT_ID), unique(complementaryMappingTable_ids)))
 
 
       query_result <- NULL
@@ -278,28 +273,29 @@ queryHeritageData <-
         "_exposure_", "_", paste(heritage, 'concept_id', sep = "_")
       )))
       # Ensure concept_map is created correctly
-      concept_map <-
-        unique(dataPatient[c("CONCEPT_ID", "CONCEPT_NAME")])
+      concept_map <- dataPatient %>% dplyr::select(.data$CONCEPT_ID, .data$CONCEPT_NAME) %>% dplyr::distinct()
+        # unique(dataPatient[c("CONCEPT_ID", "CONCEPT_NAME")])
 
       if (is.data.frame(complementaryMappingTable)) {
         # Join the dataframes on CONCEPT_ID
         concept_map <-
           dplyr::select(
             dplyr::mutate(
-              dplyr::left_join(
+              dplyr::full_join(
                 concept_map,
                 complementaryMappingTable,
-                by = "CONCEPT_ID"
+                by = "CONCEPT_NAME",
+                suffix = c("", ".old")
               ),
               # Choose the complementaryMappingTable CONCEPT_NAME if it's not NA; otherwise, use the original
-              CONCEPT_NAME = dplyr::if_else(
-                is.na(.data$CONCEPT_NAME.new),
-                .data$CONCEPT_NAME,
-                .data$CONCEPT_NAME.new
+              CONCEPT_ID.old = dplyr::if_else(
+                is.na(.data$CONCEPT_ID.old),
+                .data$CONCEPT_ID,
+                .data$CONCEPT_ID.old
               )
             ),
             # Select and rename the columns to match the original concept_map structure
-            .data$CONCEPT_ID,
+            CONCEPT_ID = .data$CONCEPT_ID.old,
             .data$CONCEPT_NAME
           )
 
@@ -307,7 +303,7 @@ queryHeritageData <-
       }
       concept_map[[concept_string]] <-
         as.character(concept_map[['CONCEPT_ID']]) # Ensure consistent data type
-      colnames(concept_map) <- c(concept_string, "CONCEPT_NAME")
+      #colnames(concept_map) <- c(concept_string, "CONCEPT_NAME")
       # Before applying the mapping, check if query_result is not empty and has 'CONCEPT_ID'
       if (nrow(query_result) > 0 &&
           concept_string %in% names(query_result)) {
@@ -337,18 +333,39 @@ queryHeritageData <-
         grep("DATETIME$", names(query_result), value = TRUE)
 
       # Check if we found any columns and get the first one
-      if (length(columns_ending_with_datetime) > 0) {
+      if (length(columns_ending_with_datetime) > 1) {
         first_column_ending_with_datetime <- columns_ending_with_datetime[1]
+        second_column_ending_with_datetime <- columns_ending_with_datetime[2]
+      } else if (length(columns_ending_with_datetime) == 1) {
+        first_column_ending_with_datetime <- columns_ending_with_datetime[1]
+        second_column_ending_with_datetime <- columns_ending_with_datetime[1]
       } else {
         first_column_ending_with_datetime <-
           NULL # or any other appropriate action
+        second_column_ending_with_datetime <-
+          NULL
       }
       query_result_mapped$START_DATE = query_result_mapped[[first_column_ending_with_datetime]]
+      query_result_mapped$END_DATE = query_result_mapped[[second_column_ending_with_datetime]]
+      query_result_mapped = query_result_mapped %>% dplyr::mutate(
+        END_DATE = dplyr::if_else(
+          .data$START_DATE == .data$END_DATE,
+          .data$END_DATE + lubridate::days(1),
+          .data$END_DATE
+        )
+      )
       query_result_mapped$CONCEPT_ID = query_result_mapped[["CONCEPT_NAME"]]
-      query_result_mapped = dplyr::select(query_result_mapped, .data$CONCEPT_ID, .data$PERSON_ID, .data$START_DATE)
-      query_result_mapped = dplyr::filter(query_result_mapped, .data$PERSON_ID %in% as.integer(unique_person_ids))
+      query_result_mapped = dplyr::select(
+        query_result_mapped,
+        .data$CONCEPT_ID,
+        .data$PERSON_ID,
+        .data$START_DATE,
+        .data$END_DATE
+      )
+      query_result_mapped = dplyr::filter(query_result_mapped,
+                                          .data$PERSON_ID %in% as.integer(unique_person_ids))
       printCustomMessage(paste("Quering eligible ", heritage, " data finished.", sep = ""))
-      return(query_result_mapped) # Assuming `query_result_mapped` is the final processed result
+      return(query_result_mapped)
     })
 
     return(results_list)
@@ -396,7 +413,8 @@ performPrevalenceAnalysis <- function(data_patients,
   doParallel::registerDoParallel(cl)
   abstraction_level = NULL
   # Parallelize the loop over abstraction levels
-  significant_concepts <- foreach::foreach(abstraction_level = unique(agg_data$ABSTRACTION_LEVEL), .combine = rbind, .packages = c("dplyr"),.export = c("abstraction_level")) %dopar% {
+  significant_concepts <- foreach::foreach(abstraction_level = unique(agg_data$ABSTRACTION_LEVEL),
+                                           .combine = rbind, .packages = c("dplyr"),.export = c("abstraction_level")) %dopar% {
     agg_data_abstraction_subset <- dplyr::filter(agg_data, .data$ABSTRACTION_LEVEL == abstraction_level)
     alpha <- 0.05 / length(unique(agg_data_abstraction_subset$CONCEPT_ID))
 
@@ -986,76 +1004,6 @@ handleFeatureSelection <-
     trajectoryDataList$selectedFeatureIds = features$CONCEPT_ID
     trajectoryDataList$selectedFeatures = features
     data$trajectoryDataList = trajectoryDataList
-    return(data)
-  }
-
-#' Function for creating dataset which can be used as input for Cohort2Trajectory package
-#' @param data Data list object
-#' @param targetCohortId Target cohort id
-#' @param createC2TInput Boolean for creating Cohort2Trajectory input dataframe
-#' @param complementaryMappingTable Mappingtable for mapping concept_ids if present
-#'
-#' @keywords internal
-
-createC2TInputFunction <-
-  function(data,
-           targetCohortId,
-           createC2TInput,
-           complementaryMappingTable = FALSE) {
-    if (createC2TInput) {
-      if(length(data$trajectoryDataList$selectedFeatureNames) < 1) {
-        printCustomMessage("WARNING: No features left for creating Cohort2Trajectory input.")
-        return(data)
-      }
-      data_selected_patients = dplyr::select(
-        dplyr::filter(
-          data$data_patients,
-          .data$ABSTRACTION_LEVEL == -1,
-          .data$CONCEPT_NAME %in% data$trajectoryDataList$selectedFeatureNames,
-          .data$COHORT_DEFINITION_ID == targetCohortId
-        ),
-        .data$CONCEPT_ID,
-        .data$CONCEPT_NAME,
-        .data$PERSON_ID,
-        .data$HERITAGE
-      )
-      # Creating target cohort and eligible patients dataset
-      data_target = dplyr::mutate(
-        dplyr::filter(
-          data$data_initial,
-          .data$COHORT_DEFINITION_ID == targetCohortId,
-          .data$SUBJECT_ID %in% unique(data_selected_patients$PERSON_ID)
-        ),
-        COHORT_DEFINITION_ID = 0
-      )
-
-      printCustomMessage("Creating a dataset for eligible patients only (Cohort2Trajectory input) ...")
-      # Creating state cohorts / eligible patients dataset
-      # Split the data by heritage
-      split_data <-
-        split(data_selected_patients, data_selected_patients$HERITAGE)
-      # Iterate over each heritage type and construct then execute SQL queries
-      results_list <-
-        queryHeritageData(
-          dataPatient = data_selected_patients,
-          cdm = data$cdm,
-          split_data = split_data,
-          complementaryMappingTable = complementaryMappingTable
-        )
-
-      data_states <- do.call(rbind, results_list)
-      data_states$END_DATE = data_states$START_DATE
-      # Assuming you want to combine all results into a single data fram
-      colnames(data_states) <-
-        c("COHORT_DEFINITION_ID",
-          "SUBJECT_ID",
-          "COHORT_START_DATE",
-          "COHORT_END_DATE")
-
-      data$trajectoryDataList$trajectoryData = rbind(data_target, data_states)
-      # Convert from int64 to integer
-      data$trajectoryDataList$trajectoryData$SUBJECT_ID = as.integer(data$trajectoryDataList$trajectoryData$SUBJECT_ID)
-    }
     return(data)
   }
 

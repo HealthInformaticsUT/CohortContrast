@@ -11,7 +11,8 @@ format_results <-
            applyLogitTest,
            abstractionLevel) {
     # Convert data frames to data.table
-    data$data_initial <- data.table::as.data.table(data$data_initial)
+    data$data_initial <-
+      data.table::as.data.table(data$data_initial)
     data$data_features <-
       data.table::as.data.table(data$data_features)
     data$data_patients <-
@@ -36,25 +37,28 @@ format_results <-
 
     # Update data features with prevalence calculations
     data_features_temp <-
-      data$data_features[get("ABSTRACTION_LEVEL") == abstractionLevel, list(get("CONCEPT_ID"),
-                                                                            get("ZTEST"),
-                                                                            get("LOGITTEST"),
-                                                                            get("TIME_FIRST"),
-                                                                            get("TIME_MEDIAN"),
-                                                                            get("TIME_LAST"),
-                                                                            get("ABSTRACTION_LEVEL"))]
+      data$data_features[get("ABSTRACTION_LEVEL") == abstractionLevel, list(
+        get("CONCEPT_ID"),
+        get("ZTEST"),
+        get("LOGITTEST"),
+        get("TIME_FIRST"),
+        get("TIME_MEDIAN"),
+        get("TIME_LAST"),
+        get("ABSTRACTION_LEVEL")
+      )]
 
     # First, calculate the counts for target and control subjects
-    data$data_features <- data$data_patients[get("ABSTRACTION_LEVEL") == abstractionLevel,
-                                             list(
-                                               TARGET_SUBJECT_COUNT = sum(
-                                                 get("COHORT_DEFINITION_ID") == "target" & get("PREVALENCE") > 0
-                                               ),
-                                               CONTROL_SUBJECT_COUNT = sum(
-                                                 get("COHORT_DEFINITION_ID") == "control" & get("PREVALENCE") > 0
-                                               )
-                                             ),
-                                             by = list(get("CONCEPT_ID"), get("CONCEPT_NAME"))]
+    data$data_features <-
+      data$data_patients[get("ABSTRACTION_LEVEL") == abstractionLevel,
+                         list(
+                           TARGET_SUBJECT_COUNT = sum(
+                             get("COHORT_DEFINITION_ID") == "target" & get("PREVALENCE") > 0
+                           ),
+                           CONTROL_SUBJECT_COUNT = sum(
+                             get("COHORT_DEFINITION_ID") == "control" & get("PREVALENCE") > 0
+                           )
+                         ),
+                         by = list(get("CONCEPT_ID"), get("CONCEPT_NAME"))]
 
     # Now, calculate the prevalences
     data$data_features[, `:=`(
@@ -72,8 +76,7 @@ format_results <-
           "CONTROL_SUBJECT_PREVALENCE"
         )) |
           get("CONTROL_SUBJECT_PREVALENCE") == 0) &
-          is.na(get("TARGET_SUBJECT_PREVALENCE")),
-        -1,
+          is.na(get("TARGET_SUBJECT_PREVALENCE")),-1,
         data.table::fifelse(
           is.na(get("CONTROL_SUBJECT_PREVALENCE")) |
             get("CONTROL_SUBJECT_PREVALENCE") == 0,
@@ -113,8 +116,7 @@ format_results <-
         )][, get("PREVALENCE_DIFFERENCE_RATIO") := data.table::fifelse(
           is.na(get("CONTROL_SUBJECT_PREVALENCE")) |
             get("CONTROL_SUBJECT_PREVALENCE") == 0 &
-            is.na(get("TARGET_SUBJECT_PREVALENCE")),
-          -1,
+            is.na(get("TARGET_SUBJECT_PREVALENCE")),-1,
           data.table::fifelse(
             is.na(get("CONTROL_SUBJECT_PREVALENCE")) |
               get("CONTROL_SUBJECT_PREVALENCE") == 0,
@@ -138,10 +140,11 @@ format_results <-
       )), units = "days"))]
 
       # Calculate the scaled prevalence for each PERSON_ID
-      scaled_prevalence <- merge(data$data_patients[get("ABSTRACTION_LEVEL") == abstractionLevel],
-                                 data$data_initial[, list(get("SUBJECT_ID"), get("COHORT_DURATION"))],
-                                 by.x = "PERSON_ID",
-                                 by.y = "SUBJECT_ID")[, get("SCALED_PREVALENCE") := get("PREVALENCE") / (get("COHORT_DURATION") / 365)]
+      scaled_prevalence <-
+        merge(data$data_patients[get("ABSTRACTION_LEVEL") == abstractionLevel],
+              data$data_initial[, list(get("SUBJECT_ID"), get("COHORT_DURATION"))],
+              by.x = "PERSON_ID",
+              by.y = "SUBJECT_ID")[, get("SCALED_PREVALENCE") := get("PREVALENCE") / (get("COHORT_DURATION") / 365)]
 
       # Update features with scaled prevalence
       data$data_features <-
@@ -205,10 +208,14 @@ format_results <-
 
     # Perform the left join and select specific columns
     wider_dt <-
-      wider_dt[data$data_features[, list(get("CONCEPT_ID"), get("TIME_FIRST"), get("TIME_MEDIAN"), get("TIME_LAST"))], nomatch = 0]
+      wider_dt[data$data_features[, list(get("CONCEPT_ID"),
+                                         get("TIME_FIRST"),
+                                         get("TIME_MEDIAN"),
+                                         get("TIME_LAST"))], nomatch = 0]
 
     # Store the result of grep in a variable
-    columns_to_rename <- grep("^[0-9]", names(wider_dt), value = TRUE)
+    columns_to_rename <-
+      grep("^[0-9]", names(wider_dt), value = TRUE)
     # Check if there are any columns to rename
     if (length(columns_to_rename) > 0) {
       # Rename the columns that start with a number
@@ -219,8 +226,9 @@ format_results <-
       message("No columns starting with a number were found.")
     }
     # Filter and mutate the results
-    target_df <- data.table::as.data.table(wider_dt["CONCEPT_ID" != 999999999 &
-                                                      "CONCEPT_ID" != "0"])
+    target_df <-
+      data.table::as.data.table(wider_dt["CONCEPT_ID" != 999999999 &
+                                           "CONCEPT_ID" != "0"])
     target_df[, get("CONCEPT_ID") := as.character(get("CONCEPT_ID"))]
 
     target_df[, get("CONCEPT_NAME") := gsub("(.{30})", "\\1\n", get("CONCEPT_NAME"))] # nolint
@@ -251,10 +259,17 @@ format_results <-
 
     ### Time target
 
-    target_time_annotation <- data$data_patients[
-      get("COHORT_DEFINITION_ID") == "target" & get("ABSTRACTION_LEVEL") == abstractionLevel,
-      list(get("PERSON_ID"), get("CONCEPT_ID"), get("CONCEPT_NAME"), get("TIME_FIRST"), get("TIME_MEDIAN"), get("TIME_LAST"), get("HERITAGE"))
-    ]
+    target_time_annotation <- data$data_patients[get("COHORT_DEFINITION_ID") == "target" &
+                                                   get("ABSTRACTION_LEVEL") == abstractionLevel,
+                                                 list(
+                                                   get("PERSON_ID"),
+                                                   get("CONCEPT_ID"),
+                                                   get("CONCEPT_NAME"),
+                                                   get("TIME_FIRST"),
+                                                   get("TIME_MEDIAN"),
+                                                   get("TIME_LAST"),
+                                                   get("HERITAGE")
+                                                 )]
     target_time_annotation[, get("CONCEPT_NAME") := gsub("(.{30})", "\\1\n", get("CONCEPT_NAME"))] # nolint
 
 
@@ -275,10 +290,11 @@ filter_target <-
            removeUntreated = FALSE) {
     res <- target
     # Apply filters using data.table
-    res$target_row_annotation <- res$target_row_annotation[res$target_row_annotation$PREVALENCE >= prevalence_threshold &
-                                                             res$target_row_annotation$PREVALENCE_DIFFERENCE_RATIO > prevalence_ratio_threshold &
-                                                             res$target_row_annotation$HERITAGE %in% domains
-                                                           , ]
+    res$target_row_annotation <-
+      res$target_row_annotation[res$target_row_annotation$PREVALENCE >= prevalence_threshold &
+                                  res$target_row_annotation$PREVALENCE_DIFFERENCE_RATIO > prevalence_ratio_threshold &
+                                  res$target_row_annotation$HERITAGE %in% domains
+                                ,]
 
     # Ensure rownames are aligned with res$target_matrix
     if (!all(rownames(res$target_row_annotation) %in% rownames(res$target_matrix))) {
@@ -287,12 +303,10 @@ filter_target <-
 
     # Update target_matrix to only include rows from filtered target_row_annotation
     res$target_matrix <-
-      res$target_matrix[rownames(res$target_row_annotation),]
+      res$target_matrix[rownames(res$target_row_annotation), ]
 
     # Update target_time_annotation to only include rows from filtered target_row_annotation
-    res$target_time_annotation <- res$target_time_annotation[
-      get("CONCEPT_ID") %in% rownames(res$target_row_annotation)
-    ]
+    res$target_time_annotation <- res$target_time_annotation[get("CONCEPT_ID") %in% rownames(res$target_row_annotation)]
 
     if (removeUntreated) {
       # Calculate column sums and filter out columns with zero sum
@@ -310,8 +324,9 @@ filter_target <-
         res$target_matrix[, non_zero_colnames, drop = FALSE]
 
       # Filter target_col_annotation to match the filtered target_matrix
-      res$target_col_annotation <- res$target_col_annotation[rownames(res$target_col_annotation) %in% colnames(res$target_matrix), ,
-                                                             drop = FALSE]
+      res$target_col_annotation <-
+        res$target_col_annotation[rownames(res$target_col_annotation) %in% colnames(res$target_matrix), ,
+                                  drop = FALSE]
     }
 
     return(res)
@@ -350,7 +365,7 @@ plot_prevalence <- function(filtered_target) {
         list(as.matrix(filtered_target$target_matrix)[, 1])
       } else {
         lapply(seq_len(nrow(filtered_target$target_matrix)), function(i)
-          as.matrix(filtered_target$target_matrix)[i,])
+          as.matrix(filtered_target$target_matrix)[i, ])
       }
     ),
     by = "CONCEPT_ID") %>%
@@ -428,6 +443,7 @@ plot_prevalence <- function(filtered_target) {
         )
       )
     )
+  # Plot
 
   heritage_colors <-
     data.frame(
@@ -441,55 +457,55 @@ plot_prevalence <- function(filtered_target) {
         "visit_detail"
       ),
       color = c(
-        "darkblue",
-        "orange",
-        "lightblue",
-        "pink",
-        "brown",
-        "darkgreen",
-        "lightgreen"
+        "#4B99C9",
+        "#FFB347",
+        "#B39EB5",
+        "#FFB3AB",
+        "#77DD77",
+        "#FDFD96",
+        "#AEC6CF"
       )
     )
-
-
   # Merge the colors into the main dataset
   plotdata <-
     merge(plotdata, heritage_colors, by = "HERITAGE", all.x = TRUE)
+  # Plot
   # Plot
   p1 <-
     ggplot2::ggplot(
       plotdata,
       ggplot2::aes(
         x = .data$PREVALENCE,
-        y = .data$CONCEPT_NAME,
+        y = stringr::str_sub(.data$CONCEPT_NAME, 1, 60),
         fill = .data$PREVALENCE_LOG
       )
     ) +
-    geom_bar(stat = "identity") +
+    ggplot2::geom_bar(stat = "identity") +
     ggplot2::facet_grid(.data$HERITAGE ~ ., space = "free_y", scales = "free_y") +
-    scale_fill_viridis_c(
+    ggplot2::scale_fill_viridis_c(
       "Risk ratio (log10-scaled)\ncompared to background",
       limits = c(0, 2),
       oob = scales::squish
     ) + # Ensure fill values are between 0 and 3
-    scale_x_continuous(labels = scales::label_percent()) +
-    ggtitle("Prevalence") +
-    theme_bw() +
-    theme(
-      axis.title = element_blank(),
+    ggplot2::scale_x_continuous(labels = scales::label_percent()) +
+    ggplot2::ggtitle("Prevalence") +
+    ggplot2::theme_bw() +
+    ggplot2::theme(
+      axis.title = ggplot2::element_blank(),
       legend.position = "bottom",
-      strip.background = element_blank(),
-      strip.text = element_blank(),
-      axis.text.y = element_text(size = 15) # Adjust the size as needed
+      strip.background = ggplot2::element_blank(),
+      strip.text = ggplot2::element_blank(),
+      panel.spacing = ggplot2::unit(0.5, "lines"),
+      axis.text.y = ggplot2::element_text(size = 15) # Adjust the size as needed
     )
 
   p2 <-
     ggplot2::ggplot(plotdata,
                     ggplot2::aes(
-                      y = .data$CONCEPT_NAME,
+                      y = stringr::str_sub(.data$CONCEPT_NAME, 1, 60),
                       color = .data$AGE_DIFF_SIGNIFICANT
                     )) +
-    geom_rect(aes(
+    ggplot2::geom_rect(aes(
       xmin = -Inf,
       xmax = Inf,
       ymin = -Inf,
@@ -505,7 +521,7 @@ plot_prevalence <- function(filtered_target) {
     linewidth = 5) +
     ggplot2::geom_vline(ggplot2::aes(xintercept = .data$AVERAGE_AGE_OVERALL),
                         color = "darkgreen") +
-    scale_fill_manual(values = stats::setNames(heritage_colors$color, heritage_colors$HERITAGE)) +  # Assign colors
+    ggplot2::scale_fill_manual(values = stats::setNames(heritage_colors$color, heritage_colors$HERITAGE)) +  # Assign colors
     ggplot2::scale_color_manual(values = c("grey60", "blue"),
                                 breaks = c(FALSE, TRUE)) +
     ggplot2::facet_grid(.data$HERITAGE ~ ., space = "free_y", scales = "free_y") +
@@ -518,50 +534,60 @@ plot_prevalence <- function(filtered_target) {
       axis.ticks.y = ggplot2::element_blank(),
       strip.background = ggplot2::element_blank(),
       strip.text = ggplot2::element_blank(),
-      legend.position = "none"
+      legend.position = "none",
+      panel.spacing = unit(0.5, "lines")
     )
 
 
   # Create the plot with backgrounds
   p3 <-
-    ggplot(plotdata,
-           aes(
-             y = .data$CONCEPT_NAME,
-             color = .data$MALE_PROP_DIFF_SIGNIFICANT
-           )) +
-    geom_rect(aes(
-      xmin = -Inf,
-      xmax = Inf,
-      ymin = -Inf,
-      ymax = Inf,
-      fill = .data$HERITAGE
-    ),
-    alpha = 0.5) +  # Use alpha to adjust visibility
-    geom_point(aes(x = .data$MALE_PROP_DIFF_ESTIMATE)) +
-    geom_errorbar(aes(
-      xmin = .data$MALE_PROP_DIFF_LOW,
-      xmax = .data$MALE_PROP_DIFF_HIGH
-    ),
-    linewidth = 5) +
-    geom_vline(aes(xintercept = .data$MALE_PROP_OVERALL), color = "darkgreen") +
-    scale_fill_manual(values = stats::setNames(heritage_colors$color, heritage_colors$HERITAGE)) +  # Assign colors for HERITAGE
-    scale_color_manual(values = c("grey60", "blue"),
-                       breaks = c(FALSE, TRUE)) +  # Colors for significant differences
-    scale_x_continuous(labels = scales::label_percent()) +
-    facet_grid(.data$HERITAGE ~ ., space = "free_y", scales = "free_y") +
-    ggtitle("Male percentage in group") +
-    theme_bw() +
-    guides(color = "none") +  # Hide the color guide
-    theme(
-      panel.spacing = unit(1, "lines"),
-      # Adjust spacing between panels
-      strip.background = element_blank(),
+    ggplot2::ggplot(
+      plotdata,
+      ggplot2::aes(
+        y = stringr::str_sub(.data$CONCEPT_NAME, 1, 60),
+        color = .data$MALE_PROP_DIFF_SIGNIFICANT
+      )
+    ) +
+    ggplot2::geom_rect(
+      ggplot2::aes(
+        xmin = -Inf,
+        xmax = Inf,
+        ymin = -Inf,
+        ymax = Inf,
+        fill = .data$HERITAGE
+      ),
+      alpha = 0.5
+    ) +  # Use alpha to adjust visibility
+    ggplot2::geom_point(ggplot2::aes(x = .data$MALE_PROP_DIFF_ESTIMATE)) +
+    ggplot2::geom_errorbar(
+      ggplot2::aes(
+        xmin = .data$MALE_PROP_DIFF_LOW,
+        xmax = .data$MALE_PROP_DIFF_HIGH
+      ),
+      linewidth = 5
+    ) +
+    ggplot2::geom_vline(ggplot2::aes(xintercept = .data$MALE_PROP_OVERALL),
+                        color = "darkgreen") +
+    ggplot2::scale_fill_manual(values = stats::setNames(heritage_colors$color, heritage_colors$HERITAGE)) +  # Assign colors for HERITAGE
+    ggplot2::scale_color_manual(values = c("grey60", "blue"),
+                                breaks = c(FALSE, TRUE)) +  # Colors for significant differences
+    ggplot2::scale_x_continuous(labels = scales::label_percent()) +
+    ggplot2::facet_grid(.data$HERITAGE ~ ., space = "free_y", scales = "free_y") +
+    ggplot2::ggtitle("Male percentage in group") +
+    ggplot2::theme_bw() +
+    ggplot2::guides(color = "none") +  # Hide the color guide
+    ggplot2::theme(
+      panel.spacing = ggplot2::unit(0.5, "lines"),
+      strip.background = ggplot2::element_blank(),
       # Hide the strip background
       legend.position = "bottom",
+      strip.text.x = ggplot2::element_blank(),
+      # Remove facet labels
       # Place the fill guide (HERITAGE) at the bottom
-      axis.title = element_blank(),
-      axis.text.y = element_blank(),
-      axis.ticks.y = element_blank()
+      axis.title = ggplot2::element_blank(),
+      axis.text.y = ggplot2::element_blank(),
+      strip.text.y = ggplot2::element_blank(),
+      axis.ticks.y = ggplot2::element_blank()
     )
 
   # Combine plots
@@ -571,109 +597,6 @@ plot_prevalence <- function(filtered_target) {
   return(p)
 }
 
-plot_time <- function(filtered_target) {
-  # Check if the input is NULL or empty
-  if (is.null(filtered_target) ||
-      nrow(filtered_target$target_row_annotation) == 0) {
-    return(
-      ggplot2::ggplot() +
-        ggplot2::annotate(
-          "text",
-          x = 0.5,
-          y = 0.5,
-          label = "After filtering there are no concepts left",
-          hjust = 0.5,
-          vjust = 0.5,
-          size = 12,
-          fontface = "bold",
-          color = "black"
-        ) +
-        ggplot2::theme_void()
-    )
-  } else if (is.null(nrow(filtered_target$target_matrix))) {
-    filtered_target$target_matrix <-
-      t(as.matrix(filtered_target$target_matrix)[1:length(filtered_target$target_matrix), , drop = FALSE])
-    rownames(filtered_target$target_matrix) <-
-      rownames(filtered_target$target_row_annotation)
-  }
-
-  filtered_target$target_time_annotation <-
-    as.data.frame(filtered_target$target_time_annotation)
-
-  # Heritage colors pre-defined
-  heritage_colors <- c(
-    procedure_occurrence = "#4B99C9",  # Pastel blue
-    condition_occurrence = "#FFB347",  # Pastel orange
-    drug_exposure = "#B39EB5",         # Pastel purple
-    measurement = "#FFB3AB",           # Pastel red
-    observation = "#77DD77",           # Pastel green
-    visit_occurrence = "#FDFD96",      # Pastel yellow
-    visit_detail = "#AEC6CF"           # Pastel pink
-  )
-
-  # Filter heritage colors based on what's present in annotation_row
-  active_heritage_colors <-
-    heritage_colors[names(heritage_colors) %in% unique(filtered_target$target_time_annotation$HERITAGE)]
-
-  p1 <- ggplot2::ggplot(filtered_target$target_time_annotation, ggplot2::aes(x = .data$TIME_FIRST, y = stringr::str_sub(.data$CONCEPT_NAME, 1, 60), fill = .data$HERITAGE)) +
-    ggplot2::geom_boxplot(outlier.shape = NA) +  # Hide outliers
-    ggplot2::scale_fill_manual(values = heritage_colors) +  # Apply custom colors
-    ggplot2::facet_grid(.data$HERITAGE ~ ., scales = "free_y", space = "free") +  # Use facet_grid for better control
-    ggplot2::theme_bw() +  # Apply minimal theme
-    ggplot2::labs( x = "Time (days)") +
-    ggplot2::ggtitle("First occurrance") +
-    ggplot2::theme(
-      strip.text.x = ggplot2::element_blank(),  # Remove facet labels
-      strip.background = ggplot2::element_blank(),
-      strip.text.y = ggplot2::element_blank(),
-      axis.title = ggplot2::element_blank(),
-      axis.text.y = ggplot2::element_text(size = 15),
-      panel.spacing = ggplot2::unit(0.5, "lines"),  # Reduce spacing between panels
-      legend.position = "none"
-    )
-
-  p2 <-
-    ggplot2::ggplot(filtered_target$target_time_annotation, ggplot2::aes(x = .data$TIME_MEDIAN, y = stringr::str_sub(.data$CONCEPT_NAME, 1, 60), fill = .data$HERITAGE)) +
-    ggplot2::geom_boxplot(outlier.shape = NA) +  # Hide outliers
-    ggplot2::scale_fill_manual(values = heritage_colors) +  # Apply custom colors
-    ggplot2::facet_grid(.data$HERITAGE ~ ., scales = "free_y", space = "free") +  # Use facet_grid for better control
-    ggplot2::theme_bw() +  # Apply minimal theme
-    #    labs(title = "", y = "Concept Name", x = "Time (days)") +
-    ggplot2::ggtitle("Median occurrance") +
-    ggplot2::theme(
-      strip.text.x = ggplot2::element_blank(),  # Remove facet labels
-      strip.background = ggplot2::element_blank(),
-      strip.text.y = ggplot2::element_blank(),
-      panel.spacing = ggplot2::unit(0.5, "lines"),  # Reduce spacing between panels
-      axis.title = ggplot2::element_blank(),
-      axis.text.y = ggplot2::element_blank(),
-      legend.position = "bottom"
-    )
-
-
-  # Create the plot with backgrounds
-  p3 <-
-    ggplot2::ggplot(filtered_target$target_time_annotation, ggplot2::aes(x = .data$TIME_LAST, y = stringr::str_sub(.data$CONCEPT_NAME, 1, 60), fill = .data$HERITAGE)) +
-    ggplot2::geom_boxplot(outlier.shape = NA) +  # Hide outliers
-    ggplot2::scale_fill_manual(values = heritage_colors) +  # Apply custom colors
-    ggplot2::facet_grid(HERITAGE ~ ., scales = "free_y", space = "free") +  # Use facet_grid for better control
-    ggplot2::theme_bw() +
-    ggplot2::ggtitle("Last occurrance") +
-    ggplot2::theme(
-      strip.text.x = ggplot2::element_blank(),  # Remove facet labels
-      strip.background = ggplot2::element_blank(),
-      strip.text.y = ggplot2::element_blank(),
-      panel.spacing = ggplot2::unit(0.5, "lines"),  # Reduce spacing between panels
-      axis.title = ggplot2::element_blank(),
-      axis.text.y = ggplot2::element_blank(),
-      legend.position = "none"
-    )
-
-  # Combine plots
-  p <-
-    p1 + p2 + p3 + patchwork::plot_layout(nrow = 1, heights = c(1, 1, 1))
-  p
-}
 
 
 #' @keywords internal
@@ -723,7 +646,7 @@ plot_heatmap <- function(filtered_target) {
     dplyr::mutate(MATRIX = purrr::map(.data$MATRIX,
                                       function(x) {
                                         if (nrow(x) > 1) {
-                                          x <- x[stats::hclust(stats::dist(x))$order,]
+                                          x <- x[stats::hclust(stats::dist(x))$order, ]
                                         }
 
                                         return(x)
@@ -732,7 +655,7 @@ plot_heatmap <- function(filtered_target) {
   tm_gaps <- purrr::map_int(reordering$MATRIX, nrow) %>% cumsum()
   tm2 <- as.matrix(tm)
   rownames(tm2) <-
-    filtered_target$target_row_annotation[rownames(tm),]$CONCEPT_NAME
+    filtered_target$target_row_annotation[rownames(tm), ]$CONCEPT_NAME
   annotation_row <- filtered_target$target_row_annotation %>%
     dplyr::arrange(.data$CONCEPT_NAME) %>%
     tibble::remove_rownames() %>%
@@ -741,13 +664,19 @@ plot_heatmap <- function(filtered_target) {
   annotation_col <- filtered_target$target_col_annotation
   # Heritage colors pre-defined
   heritage_colors <- c(
-    procedure_occurrence = "darkblue",
-    condition_occurrence = "orange",
-    drug_exposure = "lightblue",
-    measurement = "pink",
-    observation = "brown",
-    visit_occurrence = "darkgreen",
-    visit_detail = "lightgreen"
+    procedure_occurrence = "#4B99C9",
+    # Pastel blue
+    condition_occurrence = "#FFB347",
+    # Pastel orange
+    drug_exposure = "#B39EB5",
+    # Pastel purple
+    measurement = "#FFB3AB",
+    # Pastel red
+    observation = "#77DD77",
+    # Pastel green
+    visit_occurrence = "#FDFD96",
+    # Pastel yellow
+    visit_detail = "#AEC6CF"           # Pastel pink
   )
 
   active_gender_colors <-
@@ -766,12 +695,12 @@ plot_heatmap <- function(filtered_target) {
 
   # Specify colors including a dynamic gradient for AGE
   annotation_colors <- list(
-    AGE = grDevices::colorRampPalette(c("lightblue", "firebrick"))(length(unique(
+    AGE = colorRampPalette(c("lightblue", "firebrick"))(length(unique(
       annotation_col$AGE
     ))),
     GENDER = active_gender_colors,
     HERITAGE = active_heritage_colors,
-    PREVALENCE = grDevices::colorRampPalette(c("white", "purple"))(length(unique(
+    PREVALENCE = colorRampPalette(c("white", "purple"))(length(unique(
       annotation_row$PREVALENCE
     )))
   )
@@ -783,7 +712,20 @@ plot_heatmap <- function(filtered_target) {
     dplyr::arrange(.data$HERITAGE, dplyr::desc(toupper(.data$CONCEPT_NAME))) %>%
     tibble::column_to_rownames("CONCEPT_NAME")
   # Apply the same order to the matrix
-  tm2 <- tm2[rownames(annotation_row),]
+  tm2 <- tm2[rownames(annotation_row), ]
+
+  # Truncate row names to 60 characters and ensure uniqueness
+  unique_names <- function(names) {
+    short_names <- stringr::str_sub(names, 1, 60)
+    # Append a suffix if there are duplicates
+    if (length(unique(short_names)) < length(short_names)) {
+      counts <- as.numeric(stats::ave(short_names, short_names, FUN = seq_along))
+      short_names <- paste(short_names, counts, sep = "_")
+    }
+    return(short_names)
+  }
+
+  rownames(tm2) <- unique_names(rownames(tm2))
 
   pheatmap::pheatmap(
     tm2,
@@ -799,6 +741,171 @@ plot_heatmap <- function(filtered_target) {
     legend_labels = c("Absent", "Present")
   )
 }
+
+
+#' @keywords internal
+plot_time <- function(filtered_target) {
+  # Check if the input is NULL or empty
+  if (is.null(filtered_target) ||
+      nrow(filtered_target$target_row_annotation) == 0) {
+    return(
+      ggplot2::ggplot() +
+        ggplot2::annotate(
+          "text",
+          x = 0.5,
+          y = 0.5,
+          label = "After filtering there are no concepts left",
+          hjust = 0.5,
+          vjust = 0.5,
+          size = 12,
+          fontface = "bold",
+          color = "black"
+        ) +
+        ggplot2::theme_void()
+    )
+  } else if (is.null(nrow(filtered_target$target_matrix))) {
+    filtered_target$target_matrix <-
+      t(as.matrix(filtered_target$target_matrix)[1:length(filtered_target$target_matrix), , drop = FALSE])
+    rownames(filtered_target$target_matrix) <-
+      rownames(filtered_target$target_row_annotation)
+  }
+
+  filtered_target$target_time_annotation <-
+    as.data.frame(filtered_target$target_time_annotation)
+
+  # Heritage colors pre-defined
+  heritage_colors <- c(
+    procedure_occurrence = "#4B99C9",
+    # Pastel blue
+    condition_occurrence = "#FFB347",
+    # Pastel orange
+    drug_exposure = "#B39EB5",
+    # Pastel purple
+    measurement = "#FFB3AB",
+    # Pastel red
+    observation = "#77DD77",
+    # Pastel green
+    visit_occurrence = "#FDFD96",
+    # Pastel yellow
+    visit_detail = "#AEC6CF"           # Pastel pink
+  )
+
+
+  plot_data <-
+    filtered_target$target_time_annotation %>% dplyr::mutate(TIME_MEDIAN = sapply(.data$TIME_TO_EVENT, stats::median, na.rm = TRUE)) %>%
+    dplyr::group_by(.data$CONCEPT_ID) %>%
+    dplyr::summarise(
+      CONCEPT_NAME = dplyr::first(.data$CONCEPT_NAME),
+      # Taking the first instance assuming uniformity across the group
+      HERITAGE = dplyr::first(.data$HERITAGE),
+      # Similarly for HERITAGE
+      TIME_TO_EVENT = list(unlist(.data$TIME_TO_EVENT)),
+      TIME_MEDIAN = list(.data$TIME_MEDIAN),
+      KSTEST = dplyr::first(.data$KSTEST),
+      # Similarly for KSTEST
+      .groups = "drop"                     # Drop grouping information after summarising
+    )
+
+  plot_data2 = plot_data %>% dplyr::select(.data$CONCEPT_NAME, .data$TIME_MEDIAN, .data$HERITAGE) %>% tidyr::unnest(.data$TIME_MEDIAN)  # Make sure TIME_MEDIAN is no longer a list
+  plot_data3 = plot_data %>% dplyr::select(.data$CONCEPT_NAME,
+                                           .data$TIME_TO_EVENT,
+                                           .data$HERITAGE,
+                                           .data$KSTEST) %>% tidyr::unnest(.data$TIME_TO_EVENT)  # Make sure TIME_MEDIAN is no longer a list
+
+  # Filter heritage colors based on what's present in annotation_row
+  active_heritage_colors <-
+    heritage_colors[names(heritage_colors) %in% unique(filtered_target$target_time_annotation$HERITAGE)]
+
+  p1 <-
+    ggplot2::ggplot(
+      plot_data2,
+      ggplot2::aes(
+        x = .data$TIME_MEDIAN,
+        y = stringr::str_sub(.data$CONCEPT_NAME, 1, 60),
+        fill = .data$HERITAGE
+      )
+    ) +
+    ggplot2::geom_boxplot(outlier.shape = NA) +  # Hide outliers
+    ggplot2::scale_fill_manual(values = heritage_colors) +  # Apply custom colors
+    ggplot2::facet_grid(.data$HERITAGE ~ ., scales = "free_y", space = "free") +  # Use facet_grid for better control
+    ggplot2::theme_bw()  +  # Apply minimal theme
+    ggplot2::labs(x = "Time (days)") +
+    ggplot2::labs(title = "Median event occurrence per subject",
+                  x = "Time to Event",
+                  y = "") +
+    ggplot2::theme(
+      # strip.text.x = element_blank(),  # Remove facet labels
+      strip.background = ggplot2::element_blank(),
+      strip.text.y = ggplot2::element_blank(),
+      axis.title = ggplot2::element_blank(),
+      axis.text.y = ggplot2::element_text(size = 15),
+      panel.spacing = ggplot2::unit(0.5, "lines"),
+      # Reduce spacing between panels
+      legend.position = "none"
+    )
+
+  time_min <- min(plot_data3$TIME_TO_EVENT, na.rm = TRUE)
+  time_max <- max(plot_data3$TIME_TO_EVENT, na.rm = TRUE)
+
+  p2 <-
+    ggplot2::ggplot(
+      plot_data3,
+      ggplot2::aes(
+        y = .data$CONCEPT_NAME,
+        x = .data$TIME_TO_EVENT,
+        group = .data$CONCEPT_NAME
+      )
+    ) +
+    # Add horizontal violin plot
+    ggplot2::geom_violin(ggplot2::aes(fill = .data$HERITAGE),
+                         alpha = 0.5,
+                         trim = FALSE) +
+    # Apply custom colors based on HERITAGE
+    ggplot2::scale_fill_manual(values = heritage_colors) +
+    # Add small lines for each occurrence, color based on KSTEST true/false
+    ggplot2::geom_segment(
+      aes(
+        y = .data$CONCEPT_NAME,
+        yend = .data$CONCEPT_NAME,
+        x = .data$TIME_TO_EVENT,
+        xend = .data$TIME_TO_EVENT - 5,
+        color = as.factor(.data$KSTEST)
+      ),
+      size = 1
+    ) +
+    # Custom colors for KSTEST values
+    ggplot2::scale_color_manual(values = c("TRUE" = "black", "FALSE" = "gray")) +
+    # Draw connecting lines through the points, color based on KSTEST
+    ggplot2::geom_line(ggplot2::aes(
+      color = as.factor(.data$KSTEST),
+      group = .data$CONCEPT_NAME
+    )) +
+    # Faceting by HERITAGE
+    ggplot2::facet_grid(.data$HERITAGE ~ ., scales = "free_y", space = "free") +
+    # Enhance the plot appearance with a minimal theme
+    ggplot2::theme_bw() +
+    ggplot2::xlim(time_min, time_max) +
+    ggplot2::labs(title = "Event occurrences over all subjects",
+                  x = "Time to Event",
+                  y = "") +
+    ggplot2::theme(
+      # Adjust y-axis text size
+      legend.position = "none",
+      # Hide legend as needed
+      strip.background = ggplot2::element_blank(),
+      # Clean up strip background
+      strip.text.y = ggplot2::element_blank(),
+      axis.text.y = ggplot2::element_blank(),
+      # Hide strip text
+      panel.spacing = unit(0.5, "lines")  # Reduce spacing between panels
+    )
+  p2
+  # Combine plots
+  p <- p1 + p2 +
+    patchwork::plot_layout(nrow = 1, widths = c(1, 2))
+  return(p)
+}
+
 
 #' @keywords internal
 update_features <- function(features, scaled_prev) {
@@ -838,7 +945,7 @@ update_features <- function(features, scaled_prev) {
 
   # Remove existing PREVALENCE_DIFFERENCE_RATIO column if it exists
   features <-
-    features[,!"PREVALENCE_DIFFERENCE_RATIO", with = FALSE]
+    features[, !"PREVALENCE_DIFFERENCE_RATIO", with = FALSE]
 
   # Join the updated scaled_prev data back into the features
   features <- features[scaled_prev, on = "CONCEPT_ID", nomatch = 0]
@@ -854,22 +961,19 @@ update_features <- function(features, scaled_prev) {
 #' `plot_prevalence` function to generate the plot.
 #'
 #' @param ccObject An object returned by the CohortContrast GUI, typically created
-#'        when the "Create Snapshot" button is pressed. It should contain
+#'        when the "Create Visual Snapshot" button is pressed. It should contain
 #'        target_row_annotation, target_col_annotation, and target_matrix components.
 #' @return A plot object generated by `plot_prevalence`.
 #' @examples
 #' \dontrun{
-#' # Assuming `ccObject` is already created via CohortContrast GUI
+#' # Assuming `ccObject` (visual snapshot) is already created via CohortContrast GUI
+#' ccObject <- readRDS("./visual_snapshots/CohortContrastDataVisualSnapshot.rds")
 #' getPrevalencePlot(ccObject)
 #' }
 #' @export
 getPrevalencePlot <- function(ccObject) {
   plot_prevalence(
-    list(
-      target_row_annotation = ccObject$target_row_annotation,
-      target_col_annotation = ccObject$target_col_annotation,
-      target_matrix = ccObject$target_matrix
-    )
+    ccObject$filtered_target
   )
 }
 
@@ -880,21 +984,43 @@ getPrevalencePlot <- function(ccObject) {
 #' `plot_heatmap` function to generate the plot.
 #'
 #' @param ccObject An object returned by the CohortContrast GUI, typically created
-#'        when the "Create Snapshot" button is pressed. It should contain
+#'        when the "Create Visual Snapshot" button is pressed. It should contain
 #'        target_row_annotation, target_col_annotation, and target_matrix components.
 #' @return A plot object generated by `plot_heatmap`.
 #' @examples
 #' \dontrun{
-#' # Assuming `ccObject` is already created via CohortContrast GUI
+#' # Assuming `ccObject` (visual snapshot) is already created via CohortContrast GUI
+#' ccObject <- readRDS("./visual_snapshots/CohortContrastDataVisualSnapshot.rds")
 #' getHeatmapPlot(ccObject)
 #' }
 #' @export
 getHeatmapPlot <- function(ccObject) {
   plot_heatmap(
-    list(
-      target_row_annotation = ccObject$target_row_annotation,
-      target_col_annotation = ccObject$target_col_annotation,
-      target_matrix = ccObject$target_matrix
-    )
+    ccObject$filtered_target
+  )
+}
+
+
+#' Generate a Time panel Plot
+#'
+#' This function generates a time panel plot using the CohortContrast GUI object.
+#' It extracts necessary components from the ccObject and passes them to the
+#' `plot_time` function to generate the plot.
+#'
+#' @param ccObject An object returned by the CohortContrast GUI, typically created
+#'        when the "Create Visual Snapshot" button is pressed. It should contain
+#'        target_row_annotation, target_col_annotation, target_time_annotation
+#'        and target_matrix components.
+#' @return A plot object generated by `plot_time`.
+#' @examples
+#' \dontrun{
+#' # Assuming `ccObject` (visual snapshot) is already created via CohortContrast GUI
+#' ccObject <- readRDS("./visual_snapshots/CohortContrastDataVisualSnapshot.rds")
+#' getHeatmapPlot(ccObject)
+#' }
+#' @export
+getTimePlot <- function(ccObject) {
+  plot_time(
+    ccObject$filtered_target
   )
 }

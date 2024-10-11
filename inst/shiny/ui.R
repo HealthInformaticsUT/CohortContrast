@@ -26,8 +26,9 @@ body <- shinydashboard::dashboardBody(
       shinyjs::useShinyjs(),  # Initialize shinyjs
       fluidRow(
         h3("Dashboard Panel"),
-        div(id = "studyName_container",
-            uiOutput("study_buttons")  # Place to render buttons dynamically
+        div(
+          id = "studyName_container",
+          DT::dataTableOutput("study_table") # New: Table to display studies
         ),
         shinyjs::hidden(  # Hidden input field to store the selected study
           textInput("studyName", "Selected Study", value = "")
@@ -160,7 +161,7 @@ body <- shinydashboard::dashboardBody(
         )
       ),
       hr(),
-      shiny::actionButton("visual_snapshot", "Create snapshot!"),
+      shiny::actionButton("visual_snapshot", "Create visual snapshot!"),
       tabsetPanel(
         tabPanel("Prevalence plot",
                  plotOutput("prevalence")),

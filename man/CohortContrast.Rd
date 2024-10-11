@@ -16,8 +16,7 @@ CohortContrast(
   prevalenceCutOff = 10,
   topK = FALSE,
   presenceFilter = 0.005,
-  complementaryMappingTable = FALSE,
-  createC2TInput = FALSE,
+  complementaryMappingTable = NULL,
   runZTests = TRUE,
   runLogitTests = TRUE,
   runKSTests = TRUE,
@@ -52,8 +51,6 @@ less than the given percentage}
 
 \item{complementaryMappingTable}{Mappingtable for mapping concept_ids if
 present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,}
-
-\item{createC2TInput}{Boolean for creating Cohort2Trajectory input dataframe}
 
 \item{runZTests}{boolean for Z-tests}
 
@@ -131,8 +128,7 @@ data = CohortContrast(
   prevalenceCutOff = 0.1,
   topK = FALSE,
   presenceFilter = 0.005,
-  complementaryMappingTable = FALSE,
-  createC2TInput = FALSE,
+  complementaryMappingTable = NULL,
   runZTests = FALSE,
   runLogitTests = FALSE,
   createOutputFiles = FALSE,

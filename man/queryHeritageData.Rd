@@ -8,7 +8,7 @@ queryHeritageData(
   dataPatient,
   cdm,
   split_data,
-  complementaryMappingTable = FALSE
+  complementaryMappingTable = NULL
 )
 }
 \arguments{

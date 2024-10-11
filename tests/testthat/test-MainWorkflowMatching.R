@@ -35,7 +35,6 @@ test_that("Created features table is correct with JSON & patient matching", {
     topK = 15, # Number of features to export
     presenceFilter = FALSE, # 0-1, percentage of people who must have the chosen feature present
     complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
-    createC2TInput = TRUE,
     runZTests = FALSE,
     runLogitTests = FALSE,
    createOutputFiles = FALSE,
@@ -90,7 +89,6 @@ test_that("Created features table is correct with Cohorts table & patient matchi
     topK = 15, # Number of features to export
     presenceFilter = FALSE, # 0-1, percentage of people who must have the chosen feature present
     complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
-    createC2TInput = TRUE,
     runZTests = FALSE,
     runLogitTests = FALSE,
     createOutputFiles = FALSE,
@@ -145,7 +143,6 @@ test_that("Test patient matching with min and max values", {
     topK = 15, # Number of features to export
     presenceFilter = FALSE, # 0-1, percentage of people who must have the chosen feature present
     complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
-    createC2TInput = TRUE,
     runZTests = FALSE,
     runLogitTests = FALSE,
     createOutputFiles = FALSE,
