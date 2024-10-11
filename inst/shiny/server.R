@@ -14,7 +14,7 @@ if (!requireNamespace("patchwork", quietly = TRUE)) {
 
 server <- function(input, output, session) {
   # Reactive values
-  study_info <- shiny::reactiveVal(list())
+  study_info <- shiny::reactiveVal(NULL)
   studyName <- shiny::reactiveVal()
   target_mod <- shiny::reactiveVal()
   original_data <- shiny::reactiveVal(NULL)
@@ -24,6 +24,7 @@ server <- function(input, output, session) {
   data_initial <- shiny::reactiveVal(NULL)
   target_row_annotation <- shiny::reactiveVal(NULL)
   target_col_annotation <- shiny::reactiveVal(NULL)
+  target_time_annotation <- shiny::reactiveVal(NULL)
   target_matrix <- shiny::reactiveVal(NULL)
   selected_filters <- shiny::reactiveVal(list())
   selected_patient_filters <- shiny::reactiveVal(list())
@@ -85,7 +86,11 @@ server <- function(input, output, session) {
   # Function to load data and update study_info
   load_study_data <- function() {
     fullScreenWaiter$show()
-    names_and_rows <- list()
+    study_df_temp = data.frame("Study" = character(),
+                               "Target patients" = numeric(),
+                               "Control patients" = numeric(),
+                               "ZTEST" = numeric())
+    names(study_df_temp) <- c("Study", "Target patients", "Control patients", "Significant differences (Z-Test)")
     CohortContrast:::printCustomMessage("EXECUTION: Loading studies from working directory ...")
     study_names <- CohortContrast:::get_study_names(pathToResults)
     for (study_name in study_names) {
@@ -101,17 +106,31 @@ server <- function(input, output, session) {
           original_data(object)
         })
 
-        rows <- object$data_initial[
+        rows_target <- object$data_initial[
           COHORT_DEFINITION_ID == "target",
           data.table::uniqueN(SUBJECT_ID)
         ]
-        names_and_rows[[study_name]] <- rows
+        rows_control <- object$data_initial[
+          COHORT_DEFINITION_ID == "control",
+          data.table::uniqueN(SUBJECT_ID)
+        ]
+
+        ztest_significant = subset(object$data_features,
+               ZTEST == TRUE & ABSTRACTION_LEVEL == -1)
+        ztest_significant = nrow(ztest_significant)
+
+        temp = data.frame("Study" = study_name,
+                   "Target patients" = rows_target,
+                   "Control patients" = rows_control,
+                   "ZTEST" = ztest_significant)
+        names(temp) <- c("Study", "Target patients", "Control patients", "Significant differences (Z-Test)")
+        study_df_temp = rbind(study_df_temp, temp)
       }
     }
 
     # Use isolate to prevent reactivity triggers
     shiny::isolate({
-      study_info(names_and_rows)
+      study_info(study_df_temp)
     })
     fullScreenWaiter$hide()
     CohortContrast:::printCustomMessage("COMPLETED: Loading studies from working directory")
@@ -122,44 +141,34 @@ server <- function(input, output, session) {
     load_study_data()
   })
 
-  # Update dropdown choices
-  # shiny::observe({
-  #   fullScreenWaiter$show()
-  #   choices_filtering <- sapply(names(study_info()), function(name) {
-  #     paste(name, "(", study_info()[[name]], "patients)")
-  #   })
-  #   shiny::updateSelectInput(session, "studyName", choices = as.vector(choices_filtering))
-  #   fullScreenWaiter$hide()
-  # })
-
-  output$study_buttons <- renderUI({
-    fullScreenWaiter$show()
-    study_list <- study_info()  # Your function to get study info
-    study_btns <- lapply(names(study_list), function(study) {
-      fluidRow(
-        actionButton(inputId = paste0("btn_study_", study), label = paste0(study, " (", study_list[[study]], " patients)"), style = "width:100%; margin-bottom:5px;")
-      )
-    })
-    fullScreenWaiter$hide()
-    do.call(tagList, study_btns)
+  study_df <- reactive({
+    study_info()
   })
 
-  # Observing clicks on dynamically created buttons
-  observe({
-    for(study in names(study_info())) {
-      local({
-        local_study <- study
-        observeEvent(input[[paste0("btn_study_", local_study)]], {
-          # Use updateTextInput to ensure reactivity is triggered
-          updateTextInput(session, "studyName", value = local_study)
-          # Optional: Update display or perform other actions
-          output$selected_study <- renderText({
-            paste("Selected study:", local_study)
-          })
-        })
-      })
+  output$study_table <- DT::renderDataTable({
+    # Create a datatable
+    DT::datatable(
+      study_df(),
+      selection = "single",  # Allow selecting a single row
+      options = list(
+        paging = TRUE,
+        searching = TRUE,
+        lengthChange = FALSE,
+        pageLength = 10
+      )
+    )
+  })
+
+  # Observe the row selection and update the hidden text input
+  observeEvent(input$study_table_rows_selected, {
+    selected_row <- input$study_table_rows_selected
+    if (!is.null(selected_row) && length(selected_row) > 0) {
+      # Get the study name from the reactive data frame based on the selected row index
+      study_name <- study_df()$Study[selected_row]
+      updateTextInput(session, "studyName", value = study_name)
     }
   })
+
   # Load data based on selection
   shiny::observeEvent(input$studyName, {
     shiny::req(input$studyName)
@@ -222,6 +231,10 @@ server <- function(input, output, session) {
 
   # Reactive expressions
   target <- shiny::reactive({
+    fullScreenWaiter$show()
+    on.exit({
+      fullScreenWaiter$hide()
+    })
     shiny::req(studyName(), pathToResults, loaded_data())
     autoScaleRate <- if (!is.null(input$scaleRate) && input$scaleRate) TRUE else FALSE
     applyInverseTarget <- if (!is.null(input$applyInverseTarget) && input$applyInverseTarget) TRUE else FALSE
@@ -249,6 +262,7 @@ server <- function(input, output, session) {
     )
     target_row_annotation(result$target_row_annotation)
     target_col_annotation(result$target_col_annotation)
+    target_time_annotation(result$target_time_annotation)
     target_matrix(result$target_matrix)
     fullScreenWaiter$hide()
     result
@@ -258,9 +272,6 @@ server <- function(input, output, session) {
   output$prevalence <- shiny::renderPlot(
     {
       prevalencePlotWaiter$show()
-      on.exit({
-        prevalencePlotWaiter$hide()
-      })
       result <- tryCatch(
         {
           plot_prevalence(target_filtered())
@@ -270,6 +281,7 @@ server <- function(input, output, session) {
           plot_prevalence(NULL)
         }
       )
+      prevalencePlotWaiter$hide()
       result
     },
    height = 950
@@ -278,9 +290,6 @@ server <- function(input, output, session) {
   output$heatmap <- shiny::renderPlot(
     {
       heatmapPlotWaiter$show()
-      on.exit({
-        heatmapPlotWaiter$hide()
-      })
       result <- tryCatch(
         {
           plot_heatmap(target_filtered())
@@ -290,6 +299,7 @@ server <- function(input, output, session) {
           plot_heatmap(NULL)
         }
       )
+      heatmapPlotWaiter$hide()
       result
     },
     height = 950
@@ -298,9 +308,6 @@ server <- function(input, output, session) {
   output$time_panel <- shiny::renderPlot(
     {
       timePanelWaiter$show()
-      on.exit({
-        timePanelWaiter$hide()
-      })
       result <- tryCatch(
         {
           plot_time(target_filtered())
@@ -331,13 +338,23 @@ server <- function(input, output, session) {
   shiny::observeEvent(input$accept_btn_visual_snaphot, {
     combiningWaiter$show()
     shiny::removeModal()
-    fileName <- paste(pathToResults, "/",CohortContrast:::sanitize_single(input$new_visual_snapshot_name),".rds", sep = "")
+    CohortContrast:::createPathToResults(paste0(pathToResults, "/visual_snapshots"))
+    fileName <- paste(pathToResults, "/visual_snapshots/",CohortContrast:::sanitize_single(input$new_visual_snapshot_name),".rds", sep = "")
+
+    config <- loaded_data()$config
+    config$prevalenceCutOff <- input$prevalence_ratio
+    config$presenceFilter <- input$prevalence
+    config$domainsIncluded <- input$domain
+
     ccObject <- list(
-      data_features = data_features(),
-      target_matrix = target_matrix(),
+      data_features = data_features() %>% dplyr::filter(.data$CONCEPT_ID %in% as.integer(rownames(target_matrix())),
+                                                        .data$ABSTRACTION_LEVEL == input$abstraction_lvl),
+      filtered_target = list(target_matrix = target_matrix(),
       target_row_annotation = target_row_annotation(),
       target_col_annotation = target_col_annotation(),
-      config = loaded_data()$config
+      target_time_annotation = target_time_annotation()
+      ),
+      config = config
     )
     CohortContrast:::save_object(object = ccObject, path = fileName)
     combiningWaiter$hide()
@@ -436,7 +453,8 @@ server <- function(input, output, session) {
   shiny::observeEvent(input$save_btn, {
     snapshotWaiter$show()
     # Create the base file path
-    file_base <- stringr::str_c(pathToResults, "/", studyName(), "_Snapshot")
+    CohortContrast:::createPathToResults(paste0(pathToResults, "/snapshots"))
+    file_base <- stringr::str_c(pathToResults, "/snapshots/", studyName(), "_Snapshot")
     file_path <- stringr::str_c(file_base, ".rds")
     counter <- 1
 
@@ -446,11 +464,36 @@ server <- function(input, output, session) {
       counter <- counter + 1
     }
     # Extract the data from the reactive
-    object <- loaded_data()
-    object$complementaryMappingTable <- complementaryMappingTable()
+    ccObject <- list(
+      data_initial = data_initial(),
+      data_patients = data_patients(),
+      data_features = data_features(),
+      data_person = loaded_data()$data_person,
+      filtered_target = list(target_matrix = target_matrix(),
+                             target_row_annotation = target_row_annotation(),
+                             target_col_annotation = target_col_annotation(),
+                             target_time_annotation = target_time_annotation()),
+      complementaryMappingTable = complementaryMappingTable(),
+      config = loaded_data()$config
+    )
+
+    # Extract trajectory generation info from session
+    selectedFeatureIds = as.integer(ccObject$filtered_target$target_row_annotation %>% rownames())
+    ccObject$config$abstractionLevel = input$abstraction_lvl
+    selectedFeatureNames = ccObject$data_features %>%
+      dplyr::filter(.data$ABSTRACTION_LEVEL == ccObject$config$abstractionLevel,
+                    .data$CONCEPT_ID %in% selectedFeatureIds) %>%
+      dplyr::select(CONCEPT_NAME) %>% dplyr::pull(CONCEPT_NAME)
+
+
+    trajectoryDataList = list(
+      selectedFeatureIds = selectedFeatureIds,
+      selectedFeatureNames = selectedFeatureNames
+    )
+    ccObject$trajectoryDataList = trajectoryDataList
 
     # Save the actual data to the file
-    saveRDS(object, file = file_path)
+    saveRDS(ccObject, file = file_path)
     snapshotWaiter$hide()
     # Notify the user
     shiny::showNotification(paste("Data saved to", file_path))
