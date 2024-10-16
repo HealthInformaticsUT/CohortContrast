@@ -93,7 +93,6 @@ data = CohortContrast::CohortContrast(
   topK = FALSE, # Number of features to export
   presenceFilter = 0.2, # 0-1, percentage of people who must have the chosen feature present
   complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
-  createC2TInput = FALSE,
   runZTests = TRUE,
   runLogitTests = FALSE,
   createOutputFiles = TRUE,

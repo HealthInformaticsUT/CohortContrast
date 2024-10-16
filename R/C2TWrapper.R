@@ -1,5 +1,4 @@
 #' This function acts as a Cohort2Trajectory wrapper
-#'
 #' @param data CohortContrast object
 #' @param pathToResults Path where data should be saved to
 #' @param trajectoryType Type of trajectories to generate (Discrete - 0, continuous - 1 )
@@ -8,7 +7,6 @@
 #' @param mergeStates Boolean for merging overlapping states
 #' @param mergeThreshold A value 0 to 1 indicating the threshold of overlap for merging (0.5 would mean if states overlap more than 50% they are merged)
 #' @param outOfCohortAllowed Boolean for allowing to include state occurrences outside the cohort period
-#'
 #' @import Cohort2Trajectory
 #' @export
 #' @examples \dontrun{
@@ -65,7 +63,7 @@ C2TCaller <- function(data, pathToResults,
     trajectoryDataObject <- rbind(data$trajectoryDataList$trajectoryData)
     trajectoryDataObject$COHORT_DEFINITION_ID = sanitize(trajectoryDataObject$COHORT_DEFINITION_ID)
     trajectoryDataObject$SUBJECT_ID = as.integer(trajectoryDataObject$SUBJECT_ID)
-    stateCohortLabels <- sanitize(data$trajectoryDataList$selectedFeatureNames)
+    stateCohortLabels <- sanitize(dplyr::setdiff(unique(trajectoryDataObject$COHORT_DEFINITION_ID), c("0")))
     allowedStatesList = Cohort2Trajectory::createStateList(stateCohortLabels)
     trajectoriesDataframe <- Cohort2Trajectory::Cohort2Trajectory(useCDM = FALSE,
                                          studyName = data$config$complName,
@@ -189,14 +187,13 @@ createC2TInput <-
       }
     abstraction_level = ifelse(is.null(data$config$abstractionLevel), -1,data$config$abstractionLevel)
 
-    if(!is.null(complementaryMappingTable)){
-      if(!is.data.frame(complementaryMappingTable)){
-        if(!is.data.frame(data$complementaryMappingTable)){
-          complementaryMappingTable = NULL
-        }
+    if (!is.data.frame(complementaryMappingTable)){
+      if(is.data.frame(data$complementaryMappingTable)){
         complementaryMappingTable = data$complementaryMappingTable %>% dplyr::filter(.data$ABSTRACTION_LEVEL == abstraction_level)
       }
-      complementaryMappingTable = complementaryMappingTable
+      else {
+        complementaryMappingTable = NULL
+      }
     }
       data_selected_patients = dplyr::select(
         dplyr::filter(

@@ -43,22 +43,18 @@ body <- shinydashboard::dashboardBody(
             "domain",
             h3("Select domain"),
             choices = list(
-              "Drug" = "drug_exposure",
-              "Measurement" = "measurement",
-              "Procedure" = "procedure_occurrence",
-              "Observation" = "observation",
               "Condition" = "condition_occurrence",
+              "Drug" = "drug_exposure",
+              "Procedure" = "procedure_occurrence",
+              "Measurement" = "measurement",
+              "Observation" = "observation",
               "Visit" = "visit_occurrence",
               "Visit detail" = "visit_detail"
             ),
             selected = c(
               "drug_exposure",
-              "measurement",
               "procedure_occurrence",
-              "observation",
-              "condition_occurrence",
-              "visit_occurrence",
-              "visit_detail"
+              "condition_occurrence"
             )
           )
         ),
@@ -80,7 +76,7 @@ body <- shinydashboard::dashboardBody(
             h3("Prevalence cutoff"),
             min = 0,
             max = 1,
-            value = 0.05,
+            value = 0.25,
             step = 0.01
           )
         ),

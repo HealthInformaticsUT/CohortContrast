@@ -473,10 +473,11 @@ plot_prevalence <- function(filtered_target) {
     ggplot2::geom_bar(stat = "identity") +
     ggplot2::facet_grid(.data$HERITAGE ~ ., space = "free_y", scales = "free_y") +
     ggplot2::scale_fill_viridis_c(
-      "Risk ratio (log10-scaled)\ncompared to background",
-      limits = c(0, 2),
-      oob = scales::squish
-    ) + # Ensure fill values are between 0 and 3
+      name = "Enrichment ratio (1-100+ scale)",
+      limits = c(0, 2),  # Assuming PREVALENCE_LOG is log10-scaled and ranges from 0 to log10(100)
+      oob = scales::squish,  # To keep values within limits
+      breaks = log10(c(1, 10, 100)),  # Convert non-log breaks (1, 10, 100) to log scale
+      labels = c("1", "10", "100")) + # Labels corresponding to non-log values
     ggplot2::scale_x_continuous(labels = scales::label_percent()) +
     ggplot2::ggtitle("Prevalence") +
     ggplot2::theme_bw() +
@@ -495,7 +496,7 @@ plot_prevalence <- function(filtered_target) {
                       y = stringr::str_sub(.data$CONCEPT_NAME, 1, 60),
                       color = .data$AGE_DIFF_SIGNIFICANT
                     )) +
-    ggplot2::geom_rect(aes(
+    ggplot2::geom_rect(ggplot2::aes(
       xmin = -Inf,
       xmax = Inf,
       ymin = -Inf,
@@ -849,7 +850,7 @@ plot_time <- function(filtered_target) {
     ggplot2::scale_fill_manual(values = heritage_colors) +
     # Add small lines for each occurrence, color based on KSTEST true/false
     ggplot2::geom_segment(
-      aes(
+      ggplot2::aes(
         y = .data$CONCEPT_NAME,
         yend = .data$CONCEPT_NAME,
         x = .data$TIME_TO_EVENT,
