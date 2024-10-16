@@ -37,6 +37,14 @@ server <- function(input, output, session) {
   last_add_filter_value <- reactiveVal(0)
   last_disregard_filter_value <- reactiveVal(0)
 
+  nrOfConcepts <- shiny::reactive({
+    if (is.data.frame(target_row_annotation())) {
+      nrow(target_row_annotation())
+    } else {
+      0  # Return 0 if data_features() is not yet a dataframe
+    }
+  })
+
   # Waiters
   fullScreenWaiter <- waiter::Waiter$new(
     html = htmltools::tagList(
@@ -232,9 +240,6 @@ server <- function(input, output, session) {
   # Reactive expressions
   target <- shiny::reactive({
     fullScreenWaiter$show()
-    on.exit({
-      fullScreenWaiter$hide()
-    })
     shiny::req(studyName(), pathToResults, loaded_data())
     autoScaleRate <- if (!is.null(input$scaleRate) && input$scaleRate) TRUE else FALSE
     applyInverseTarget <- if (!is.null(input$applyInverseTarget) && input$applyInverseTarget) TRUE else FALSE
@@ -249,10 +254,12 @@ server <- function(input, output, session) {
       applyLogitTest = applyLogitTest,
       abstractionLevel = abstractionLevel
     )
+    fullScreenWaiter$hide()
     result
   })
 
   target_filtered <- shiny::reactive({
+    fullScreenWaiter$show()
     result <- filter_target(
       target(),
       input$prevalence,
@@ -284,8 +291,8 @@ server <- function(input, output, session) {
       prevalencePlotWaiter$hide()
       result
     },
-   height = 950
-  )
+    height = reactive({ max(450, min(50 * nrOfConcepts(), 30000)) })
+    )
 
   output$heatmap <- shiny::renderPlot(
     {
@@ -302,8 +309,8 @@ server <- function(input, output, session) {
       heatmapPlotWaiter$hide()
       result
     },
-    height = 950
-  )
+    height = reactive({ max(450, min(50 * nrOfConcepts(), 30000)) })
+    )
 
   output$time_panel <- shiny::renderPlot(
     {
@@ -320,7 +327,7 @@ server <- function(input, output, session) {
       timePanelWaiter$hide()
       result
     },
-    height = 950
+    height = reactive({ max(450, min(50 * nrOfConcepts(), 30000)) })
   )
 
   shiny::observeEvent(input$visual_snapshot, {
@@ -377,6 +384,7 @@ server <- function(input, output, session) {
 
   output$concept_table <- DT::renderDT(
     {
+      shiny::req(input$studyName)
       DT::datatable(
         filtered_data(),
         selection = "multiple",
@@ -522,7 +530,7 @@ server <- function(input, output, session) {
           selected = NULL,
           multiple = FALSE,
           options = list(
-            placeholder = "Search or select a CONCEPT_ID",
+            placeholder = "Search & select a CONCEPT_ID",
             server = TRUE, # Enable server-side processing
             loadThrottle = 100, # Time delay before querying the server, in milliseconds
             load = I('function(query_filtering, callback) {
@@ -702,7 +710,7 @@ server <- function(input, output, session) {
           selected = NULL,
           multiple = FALSE,
           options = list(
-            placeholder = "Search or select a CONCEPT_ID",
+            placeholder = "Search & select a CONCEPT_ID",
             server = TRUE, # Enable server-side processing
             loadThrottle = 100, # Time delay before querying the server, in milliseconds
             load = I('function(query_filtering, callback) {
@@ -927,7 +935,7 @@ server <- function(input, output, session) {
 
     # Step 1: Select specific columns from data_features
     data_features_temp <- data_features[
-      , .(CONCEPT_ID, ABSTRACTION_LEVEL, ZTEST,ZTEST_P_VALUE, LOGITTEST,LOGITTEST_P_VALUE, KSTEST)
+      , .(CONCEPT_ID, ABSTRACTION_LEVEL, ZTEST,ZTEST_P_VALUE, LOGITTEST,LOGITTEST_P_VALUE, KSTEST, KSTEST_P_VALUE)
     ]
 
     # Step 2: Summarize data_patients by CONCEPT_ID, CONCEPT_NAME, and ABSTRACTION_LEVEL
@@ -1087,7 +1095,7 @@ server <- function(input, output, session) {
 
     # Step 2: Select specific columns
     data_features_temp <- data_features[
-      , .(CONCEPT_ID, ABSTRACTION_LEVEL, ZTEST,ZTEST_P_VALUE, LOGITTEST,LOGITTEST_P_VALUE, KSTEST)
+      , .(CONCEPT_ID, ABSTRACTION_LEVEL, ZTEST,ZTEST_P_VALUE, LOGITTEST,LOGITTEST_P_VALUE, KSTEST_P_VALUE)
     ]
     if (nrow(data_patients_filtering) == 0) {
       data_features_filtering <- data_features[0]

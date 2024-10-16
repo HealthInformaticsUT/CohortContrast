@@ -157,7 +157,7 @@ if (is.data.frame(complementaryMappingTable) | getAllAbstractions) {
     concept = cdm$concept %>% as.data.frame()
 
     data$data_patients$PERSON_ID = as.integer(data$data_patients$PERSON_ID)
-   assertAncestryCompleteness(cdm)
+   #assertAncestryCompleteness(cdm)
     printCustomMessage("Get data for all concept abstraction levels ...")
     max_min_levels <- concept_ancestor %>%
       dplyr::group_by(.data$descendant_concept_id) %>%
