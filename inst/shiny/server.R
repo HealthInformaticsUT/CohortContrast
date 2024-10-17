@@ -229,7 +229,7 @@ server <- function(input, output, session) {
         data_initial(object$data_initial)
         target_mod(object$data_features)
       })
-
+      fullScreenWaiter$hide()
       if (!is.null(object$complementaryMappingTable)) complementaryMappingTable(object$complementaryMappingTable)
       CohortContrast:::printCustomMessage(paste("COMPLETED: Loading study", correct_study_name, "from working directory", sep = " "))
     } else {
@@ -239,8 +239,8 @@ server <- function(input, output, session) {
 
   # Reactive expressions
   target <- shiny::reactive({
-    fullScreenWaiter$show()
     shiny::req(studyName(), pathToResults, loaded_data())
+    fullScreenWaiter$show()
     autoScaleRate <- if (!is.null(input$scaleRate) && input$scaleRate) TRUE else FALSE
     applyInverseTarget <- if (!is.null(input$applyInverseTarget) && input$applyInverseTarget) TRUE else FALSE
     applyZTest <- if (!is.null(input$applyZTest) && input$applyZTest) TRUE else FALSE
@@ -259,7 +259,7 @@ server <- function(input, output, session) {
   })
 
   target_filtered <- shiny::reactive({
-    fullScreenWaiter$show()
+    # fullScreenWaiter$show()
     result <- filter_target(
       target(),
       input$prevalence,
@@ -271,7 +271,7 @@ server <- function(input, output, session) {
     target_col_annotation(result$target_col_annotation)
     target_time_annotation(result$target_time_annotation)
     target_matrix(result$target_matrix)
-    fullScreenWaiter$hide()
+    # fullScreenWaiter$hide()
     result
   })
 
