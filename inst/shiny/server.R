@@ -291,7 +291,7 @@ server <- function(input, output, session) {
       prevalencePlotWaiter$hide()
       result
     },
-    height = reactive({ max(450, min(50 * nrOfConcepts(), 30000)) })
+    height = reactive({ max(450, min(50 * nrOfConcepts(), 5000)) })
     )
 
   output$heatmap <- shiny::renderPlot(
@@ -309,7 +309,7 @@ server <- function(input, output, session) {
       heatmapPlotWaiter$hide()
       result
     },
-    height = reactive({ max(450, min(50 * nrOfConcepts(), 30000)) })
+    height = reactive({ max(450, min(50 * nrOfConcepts(), 5000)) })
     )
 
   output$time_panel <- shiny::renderPlot(
@@ -327,7 +327,7 @@ server <- function(input, output, session) {
       timePanelWaiter$hide()
       result
     },
-    height = reactive({ max(450, min(50 * nrOfConcepts(), 30000)) })
+    height = reactive({ max(450, min(50 * nrOfConcepts(), 5000)) })
   )
 
   shiny::observeEvent(input$visual_snapshot, {
