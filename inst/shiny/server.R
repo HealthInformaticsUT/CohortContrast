@@ -284,7 +284,7 @@ server <- function(input, output, session) {
       prevalencePlotWaiter$hide()
       result
     },
-   height = 950
+   height = function() 60 + nrow(target_filtered()$target_matrix) * 24
   )
 
   output$heatmap <- shiny::renderPlot(
@@ -302,7 +302,7 @@ server <- function(input, output, session) {
       heatmapPlotWaiter$hide()
       result
     },
-    height = 950
+    height = function() 160 + nrow(target_filtered()$target_matrix) * 18
   )
 
   output$time_panel <- shiny::renderPlot(
@@ -320,7 +320,7 @@ server <- function(input, output, session) {
       timePanelWaiter$hide()
       result
     },
-    height = 950
+    height = function() 60 + nrow(target_filtered()$target_matrix) * 24
   )
 
   shiny::observeEvent(input$visual_snapshot, {
