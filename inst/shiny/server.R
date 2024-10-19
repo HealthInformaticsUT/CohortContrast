@@ -864,6 +864,7 @@ server <- function(input, output, session) {
     filters <- selected_patient_filters()
     keepUsersWithConcepts(filters)
   })
+
   # Function to combine selected concepts
   combineSelectedConcepts <- function(new_concept_name) {
     selected_rows <- input$concept_table_rows_selected
@@ -888,16 +889,18 @@ server <- function(input, output, session) {
       which.max(as.numeric(processed_table$PREVALENCE_DIFFERENCE_RATIO[selected_rows]))
     ]
 
-    # Step 4: Determining ZTEST and LOGITTEST values
+    # Step 4: Determining ZTEST, KSTEST and LOGITTEST values
     representingZTest <- any(processed_table$ZTEST[selected_rows])
     representingLogitTest <- any(processed_table$LOGITTEST[selected_rows])
+    representingKSTest <- any(processed_table$KSTEST[selected_rows])
 
     # Step 5: Updating data_features with new values
     data_features[
       CONCEPT_ID == representingConceptId & ABSTRACTION_LEVEL == abstraction_level,
       `:=`(
         ZTEST = representingZTest,
-        LOGITTEST = representingLogitTest
+        LOGITTEST = representingLogitTest,
+        KSTEST = representingKSTest
       )
     ]
 
@@ -948,6 +951,7 @@ server <- function(input, output, session) {
       ),
       by = .(CONCEPT_ID, CONCEPT_NAME, ABSTRACTION_LEVEL)
     ]
+
     # Step 3: Add new columns using mutate-like operations
     data_features <- data_features[
       , `:=`(
@@ -974,6 +978,95 @@ server <- function(input, output, session) {
     ]
 
     data_features <- data_features[!is.na(CONCEPT_NAME)]
+
+
+    # Step 5: Determining ZTEST, KSTEST and LOGITTEST values
+    total_concepts = data_features %>% dplyr::filter(.data$ABSTRACTION_LEVEL == abstraction_level) %>% nrow()
+    # ZTEST
+    concept_row <- data_features[CONCEPT_ID == representingConceptId & ABSTRACTION_LEVEL == abstraction_level, .(TARGET_SUBJECT_COUNT, CONTROL_SUBJECT_COUNT)]
+    target_subject_count <- concept_row$TARGET_SUBJECT_COUNT
+    control_subject_count <- concept_row$CONTROL_SUBJECT_COUNT
+
+    representingZTest = FALSE
+    representingZTestPValue = 1
+    ztest_result <- stats::prop.test(
+      c(target_subject_count, control_subject_count),
+      c(count_target, count_control),
+      conf.level = 0.95
+    )
+    if (!(is.na(ztest_result$p.value))) {
+      representingZTestPValue = ztest_result$p.value
+      representingZTest = if(representingZTestPValue < 0.05/total_concepts) TRUE else FALSE
+    }
+
+    # Logit Test
+    representingLogitTest = FALSE
+    representingLogitTestPValue = 1
+    # Create the dataset for logistic regression
+    concept_data <- data_patients %>%
+      dplyr::filter(.data$ABSTRACTION_LEVEL == abstraction_level, .data$CONCEPT_ID == concept_id) %>%
+      dplyr::mutate(
+        PREVALENCE = 1,
+        TARGET = dplyr::if_else(.data$COHORT_DEFINITION_ID == targetCohortId, 1, 0),
+        CONTROL = dplyr::if_else(.data$COHORT_DEFINITION_ID == targetCohortId, 0, 1)
+      ) %>% select(COHORT_DEFINITION_ID, PREVALENCE, TARGET, CONTROL)
+
+    no_match_target = data_initial %>% dplyr::filter(.data$COHORT_DEFINITION_ID == targetCohortId) %>% nrow() - concept_data %>% dplyr::filter(.data$COHORT_DEFINITION_ID == targetCohortId) %>% nrow()
+    no_match_control = data_initial %>% dplyr::filter(.data$COHORT_DEFINITION_ID != targetCohortId) %>% nrow() - concept_data %>% dplyr::filter(.data$COHORT_DEFINITION_ID != targetCohortId) %>% nrow()
+
+    no_match_target_df = NULL
+    no_match_control_df = NULL
+    if(no_match_target != 0){
+      no_match_target_df = data.frame(COHORT_DEFINITION_ID = "target", PREVALENCE = 0, TARGET = rep(1, no_match_target), CONTROL = 0)
+    }
+    if(no_match_control != 0){
+      no_match_control_df = data.frame(COHORT_DEFINITION_ID = "control", PREVALENCE = 0, TARGET = 0, CONTROL = rep(1, no_match_control))
+    }
+
+    concept_data = rbind(rbind(no_match_target_df, no_match_control_df), concept_data)
+
+    prevalence_cohort_2 <- ifelse(is.na(sum(concept_data$PREVALENCE[concept_data$TARGET == 1])), 0, sum(concept_data$PREVALENCE[concept_data$TARGET == 1]))
+    prevalence_cohort_1 <- ifelse(is.na(sum(concept_data$PREVALENCE[concept_data$CONTROL == 1])), 0, sum(concept_data$PREVALENCE[concept_data$CONTROL == 1]))
+
+   if (prevalence_cohort_1 == 0 | prevalence_cohort_2 == 0) {
+     representingLogitTestPValue = NA
+     representingLogitTest = TRUE
+   } else {
+    # Perform logistic regression
+    model <- stats::glm(TARGET ~ PREVALENCE, data = concept_data, family = stats::binomial)
+    summary_model <- summary(model)
+
+    # Check if the presence of the concept is significant
+    p_value <- summary_model$coefficients[2, 4]
+    if (!(is.na(p_value))) {
+      representingLogitTestPValue = p_value
+      representingLogitTest = if(representingLogitTestPValue < 0.05/total_concepts) TRUE else FALSE
+    }
+   }
+    # KS Test
+    agg_data <- data_features %>% dplyr::select(.data$CONCEPT_ID, .data$ABSTRACTION_LEVEL, .data$TIME_TO_EVENT)
+    concept_date_array =  unlist(dplyr::filter(agg_data, .data$CONCEPT_ID == representingConceptId, .data$ABSTRACTION_LEVEL == abstraction_level)$TIME_TO_EVENT)
+    concept_date_array_min = min(concept_date_array) # 0
+    concept_date_array_max = max(concept_date_array)
+    ks_result <- stats::ks.test(jitter(concept_date_array, amount=0.1), "punif", min=concept_date_array_min, max=concept_date_array_max)
+
+
+    representingKSTest = ks_result$p.value < 0.05/total_concepts
+    representingKSTestPValue = ks_result$p.value
+
+    # Update a specific row with new values for example columns
+    data_features[CONCEPT_ID == representingConceptId & ABSTRACTION_LEVEL == abstraction_level, `:=`(
+      ZTEST = representingZTest,
+      ZTEST_P_VALUE = representingZTestPValue,
+      LOGITTEST = representingLogitTest,
+      LOGITTEST_P_VALUE = representingLogitTestPValue,
+      KSTEST = representingKSTest,
+      KSTEST_P_VALUE = representingKSTestPValue
+    )]
+
+    # Tests end
+
+
 
     data_features(data_features)
     data_patients(data_patients)
@@ -1010,7 +1103,6 @@ server <- function(input, output, session) {
 
     ))
   }
-
   # Function to combine selected concepts
   keepUsersWithConcepts <- function(filters) {
     if (length(filters) == 0) {

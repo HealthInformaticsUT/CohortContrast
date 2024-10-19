@@ -1,3 +1,4 @@
+
 #' This function acts as a Cohort2Trajectory wrapper
 #' @param data CohortContrast object
 #' @param pathToResults Path where data should be saved to

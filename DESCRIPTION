@@ -16,6 +16,7 @@ Imports:
     tidyr,
     pheatmap,
     ggplot2,
+    forcats,
     stringr,
     stats,
     utils,
