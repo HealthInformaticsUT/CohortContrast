@@ -517,7 +517,8 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
     dplyr::summarise(TOTAL_PREVALENCE = sum(.data$PREVALENCE),
                      .groups = 'drop')
 
-  # Separate the data for each cohort for easier analysis
+  # # Separate the data for each cohort for easier analysis
+  # # TODO: is it even used?
   cohort_1 <- dplyr::filter(agg_data, .data$COHORT_DEFINITION_ID != targetCohortId)
   cohort_2 <- dplyr::filter(agg_data, .data$COHORT_DEFINITION_ID == targetCohortId)
 
@@ -540,11 +541,27 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
     for (concept_id in unique(agg_data_abstraction_subset$CONCEPT_ID)) {
       # Create the dataset for logistic regression
       concept_data <- data_patients %>%
-        dplyr::filter(.data$ABSTRACTION_LEVEL == abstraction_level) %>%
+        dplyr::filter(.data$ABSTRACTION_LEVEL == abstraction_level, .data$CONCEPT_ID == concept_id) %>%
         dplyr::mutate(
-          PREVALENCE = dplyr::if_else(.data$CONCEPT_ID == concept_id & .data$PREVALENCE > 0, 1, 0),
-          TARGET = dplyr::if_else(.data$COHORT_DEFINITION_ID == targetCohortId, 1, 0)
-        )
+          PREVALENCE = 1,
+          TARGET = dplyr::if_else(.data$COHORT_DEFINITION_ID == targetCohortId, 1, 0),
+          CONTROL = dplyr::if_else(.data$COHORT_DEFINITION_ID == targetCohortId, 0, 1)
+        ) %>% dplyr::select(.data$COHORT_DEFINITION_ID, .data$PREVALENCE, .data$TARGET, .data$CONTROL)
+
+
+      no_match_target = data_initial %>% dplyr::filter(.data$COHORT_DEFINITION_ID == targetCohortId) %>% nrow() - concept_data %>% dplyr::filter(.data$COHORT_DEFINITION_ID == targetCohortId) %>% nrow()
+      no_match_control = data_initial %>% dplyr::filter(.data$COHORT_DEFINITION_ID != targetCohortId) %>% nrow() - concept_data %>% dplyr::filter(.data$COHORT_DEFINITION_ID != targetCohortId) %>% nrow()
+
+
+      no_match_target_df = NULL
+      no_match_control_df = NULL
+      if(no_match_target != 0){
+      no_match_target_df = data.frame(COHORT_DEFINITION_ID = "target", PREVALENCE = 0, TARGET = rep(1, no_match_target), CONTROL = 0)
+      }
+      if(no_match_control != 0){
+      no_match_control_df = data.frame(COHORT_DEFINITION_ID = "control", PREVALENCE = 0, TARGET = 0, CONTROL = rep(1, no_match_control))
+      }
+      concept_data = rbind(rbind(no_match_target_df, no_match_control_df), concept_data)
 
       prevalence_cohort_2 <- ifelse(is.na(sum(concept_data$PREVALENCE[concept_data$TARGET == 1])), 0, sum(concept_data$PREVALENCE[concept_data$TARGET == 1]))
       prevalence_cohort_1 <- ifelse(is.na(sum(concept_data$PREVALENCE[concept_data$CONTROL == 1])), 0, sum(concept_data$PREVALENCE[concept_data$CONTROL == 1]))
@@ -563,7 +580,7 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
       }
 
       # Perform logistic regression
-      model <- stats::glm(TARGET ~ PREVALENCE, data = concept_data, family = stats::binomial)
+      model <- stats::glm(.dataTARGET ~ PREVALENCE, data = concept_data, family = stats::binomial)
       summary_model <- summary(model)
 
       # Check if the presence of the concept is significant

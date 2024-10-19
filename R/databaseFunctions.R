@@ -522,27 +522,27 @@ resolveCohortTableOverlaps <- function(cohortTable, cdm){
 # Get observation periods
 observation_period <- cdm$observation_period %>% as.data.frame()
 # Check for conflicts with observation period
-resolvedTable <- controlTable %>%
+resolvedTable <- cohortTable %>%
   # Join with observation_period table based on subject_id and person_id
   dplyr::left_join(observation_period, by = c("subject_id" = "person_id")) %>%
   # Adjust cohort dates to fit within the observation period
   dplyr::mutate(
-    cohort_start_date = pmax(cohort_start_date, observation_period_start_date),
-    cohort_end_date = pmin(cohort_end_date, observation_period_end_date)
+    cohort_start_date = pmax(.data$cohort_start_date, .data$observation_period_start_date),
+    cohort_end_date = pmin(.data$cohort_end_date, .data$observation_period_end_date)
   ) %>%
   # Select only the relevant columns to return the original structure
-  dplyr::select(cohort_definition_id, subject_id, cohort_start_date, cohort_end_date)
+  dplyr::select(.data$cohort_definition_id, .data$subject_id,.data$cohort_start_date, .data$cohort_end_date)
 
 # View the updated table
 
 
 resolvedTable <- resolvedTable %>%
-  dplyr::group_by(cohort_definition_id, subject_id) %>%
-  dplyr::arrange(cohort_start_date, .by_group = TRUE) %>%
-  dplyr::mutate(cohort_start_date = dplyr::if_else(!is.na(dplyr::lag(cohort_end_date)) &
-                                                      dplyr::lag(cohort_end_date) >= cohort_start_date,
-                                                    dplyr::lag(cohort_end_date) + 1,
-                                     cohort_start_date)) %>%
+  dplyr::group_by(.data$cohort_definition_id, .data$subject_id) %>%
+  dplyr::arrange(.data$cohort_start_date, .by_group = TRUE) %>%
+  dplyr::mutate(cohort_start_date = dplyr::if_else(!is.na(dplyr::lag(.data$cohort_end_date)) &
+                                                      dplyr::lag(.data$cohort_end_date) >= .data$cohort_start_date,
+                                                    dplyr::lag(.data$cohort_end_date) + 1,
+                                                   .data$cohort_start_date)) %>%
   dplyr::ungroup()
 
 return(resolvedTable)
