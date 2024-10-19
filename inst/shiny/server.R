@@ -491,7 +491,7 @@ server <- function(input, output, session) {
     selectedFeatureNames = ccObject$data_features %>%
       dplyr::filter(.data$ABSTRACTION_LEVEL == ccObject$config$abstractionLevel,
                     .data$CONCEPT_ID %in% selectedFeatureIds) %>%
-      dplyr::select(CONCEPT_NAME) %>% dplyr::pull(CONCEPT_NAME)
+      dplyr::select(.data$CONCEPT_NAME) %>% dplyr::pull(.data$CONCEPT_NAME)
 
 
     trajectoryDataList = list(
@@ -1004,15 +1004,15 @@ server <- function(input, output, session) {
     representingLogitTestPValue = 1
     # Create the dataset for logistic regression
     concept_data <- data_patients %>%
-      dplyr::filter(.data$ABSTRACTION_LEVEL == abstraction_level, .data$CONCEPT_ID == concept_id) %>%
+      dplyr::filter(.data$ABSTRACTION_LEVEL == abstraction_level, .data$CONCEPT_ID == representingConceptId) %>%
       dplyr::mutate(
         PREVALENCE = 1,
-        TARGET = dplyr::if_else(.data$COHORT_DEFINITION_ID == targetCohortId, 1, 0),
-        CONTROL = dplyr::if_else(.data$COHORT_DEFINITION_ID == targetCohortId, 0, 1)
-      ) %>% select(COHORT_DEFINITION_ID, PREVALENCE, TARGET, CONTROL)
+        TARGET = dplyr::if_else(.data$COHORT_DEFINITION_ID == "target", 1, 0),
+        CONTROL = dplyr::if_else(.data$COHORT_DEFINITION_ID != "target", 0, 1)
+      ) %>% dplyr::select(.data$COHORT_DEFINITION_ID, .data$PREVALENCE, .data$TARGET, .data$CONTROL)
 
-    no_match_target = data_initial %>% dplyr::filter(.data$COHORT_DEFINITION_ID == targetCohortId) %>% nrow() - concept_data %>% dplyr::filter(.data$COHORT_DEFINITION_ID == targetCohortId) %>% nrow()
-    no_match_control = data_initial %>% dplyr::filter(.data$COHORT_DEFINITION_ID != targetCohortId) %>% nrow() - concept_data %>% dplyr::filter(.data$COHORT_DEFINITION_ID != targetCohortId) %>% nrow()
+    no_match_target = data_initial %>% dplyr::filter(.data$COHORT_DEFINITION_ID == "target") %>% nrow() - concept_data %>% dplyr::filter(.data$COHORT_DEFINITION_ID == "target") %>% nrow()
+    no_match_control = data_initial %>% dplyr::filter(.data$COHORT_DEFINITION_ID != "target") %>% nrow() - concept_data %>% dplyr::filter(.data$COHORT_DEFINITION_ID != "target") %>% nrow()
 
     no_match_target_df = NULL
     no_match_control_df = NULL

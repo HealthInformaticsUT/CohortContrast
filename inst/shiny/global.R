@@ -925,6 +925,7 @@ plot_time <- function(filtered_target) {
       strip.background = ggplot2::element_blank(),
       # Clean up strip background
       strip.text.y = ggplot2::element_blank(),
+      axis.text.y = ggplot2::element_text(size = 15),
       #axis.text.y = ggplot2::element_blank(),
       # Hide strip text
       panel.spacing = unit(0.5, "lines")  # Reduce spacing between panels
