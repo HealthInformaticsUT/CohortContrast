@@ -291,7 +291,7 @@ server <- function(input, output, session) {
       prevalencePlotWaiter$hide()
       result
     },
-    height = reactive({ max(450, min(50 * nrOfConcepts(), 5000)) })
+    height = reactive({ max(500, min(50 * nrOfConcepts(), 5000)) })
     )
 
   output$heatmap <- shiny::renderPlot(
@@ -309,7 +309,7 @@ server <- function(input, output, session) {
       heatmapPlotWaiter$hide()
       result
     },
-    height = reactive({ max(450, min(50 * nrOfConcepts(), 5000)) })
+    height = reactive({ max(500, min(50 * nrOfConcepts(), 5000)) })
     )
 
   output$time_panel <- shiny::renderPlot(
@@ -327,7 +327,7 @@ server <- function(input, output, session) {
       timePanelWaiter$hide()
       result
     },
-    height = reactive({ max(450, min(50 * nrOfConcepts(), 5000)) })
+    height = reactive({ max(500, min(50 * nrOfConcepts(), 5000)) })
   )
 
   shiny::observeEvent(input$visual_snapshot, {
@@ -1037,7 +1037,15 @@ server <- function(input, output, session) {
     summary_model <- summary(model)
 
     # Check if the presence of the concept is significant
-    p_value <- summary_model$coefficients[2, 4]
+    p_value <- tryCatch({
+      # Attempt to access the p-value
+      p_value <- summary_model$coefficients[2, 4]
+      p_value  # Return the value if successful
+    }, error = function(e) {
+      # Return NA or another indicator if there is an error
+      NA
+    })
+
     if (!(is.na(p_value))) {
       representingLogitTestPValue = p_value
       representingLogitTest = if(representingLogitTestPValue < 0.05/total_concepts) TRUE else FALSE

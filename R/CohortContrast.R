@@ -531,7 +531,9 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
   doParallel::registerDoParallel(cl)
   abstraction_level = NULL
   # Parallelize the loop over abstraction levels
+  log_file <- "parallel_log.txt"
   significant_concepts <- foreach::foreach(abstraction_level = unique(agg_data$ABSTRACTION_LEVEL), .combine = rbind, .packages = c("dplyr", "stats"), .export = c("abstraction_level")) %dopar% {
+
     agg_data_abstraction_subset <- dplyr::filter(agg_data, .data$ABSTRACTION_LEVEL == abstraction_level)
     alpha <- 0.05 / length(unique(agg_data_abstraction_subset$CONCEPT_ID))
 
@@ -566,7 +568,7 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
       prevalence_cohort_2 <- ifelse(is.na(sum(concept_data$PREVALENCE[concept_data$TARGET == 1])), 0, sum(concept_data$PREVALENCE[concept_data$TARGET == 1]))
       prevalence_cohort_1 <- ifelse(is.na(sum(concept_data$PREVALENCE[concept_data$CONTROL == 1])), 0, sum(concept_data$PREVALENCE[concept_data$CONTROL == 1]))
 
-      if (prevalence_cohort_2 / sample_2_n < presenceFilter) {
+      if (prevalence_cohort_2 / sample_2_n < presenceFilter | prevalence_cohort_1 == 0 | prevalence_cohort_2 == 0) {
         level_results <- rbind(
           level_results,
           data.frame(
@@ -580,11 +582,19 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
       }
 
       # Perform logistic regression
-      model <- stats::glm(.dataTARGET ~ PREVALENCE, data = concept_data, family = stats::binomial)
+      model <- stats::glm(TARGET ~ PREVALENCE, data = concept_data, family = stats::binomial)
       summary_model <- summary(model)
 
+      write(concept_id, file = log_file, append = TRUE)
       # Check if the presence of the concept is significant
-      p_value <- summary_model$coefficients[2, 4]
+      p_value <- tryCatch({
+        # Attempt to access the p-value
+        p_value <- summary_model$coefficients[2, 4]
+        p_value  # Return the value if successful
+      }, error = function(e) {
+        # Return NA or another indicator if there is an error
+        NA
+      })
 
       if (!is.na(p_value) && p_value < alpha) {
         level_results <- rbind(
