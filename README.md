@@ -24,18 +24,7 @@ and input data:
 
 1.  **Credentials**: Make sure you can create a connection to your OHDS
     CDM instance using CDMConnector package.
-
-2.  **Create target and control tables**
-
-    - Use functions `cohortFromCohortTable`, `cohortFromDataTable`,
-      `cohortFromJSON` or `cohortFromCSV` for indicating your target and
-      control cohort tables.
-    - You can use `createControlCohortInverse` or
-      `cohortFromCohortTable` for generating control tables.
-
-3.  **Run the Study**: Execute the study by using the CohortContrast
-    functions.
-
+    
 <!-- -->
 
     pathToResults = getwd()
@@ -60,12 +49,7 @@ and input data:
     writeSchema <-
       Sys.getenv("OHDSI_WRITE") #TODO # Schema for temporary tables, will be deleted
     writePrefix <- "cc_"
-
-    cohortsTableSchemaName = cdmResultsSchema
-    cohortsTableName = 'cohort'
-    targetCohortId = 568
-    controlCohortId = 571
-
+    
     db = DBI::dbConnect(
       RPostgres::Postgres(),
       dbname = Sys.getenv("DB_NAME"),
@@ -82,6 +66,21 @@ and input data:
       writeSchema = c(schema = writeSchema, prefix = writePrefix),
     )
 
+2.  **Create target and control tables**
+
+    - Use functions `cohortFromCohortTable`, `cohortFromDataTable`,
+      `cohortFromJSON` or `cohortFromCSV` for indicating your target and
+      control cohort tables.
+    - You can use `createControlCohortInverse` or
+      `cohortFromCohortTable` for generating control tables.
+      
+<!-- -->
+
+    cohortsTableSchemaName = cdmResultsSchema
+    cohortsTableName = 'cohort'
+    targetCohortId = 568
+    controlCohortId = 571
+
     ################################################################################
     #
     # CDM target and control modula
@@ -93,7 +92,12 @@ and input data:
        
      controlTable <- CohortContrast::cohortFromCohortTable(cdm = cdm, db = db,
       tableName = cohortsTableName, schemaName = cdmResultsSchema, cohortId = controlCohortId)
-      
+
+3.  **Run the Study**: Execute the study by using the CohortContrast
+    functions.
+
+<!-- -->
+
     ################################################################################
     #
     # Execute
@@ -123,10 +127,6 @@ and input data:
       createOutputFiles = TRUE,
       safeRun = FALSE,
       complName = "CohortContrastStudy")
-      
-     CohortContrast::runCohortContrastGUI(
-     pathToResults = pathToResults
-    )
 
 ## Outputs
 
@@ -137,6 +137,12 @@ The CohortContrast package generates the following outputs:
     These can be analysed in the GUI.
 2.  Using GUI with `runCohortContrastGUI` generates plots as well as
     saves the last state of your analysis in the GUI.
+
+<!-- -->    
+
+    CohortContrast::runCohortContrastGUI(
+     pathToResults = pathToResults
+    )
 
 ## Demo
 
