@@ -69,15 +69,8 @@
 </h2>
 <p>To use CohortContrast, follow these steps to configure your environment and input data:</p>
 <ol style="list-style-type: decimal">
-<li><p><strong>Credentials</strong>: Make sure you can create a connection to your OHDS CDM instance using CDMConnector package.</p></li>
 <li>
-<p><strong>Create target and control tables</strong></p>
-<ul>
-<li>Use functions <code>cohortFromCohortTable</code>, <code>cohortFromDataTable</code>, <code>cohortFromJSON</code> or <code>cohortFromCSV</code> for indicating your target and control cohort tables.</li>
-<li>You can use <code>createControlCohortInverse</code> or <code>cohortFromCohortTable</code> for generating control tables.</li>
-</ul>
-</li>
-<li><p><strong>Run the Study</strong>: Execute the study by using the CohortContrast functions.</p></li>
+<strong>Credentials</strong>: Make sure you can create a connection to your OHDS CDM instance using CDMConnector package.</li>
 </ol>
 <!-- --><div class="sourceCode" id="cb2"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>pathToResults <span class="ot">=</span> <span class="fu">getwd</span>()</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
@@ -102,72 +95,79 @@
 <span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">Sys.getenv</span>(<span class="st">"OHDSI_WRITE"</span>) <span class="co">#TODO # Schema for temporary tables, will be deleted</span></span>
 <span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>writePrefix <span class="ot">&lt;-</span> <span class="st">"cc_"</span></span>
 <span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>cohortsTableSchemaName <span class="ot">=</span> cdmResultsSchema</span>
-<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>cohortsTableName <span class="ot">=</span> <span class="st">'cohort'</span></span>
-<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>targetCohortId <span class="ot">=</span> <span class="dv">568</span></span>
-<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>controlCohortId <span class="ot">=</span> <span class="dv">571</span></span>
-<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>db <span class="ot">=</span> DBI<span class="sc">::</span><span class="fu">dbConnect</span>(</span>
-<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>  RPostgres<span class="sc">::</span><span class="fu">Postgres</span>(),</span>
-<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>  <span class="at">dbname =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_NAME"</span>),</span>
-<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>  <span class="at">host =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_HOST"</span>),</span>
-<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>  <span class="at">user =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_USERNAME"</span>),</span>
-<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>  <span class="at">password =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_PASSWORD"</span>),</span>
-<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">port  =</span> port</span>
-<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>cdm <span class="ot">&lt;-</span> CDMConnector<span class="sc">::</span><span class="fu">cdmFromCon</span>(</span>
-<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>  <span class="at">con =</span> db,</span>
-<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>  <span class="at">cdmSchema =</span> cdmSchema,</span>
-<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>  <span class="at">achillesSchema =</span> cdmResultsSchema,</span>
-<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>  <span class="at">writeSchema =</span> <span class="fu">c</span>(<span class="at">schema =</span> writeSchema, <span class="at">prefix =</span> writePrefix),</span>
-<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a><span class="do">################################################################################</span></span>
-<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
-<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a><span class="co"># CDM target and control modula</span></span>
-<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
-<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a><span class="do">################################################################################</span></span>
-<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>targetTable <span class="ot">&lt;-</span> CohortContrast<span class="sc">::</span><span class="fu">cohortFromCohortTable</span>(<span class="at">cdm =</span> cdm, <span class="at">db =</span> db,</span>
-<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>   <span class="at">tableName =</span> cohortsTableName, <span class="at">schemaName =</span> cdmResultsSchema, <span class="at">cohortId =</span> targetCohortId)</span>
-<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>   </span>
-<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a> controlTable <span class="ot">&lt;-</span> CohortContrast<span class="sc">::</span><span class="fu">cohortFromCohortTable</span>(<span class="at">cdm =</span> cdm, <span class="at">db =</span> db,</span>
-<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>  <span class="at">tableName =</span> cohortsTableName, <span class="at">schemaName =</span> cdmResultsSchema, <span class="at">cohortId =</span> controlCohortId)</span>
-<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a><span class="do">################################################################################</span></span>
-<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
-<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a><span class="co"># Execute</span></span>
-<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
-<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a><span class="do">################################################################################</span></span>
-<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a>data <span class="ot">=</span> CohortContrast<span class="sc">::</span><span class="fu">CohortContrast</span>(</span>
-<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a>  cdm,</span>
-<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a>  <span class="at">targetTable =</span> targetTable,</span>
-<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a>  <span class="at">controlTable =</span> controlTable,</span>
-<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>  <span class="at">pathToResults =</span> <span class="fu">getwd</span>(),</span>
-<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>  <span class="at">domainsIncluded =</span> <span class="fu">c</span>(</span>
-<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Drug"</span>,</span>
-<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Condition"</span>,</span>
-<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Measurement"</span>,</span>
-<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Observation"</span>,</span>
-<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Procedure"</span>,</span>
-<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Visit"</span>,</span>
-<span id="cb2-75"><a href="#cb2-75" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Visit detail"</span></span>
-<span id="cb2-76"><a href="#cb2-76" aria-hidden="true" tabindex="-1"></a>  ),</span>
-<span id="cb2-77"><a href="#cb2-77" aria-hidden="true" tabindex="-1"></a>  <span class="at">prevalenceCutOff =</span> <span class="fl">2.5</span>,</span>
-<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a>  <span class="at">topK =</span> <span class="cn">FALSE</span>, <span class="co"># Number of features to export</span></span>
-<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a>  <span class="at">presenceFilter =</span> <span class="fl">0.2</span>, <span class="co"># 0-1, percentage of people who must have the chosen feature present</span></span>
-<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a>  <span class="at">complementaryMappingTable =</span> <span class="cn">FALSE</span>, <span class="co"># A table for manual concept_id and concept_name mapping (merge)</span></span>
-<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a>  <span class="at">runZTests =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a>  <span class="at">runLogitTests =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a>  <span class="at">createOutputFiles =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a>  <span class="at">safeRun =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a>  <span class="at">complName =</span> <span class="st">"CohortContrastStudy"</span>)</span>
-<span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb2-87"><a href="#cb2-87" aria-hidden="true" tabindex="-1"></a> CohortContrast<span class="sc">::</span><span class="fu">runCohortContrastGUI</span>(</span>
-<span id="cb2-88"><a href="#cb2-88" aria-hidden="true" tabindex="-1"></a> <span class="at">pathToResults =</span> pathToResults</span>
-<span id="cb2-89"><a href="#cb2-89" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>db <span class="ot">=</span> DBI<span class="sc">::</span><span class="fu">dbConnect</span>(</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  RPostgres<span class="sc">::</span><span class="fu">Postgres</span>(),</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>  <span class="at">dbname =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_NAME"</span>),</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  <span class="at">host =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_HOST"</span>),</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">user =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_USERNAME"</span>),</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>  <span class="at">password =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_PASSWORD"</span>),</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>  <span class="at">port  =</span> port</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>cdm <span class="ot">&lt;-</span> CDMConnector<span class="sc">::</span><span class="fu">cdmFromCon</span>(</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>  <span class="at">con =</span> db,</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">cdmSchema =</span> cdmSchema,</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">achillesSchema =</span> cdmResultsSchema,</span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>  <span class="at">writeSchema =</span> <span class="fu">c</span>(<span class="at">schema =</span> writeSchema, <span class="at">prefix =</span> writePrefix),</span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+<ol start="2" style="list-style-type: decimal">
+<li>
+<p><strong>Create target and control tables</strong></p>
+<ul>
+<li>Use functions <code>cohortFromCohortTable</code>, <code>cohortFromDataTable</code>, <code>cohortFromJSON</code> or <code>cohortFromCSV</code> for indicating your target and control cohort tables.</li>
+<li>You can use <code>createControlCohortInverse</code> or <code>cohortFromCohortTable</code> for generating control tables.</li>
+</ul>
+</li>
+</ol>
+<!-- --><div class="sourceCode" id="cb3"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>cohortsTableSchemaName <span class="ot">=</span> cdmResultsSchema</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>cohortsTableName <span class="ot">=</span> <span class="st">'cohort'</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>targetCohortId <span class="ot">=</span> <span class="dv">568</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>controlCohortId <span class="ot">=</span> <span class="dv">571</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="do">################################################################################</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="co"># CDM target and control modula</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="do">################################################################################</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>targetTable <span class="ot">&lt;-</span> CohortContrast<span class="sc">::</span><span class="fu">cohortFromCohortTable</span>(<span class="at">cdm =</span> cdm, <span class="at">db =</span> db,</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>   <span class="at">tableName =</span> cohortsTableName, <span class="at">schemaName =</span> cdmResultsSchema, <span class="at">cohortId =</span> targetCohortId)</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>   </span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a> controlTable <span class="ot">&lt;-</span> CohortContrast<span class="sc">::</span><span class="fu">cohortFromCohortTable</span>(<span class="at">cdm =</span> cdm, <span class="at">db =</span> db,</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">tableName =</span> cohortsTableName, <span class="at">schemaName =</span> cdmResultsSchema, <span class="at">cohortId =</span> controlCohortId)</span></code></pre></div>
+<ol start="3" style="list-style-type: decimal">
+<li>
+<strong>Run the Study</strong>: Execute the study by using the CohortContrast functions.</li>
+</ol>
+<!-- --><div class="sourceCode" id="cb4"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="do">################################################################################</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Execute</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="do">################################################################################</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>data <span class="ot">=</span> CohortContrast<span class="sc">::</span><span class="fu">CohortContrast</span>(</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  cdm,</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">targetTable =</span> targetTable,</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">controlTable =</span> controlTable,</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">pathToResults =</span> <span class="fu">getwd</span>(),</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">domainsIncluded =</span> <span class="fu">c</span>(</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Drug"</span>,</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Condition"</span>,</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Measurement"</span>,</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Observation"</span>,</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Procedure"</span>,</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Visit"</span>,</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Visit detail"</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">prevalenceCutOff =</span> <span class="fl">2.5</span>,</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">topK =</span> <span class="cn">FALSE</span>, <span class="co"># Number of features to export</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>  <span class="at">presenceFilter =</span> <span class="fl">0.2</span>, <span class="co"># 0-1, percentage of people who must have the chosen feature present</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">complementaryMappingTable =</span> <span class="cn">FALSE</span>, <span class="co"># A table for manual concept_id and concept_name mapping (merge)</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>  <span class="at">runZTests =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>  <span class="at">runLogitTests =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>  <span class="at">createOutputFiles =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>  <span class="at">safeRun =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>  <span class="at">complName =</span> <span class="st">"CohortContrastStudy"</span>)</span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="outputs">Outputs<a class="anchor" aria-label="anchor" href="#outputs"></a>
@@ -177,6 +177,9 @@
 <li>Running <code>CohortContrast</code> returns a list of tables (patient level summarised data for target and control) as well as saves the object. These can be analysed in the GUI.</li>
 <li>Using GUI with <code>runCohortContrastGUI</code> generates plots as well as saves the last state of your analysis in the GUI.</li>
 </ol>
+<!-- --><div class="sourceCode" id="cb5"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>CohortContrast<span class="sc">::</span><span class="fu">runCohortContrastGUI</span>(</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a> <span class="at">pathToResults =</span> pathToResults</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="demo">Demo<a class="anchor" aria-label="anchor" href="#demo"></a>
