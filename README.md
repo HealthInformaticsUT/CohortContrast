@@ -45,7 +45,7 @@ and input data:
     cdmVocabSchema <-
       Sys.getenv("OHDSI_VOCAB") #TODO # Schema which contains the OHDSI Common Data Model vocabulary tables.
     cdmResultsSchema <-
-      Sys.getenv("OHDSI_RESULTS") #TODO # Schema which will contain the final results
+      Sys.getenv("OHDSI_RESULTS") #TODO # Schema which contains "cohort" table (is not mandatory)
     writeSchema <-
       Sys.getenv("OHDSI_WRITE") #TODO # Schema for temporary tables, will be deleted
     writePrefix <- "cc_"
