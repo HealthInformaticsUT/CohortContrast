@@ -90,7 +90,7 @@
 <span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>cdmVocabSchema <span class="ot">&lt;-</span></span>
 <span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">Sys.getenv</span>(<span class="st">"OHDSI_VOCAB"</span>) <span class="co">#TODO # Schema which contains the OHDSI Common Data Model vocabulary tables.</span></span>
 <span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>cdmResultsSchema <span class="ot">&lt;-</span></span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">Sys.getenv</span>(<span class="st">"OHDSI_RESULTS"</span>) <span class="co">#TODO # Schema which will contain the final results</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">Sys.getenv</span>(<span class="st">"OHDSI_RESULTS"</span>) <span class="co">#TODO # Schema which contains "cohort" table (is not mandatory)</span></span>
 <span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>writeSchema <span class="ot">&lt;-</span></span>
 <span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">Sys.getenv</span>(<span class="st">"OHDSI_WRITE"</span>) <span class="co">#TODO # Schema for temporary tables, will be deleted</span></span>
 <span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>writePrefix <span class="ot">&lt;-</span> <span class="st">"cc_"</span></span>
