@@ -37,6 +37,7 @@ server <- function(input, output, session) {
   last_add_filter_value <- reactiveVal(0)
   last_disregard_filter_value <- reactiveVal(0)
 
+  # Plots' height coefficient
   nrOfConcepts <- shiny::reactive({
     if (is.data.frame(target_row_annotation())) {
       nrow(target_row_annotation())
@@ -68,7 +69,7 @@ server <- function(input, output, session) {
     color = "rgba(0, 0, 0, 0.75)" # Semi-transparent black background
   )
   prevalencePlotWaiter <- waiter::Waiter$new(
-    id = "prevalence", # Targeting the prevalence plot
+    id = "prevalenceWaiter", # Targeting the prevalence plot
     html = htmltools::tagList(
       htmltools::div(style = "color: white; font-size: 18px; text-align: center;", "Loading Prevalence Plot..."),
       waiter::spin_3()
@@ -76,7 +77,7 @@ server <- function(input, output, session) {
   )
 
   heatmapPlotWaiter <- waiter::Waiter$new(
-    id = "heatmap", # Targeting the heatmap plot
+    id = "heatmapWaiter", # Targeting the heatmap plot
     html = htmltools::tagList(
       htmltools::div(style = "color: white; font-size: 18px; text-align: center;", "Loading Heatmap Plot..."),
       waiter::spin_3()
@@ -84,7 +85,7 @@ server <- function(input, output, session) {
   )
 
   timePanelWaiter <- waiter::Waiter$new(
-    id = "timePlot", # Targeting the heatmap plot
+    id = "timePlotWaiter", # Targeting the heatmap plot
     html = htmltools::tagList(
       htmltools::div(style = "color: white; font-size: 18px; text-align: center;", "Loading Time Panel..."),
       waiter::spin_3()
@@ -291,7 +292,7 @@ server <- function(input, output, session) {
       prevalencePlotWaiter$hide()
       result
     },
-    height = reactive({ max(500, min(50 * nrOfConcepts(), 5000)) })
+    height = function() 160 + nrOfConcepts() * 24
     )
 
   output$heatmap <- shiny::renderPlot(
@@ -309,7 +310,7 @@ server <- function(input, output, session) {
       heatmapPlotWaiter$hide()
       result
     },
-    height = reactive({ max(500, min(50 * nrOfConcepts(), 5000)) })
+    height = function() 160 + nrOfConcepts() * 24
     )
 
   output$time_panel <- shiny::renderPlot(
@@ -327,7 +328,7 @@ server <- function(input, output, session) {
       timePanelWaiter$hide()
       result
     },
-    height = reactive({ max(500, min(50 * nrOfConcepts(), 5000)) })
+    height = function() 160 + nrOfConcepts() * 24
   )
 
   shiny::observeEvent(input$visual_snapshot, {
@@ -1195,7 +1196,7 @@ server <- function(input, output, session) {
 
     # Step 2: Select specific columns
     data_features_temp <- data_features[
-      , .(CONCEPT_ID, ABSTRACTION_LEVEL, ZTEST,ZTEST_P_VALUE, LOGITTEST,LOGITTEST_P_VALUE, KSTEST_P_VALUE)
+      , .(CONCEPT_ID, ABSTRACTION_LEVEL, ZTEST,ZTEST_P_VALUE, LOGITTEST,LOGITTEST_P_VALUE, KSTEST, KSTEST_P_VALUE)
     ]
     if (nrow(data_patients_filtering) == 0) {
       data_features_filtering <- data_features[0]

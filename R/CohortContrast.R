@@ -531,7 +531,6 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
   doParallel::registerDoParallel(cl)
   abstraction_level = NULL
   # Parallelize the loop over abstraction levels
-  log_file <- "parallel_log.txt"
   significant_concepts <- foreach::foreach(abstraction_level = unique(agg_data$ABSTRACTION_LEVEL), .combine = rbind, .packages = c("dplyr", "stats"), .export = c("abstraction_level")) %dopar% {
 
     agg_data_abstraction_subset <- dplyr::filter(agg_data, .data$ABSTRACTION_LEVEL == abstraction_level)
@@ -584,8 +583,6 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
       # Perform logistic regression
       model <- stats::glm(TARGET ~ PREVALENCE, data = concept_data, family = stats::binomial)
       summary_model <- summary(model)
-
-      write(concept_id, file = log_file, append = TRUE)
       # Check if the presence of the concept is significant
       p_value <- tryCatch({
         # Attempt to access the p-value

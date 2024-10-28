@@ -6,7 +6,7 @@
 #' @param lengthOfStay If discrete trajectory is generated we have to indicate the state length in days (integer)
 #' @param stateSelectionType State selection type (First occurring - 1, Largest overlap - 2, Priority - 3)
 #' @param mergeStates Boolean for merging overlapping states
-#' @param mergeThreshold A value 0 to 1 indicating the threshold of overlap for merging (0.5 would mean if states overlap more than 50% they are merged)
+#' @param mergeThreshold A value 0 to 1 indicating the threshold of overlap for merging - percentage
 #' @param outOfCohortAllowed Boolean for allowing to include state occurrences outside the cohort period
 #' @import Cohort2Trajectory
 #' @export

@@ -1,25 +1,3 @@
-#' #' Function to nudge cohorts
-#' #'
-#' #' This function outputs a dataframe with columns SUBJECT_ID, COHORT_DEFINITION_ID, COHORT_START_DATE, COHORT_END_DATE
-#' #' @param cdm Connection to database
-#' #' @param nudgeTarget number of days you would like to nudge the target cohort start day
-#' #' @param nudgeControl number of days you would like to nudge the control cohort start day
-#' #'
-#' #' @keywords internal
-#'
-#' nudgeCohorts <- function(cdm, nudgeTarget, nudgeControl) {
-#'   if (nudgeTarget != FALSE) {
-#'     cdm$target <-  cdm$target |>
-#'       dplyr::mutate(cohort_start_date + nudgeTarget)
-#'     printCustomMessage("Nudging target cohort EXECUTED!")
-#'   }
-#'   if (nudgeControl != FALSE) {
-#'     cdm$control <-  cdm$control |>
-#'       dplyr::mutate(cohort_start_date + nudgeTarget)
-#'     printCustomMessage("Nudging control cohort EXECUTED!")
-#'   }
-#' }
-
 #' Function for creating automatic matches based on age and sex
 #'
 #' @param cdm Connection to the database (package CDMConnector)
