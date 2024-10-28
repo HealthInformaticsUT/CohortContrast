@@ -1,6 +1,6 @@
 # Define the dashboard header
 library(shiny)
-header <- shinydashboard::dashboardHeader(title = "Data Dashboard")
+header <- shinydashboard::dashboardHeader(title = "CohortContrast Dashboard")
 
 # Define the dashboard sidebar
 sidebar <- shinydashboard::dashboardSidebar(
@@ -45,9 +45,9 @@ body <- shinydashboard::dashboardBody(
             choices = list(
               "Condition" = "condition_occurrence",
               "Drug" = "drug_exposure",
-              "Procedure" = "procedure_occurrence",
               "Measurement" = "measurement",
               "Observation" = "observation",
+              "Procedure" = "procedure_occurrence",
               "Visit" = "visit_occurrence",
               "Visit detail" = "visit_detail"
             ),
@@ -65,7 +65,7 @@ body <- shinydashboard::dashboardBody(
             h3("Risk Ratio cutoff"),
             min = 1,
             max = 10,
-            value = 3,
+            value = 2,
             step = 0.05
           )
         ),
@@ -76,7 +76,7 @@ body <- shinydashboard::dashboardBody(
             h3("Prevalence cutoff"),
             min = 0,
             max = 1,
-            value = 0.25,
+            value = 0.2,
             step = 0.01
           )
         ),
@@ -158,14 +158,14 @@ body <- shinydashboard::dashboardBody(
       ),
       hr(),
       shiny::actionButton("visual_snapshot", "Create visual snapshot!"),
-      tabsetPanel(
+      fluidRow(tabsetPanel(
         tabPanel("Prevalence plot",
                  plotOutput("prevalence")),
-        tabPanel("Heatmap",
-                 plotOutput("heatmap")),
         tabPanel("Time panel",
-                 plotOutput("time_panel"))
-      )
+                 plotOutput("time_panel")),
+        tabPanel("Heatmap",
+                 plotOutput("heatmap"))
+      ))
     ),
     shinydashboard::tabItem(
       tabName = "filtering",

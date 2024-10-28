@@ -28,7 +28,7 @@ C2TCaller(
 
 \item{mergeStates}{Boolean for merging overlapping states}
 
-\item{mergeThreshold}{A value 0 to 1 indicating the threshold of overlap for merging (0.5 would mean if states overlap more than 50% they are merged)}
+\item{mergeThreshold}{A value 0 to 1 indicating the threshold of overlap for merging - percentage}
 
 \item{outOfCohortAllowed}{Boolean for allowing to include state occurrences outside the cohort period}
 }
