@@ -535,7 +535,7 @@ plot_prevalence <- function(filtered_target) {
       strip.background = ggplot2::element_blank(),
       strip.text = ggplot2::element_blank(),
       legend.position = "none",
-      panel.spacing = unit(0.5, "lines")
+      panel.spacing = ggplot2::unit(0.5, "lines")
     )
 
   # Heritage text dataset
