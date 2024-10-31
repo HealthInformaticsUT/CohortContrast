@@ -160,11 +160,11 @@ body <- shinydashboard::dashboardBody(
       shiny::actionButton("visual_snapshot", "Create visual snapshot!"),
       fluidRow(tabsetPanel(
         tabPanel("Prevalence plot",
-                 plotOutput("prevalence")),
+                 plotOutput("prevalencePlot")),
         tabPanel("Time panel",
-                 plotOutput("time_panel")),
+                 plotOutput("time_panelPlot")),
         tabPanel("Heatmap",
-                 plotOutput("heatmap"))
+                 plotOutput("heatmapPlot"))
       ))
     ),
     shinydashboard::tabItem(
@@ -217,7 +217,11 @@ body <- shinydashboard::dashboardBody(
     shinydashboard::tabItem(
       tabName = "mapping",
       h3("Mapping Panel"),
-      fluidRow(div(style = 'overflow-x: auto;', DT::DTOutput("concept_table"))),
+      fluidRow(
+        shinyjs::useShinyjs(),
+        checkboxInput("dt_select_all", "Select all"),
+        div(style = 'overflow-x: auto;', DT::DTOutput("concept_table"))
+      ),
       fluidRow(
         actionButton("combine_btn", "Combine Selected"),
         actionButton("reset_btn_mappings", "Reset"),
