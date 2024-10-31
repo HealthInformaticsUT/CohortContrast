@@ -353,7 +353,6 @@ plot_prevalence <- function(filtered_target) {
         ggplot2::theme_void()
     )
   }
-  # TODO: IF nrow(filtered_target$target_matrix) is NULL print some relevant wanring message, it means too harsh filters 0 people will remain
   plotdata <-
     as.data.frame(filtered_target$target_row_annotation) %>%
     tibble::rownames_to_column("CONCEPT_ID") %>%
@@ -481,6 +480,14 @@ plot_prevalence <- function(filtered_target) {
       )
     ) +
     ggplot2::geom_bar(stat = "identity") +
+    ggplot2::geom_text(
+      ggplot2::aes(
+        label = scales::label_comma(accuracy = 0.01)(10 ** .data$PREVALENCE_LOG),
+        x = .data$PREVALENCE + 0.01  # Adjust position as needed
+      ),
+      hjust = 0, # Position text slightly to the right of the bar
+      size = 3   # Adjust text size as desired
+    ) +
     ggplot2::facet_grid(.data$HERITAGE ~ ., space = "free_y", scales = "free_y") +
     ggplot2::scale_fill_viridis_c(
       "\nRisk ratio (log10 scaled)\ncompared to background",
@@ -495,10 +502,7 @@ plot_prevalence <- function(filtered_target) {
     ggplot2::theme(
       plot.title = ggplot2::element_text(hjust = 1),
       axis.title = ggplot2::element_blank(),
-      legend.position = c(0, 1),
-      legend.justification = c(1, 0),
-      legend.direction = "horizontal",
-      legend.text.position = "top",
+      legend.position = "top",
       legend.title = ggplot2::element_text(size = 10),
       strip.background = ggplot2::element_blank(),
       strip.text = ggplot2::element_blank(),
@@ -520,7 +524,6 @@ plot_prevalence <- function(filtered_target) {
     linewidth = 1) +
     ggplot2::geom_vline(ggplot2::aes(xintercept = .data$AVERAGE_AGE_OVERALL),
                         color = "darkgreen") +
-    # ggplot2::scale_fill_manual(values = stats::setNames(heritage_colors$color, heritage_colors$HERITAGE)) +  # Assign colors
     ggplot2::scale_color_manual(values = c("grey60", "blue"),
                                 breaks = c(FALSE, TRUE)) +
     ggplot2::scale_x_continuous(sec.axis = ggplot2::dup_axis()) +
@@ -565,7 +568,6 @@ plot_prevalence <- function(filtered_target) {
     ) +
     ggplot2::geom_vline(ggplot2::aes(xintercept = .data$MALE_PROP_OVERALL),
                         color = "darkgreen") +
-    #ggplot2::scale_fill_manual(values = stats::setNames(heritage_colors$color, heritage_colors$HERITAGE)) +  # Assign colors for HERITAGE
     ggplot2::scale_color_manual(values = c("grey60", "blue"),
                                 breaks = c(FALSE, TRUE)) +  # Colors for significant differences
     ggplot2::scale_x_continuous(labels = scales::label_percent(),
@@ -813,42 +815,11 @@ plot_time <- function(filtered_target) {
       .groups = "drop"                     # Drop grouping information after summarising
     )
 
-  plot_data2 = plot_data %>% dplyr::select(.data$CONCEPT_NAME, .data$TIME_MEDIAN, .data$HERITAGE) %>% tidyr::unnest(.data$TIME_MEDIAN)  # Make sure TIME_MEDIAN is no longer a list
   plot_data3 = plot_data %>% dplyr::select(.data$CONCEPT_NAME,
                                            .data$TIME_TO_EVENT,
                                            .data$HERITAGE,
                                            #.data$KSTEST,
   ) %>% tidyr::unnest(.data$TIME_TO_EVENT)  # Make sure TIME_MEDIAN is no longer a list
-
-  # Filter heritage colors based on what's present in annotation_row
-  # active_heritage_colors <-
-  #   heritage_colors[names(heritage_colors) %in% unique(filtered_target$target_time_annotation$HERITAGE)]
-
-  # p1 <-
-  #   ggplot2::ggplot(
-  #     plot_data2,
-  #     ggplot2::aes(
-  #       x = .data$TIME_MEDIAN,
-  #       y = stringr::str_sub(.data$CONCEPT_NAME, 1, 60),
-  #       fill = .data$HERITAGE
-  #     )
-  #   ) +
-  #   ggplot2::geom_boxplot(outlier.shape = NA) +  # Hide outliers
-  #   ggplot2::scale_fill_manual(values = heritage_colors) +  # Apply custom colors
-  #   ggplot2::scale_x_continuous(position = "top") +
-  #   ggplot2::facet_grid(.data$HERITAGE ~ ., scales = "free_y", space = "free") +  # Use facet_grid for better control
-  #   ggplot2::theme_bw()  +  # Apply minimal theme
-  #   ggplot2::labs(title = "Median event occurrence per subject") +
-  #   ggplot2::theme(
-  #     # strip.text.x = element_blank(),  # Remove facet labels
-  #     strip.background = ggplot2::element_blank(),
-  #     strip.text.y = ggplot2::element_blank(),
-  #     axis.title = ggplot2::element_blank(),
-  #     axis.text.y = ggplot2::element_text(size = 10),
-  #     panel.spacing = ggplot2::unit(0.5, "lines"),
-  #     # Reduce spacing between panels
-  #     legend.position = "none"
-  #   )
 
   time_min <- min(plot_data3$TIME_TO_EVENT, na.rm = TRUE)
   time_max <- max(plot_data3$TIME_TO_EVENT, na.rm = TRUE)
@@ -872,28 +843,7 @@ plot_time <- function(filtered_target) {
     # Add horizontal violin plot
     ggplot2::geom_violin(ggplot2::aes(fill = .data$HERITAGE), width = 1.2, color = NA, alpha = 0.5, trim = FALSE) +
     ggplot2::geom_text(aes(label = .data$HERITAGE), x = time_max, hjust = 1, size = 6, fontface = "bold", color = "navy", alpha = 0.5, data = heritage_annot) +
-    # Apply custom colors based on HERITAGE
-    # ggplot2::scale_fill_manual(values = heritage_colors) +
-    # Add small lines for each occurrence, color based on KSTEST true/false
-    # ggplot2::geom_segment(
-    #   aes(
-    #     x = .data$TIME_TO_EVENT,
-    #     xend = .data$TIME_TO_EVENT - 5,
-    #     color = as.factor(.data$KSTEST)
-    #   ),
-    #   y = as.numeric(as.factor(as.character(.data$CONCEPT_NAME))) - 0.1,
-    #   yend = as.numeric(as.factor(as.character(.data$CONCEPT_NAME))) + 0.1,
-  #   # size = 1,
-  #   alpha = 0.1
-  # ) +
-  ggplot2::geom_boxplot(fill = NA, outliers = FALSE, width = 0.3) +
-    # Custom colors for KSTEST values
-    # ggplot2::scale_color_manual(values = c("TRUE" = "black", "FALSE" = "gray")) +
-    # # Draw connecting lines through the points, color based on KSTEST
-    # ggplot2::geom_line(ggplot2::aes(
-    #   color = as.factor(.data$KSTEST),
-    #   group = .data$CONCEPT_NAME
-    # )) +
+    ggplot2::geom_boxplot(fill = NA, outliers = FALSE, width = 0.3) +
     # Faceting by HERITAGE
     ggplot2::facet_grid(.data$HERITAGE ~ ., scales = "free_y", space = "free") +
     ggplot2::scale_x_continuous(limit = c(time_min, time_max),
@@ -916,11 +866,9 @@ plot_time <- function(filtered_target) {
       # Hide strip text
       panel.spacing = ggplot2::unit(0.5, "lines")  # Reduce spacing between panels
     )
-  # Combine plots
-  # p <- p1 + p2 +
-  #   patchwork::plot_layout(nrow = 1, widths = c(1, 2))
   return(p2)
 }
+
 
 
 #' @keywords internal

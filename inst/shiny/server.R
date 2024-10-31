@@ -37,7 +37,8 @@ server <- function(input, output, session) {
   last_add_filter_value <- reactiveVal(0)
   last_disregard_filter_value <- reactiveVal(0)
 
-  # Plots' height coefficient
+
+# Plots' height coefficient
   nrOfConcepts <- shiny::reactive({
     if (is.data.frame(target_row_annotation())) {
       nrow(target_row_annotation())
@@ -69,7 +70,7 @@ server <- function(input, output, session) {
     color = "rgba(0, 0, 0, 0.75)" # Semi-transparent black background
   )
   prevalencePlotWaiter <- waiter::Waiter$new(
-    id = "prevalenceWaiter", # Targeting the prevalence plot
+    id = "prevalencePlot", # Targeting the prevalence plot
     html = htmltools::tagList(
       htmltools::div(style = "color: white; font-size: 18px; text-align: center;", "Loading Prevalence Plot..."),
       waiter::spin_3()
@@ -77,7 +78,7 @@ server <- function(input, output, session) {
   )
 
   heatmapPlotWaiter <- waiter::Waiter$new(
-    id = "heatmapWaiter", # Targeting the heatmap plot
+    id = "heatmapPlot", # Targeting the heatmap plot
     html = htmltools::tagList(
       htmltools::div(style = "color: white; font-size: 18px; text-align: center;", "Loading Heatmap Plot..."),
       waiter::spin_3()
@@ -85,7 +86,7 @@ server <- function(input, output, session) {
   )
 
   timePanelWaiter <- waiter::Waiter$new(
-    id = "timePlotWaiter", # Targeting the heatmap plot
+    id = "time_panelPlot", # Targeting the heatmap plot
     html = htmltools::tagList(
       htmltools::div(style = "color: white; font-size: 18px; text-align: center;", "Loading Time Panel..."),
       waiter::spin_3()
@@ -277,7 +278,7 @@ server <- function(input, output, session) {
   })
 
   # Render plots
-  output$prevalence <- shiny::renderPlot(
+  output$prevalencePlot <- shiny::renderPlot(
     {
       prevalencePlotWaiter$show()
       result <- tryCatch(
@@ -292,10 +293,10 @@ server <- function(input, output, session) {
       prevalencePlotWaiter$hide()
       result
     },
-    height = function() 160 + nrOfConcepts() * 24
+    height = function() min(160 + nrOfConcepts() * 24, 10000)
     )
 
-  output$heatmap <- shiny::renderPlot(
+  output$heatmapPlot <- shiny::renderPlot(
     {
       heatmapPlotWaiter$show()
       result <- tryCatch(
@@ -310,10 +311,10 @@ server <- function(input, output, session) {
       heatmapPlotWaiter$hide()
       result
     },
-    height = function() 160 + nrOfConcepts() * 24
+    height = function() min(160 + nrOfConcepts() * 24, 10000)
     )
 
-  output$time_panel <- shiny::renderPlot(
+  output$time_panelPlot <- shiny::renderPlot(
     {
       timePanelWaiter$show()
       result <- tryCatch(
@@ -328,7 +329,7 @@ server <- function(input, output, session) {
       timePanelWaiter$hide()
       result
     },
-    height = function() 160 + nrOfConcepts() * 24
+    height = function() min(160 + nrOfConcepts() * 24, 10000)
   )
 
   shiny::observeEvent(input$visual_snapshot, {
@@ -383,21 +384,33 @@ server <- function(input, output, session) {
     ]
   })
 
-  output$concept_table <- DT::renderDT(
-    {
-      shiny::req(input$studyName)
-      DT::datatable(
-        filtered_data(),
-        selection = "multiple",
-        filter = "top",
-        options = list(
-          columnDefs = list(
-            list(targets = which(names(filtered_data()) %in% c("TIME_TO_EVENT", "ABSTRACTION_LEVEL")), visible = FALSE))
+  output$concept_table <- DT::renderDT({
+    shiny::req(input$studyName)
+    DT::datatable(
+      filtered_data(),
+      selection = 'multiple',
+      filter = 'top',
+      options = list(
+        columnDefs = list(
+          list(targets = which(names(filtered_data()) %in% c("TIME_TO_EVENT", "ABSTRACTION_LEVEL")), visible = FALSE)
         )
       )
-    },
-    server = TRUE
-  )
+    )
+  }, server = TRUE)
+
+  # Create a proxy for the DT
+  dt_proxy <- DT::dataTableProxy("concept_table")
+
+  # Observe changes in the checkbox
+  observeEvent(input$dt_select_all, {
+    if (isTRUE(input$dt_select_all)) {
+      # Select all rows if checkbox is checked
+      DT::selectRows(dt_proxy, input$concept_table_rows_all)
+    } else {
+      # Deselect all rows if checkbox is unchecked
+      DT::selectRows(dt_proxy, NULL)
+    }
+  })
 
   # Combine concepts
   shiny::observeEvent(input$accept_btn, {
@@ -417,6 +430,7 @@ server <- function(input, output, session) {
       target_col_annotation = loaded_data()$target_col_annotation,
       config = loaded_data()$config
     ))
+    shiny::updateCheckboxInput(session, "dt_select_all", "Select all", value = F)
     combiningWaiter$hide()
   })
 
@@ -929,6 +943,7 @@ server <- function(input, output, session) {
         HERITAGE = most_frequent_heritage
       )
     ]
+
     # Step 5: Summarize by grouping and calculating prevalence
     data_patients <- data_patients[
       , .(PREVALENCE = sum(PREVALENCE),
@@ -960,6 +975,7 @@ server <- function(input, output, session) {
         CONTROL_SUBJECT_PREVALENCE = CONTROL_SUBJECT_COUNT / count_control
       )
     ]
+
     data_features <- data_features[
       , `:=`(
         PREVALENCE_DIFFERENCE_RATIO = data.table::fifelse(
@@ -972,6 +988,7 @@ server <- function(input, output, session) {
         )
       )
     ]
+
     # Step 4: Join with data_features_temp
     data_features <- data_features[
       data_features_temp,
@@ -990,6 +1007,7 @@ server <- function(input, output, session) {
 
     representingZTest = FALSE
     representingZTestPValue = 1
+
     ztest_result <- stats::prop.test(
       c(target_subject_count, control_subject_count),
       c(count_target, count_control),
@@ -1074,8 +1092,6 @@ server <- function(input, output, session) {
     )]
 
     # Tests end
-
-
 
     data_features(data_features)
     data_patients(data_patients)
