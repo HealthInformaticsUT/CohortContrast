@@ -42,7 +42,8 @@ format_results <-
         ZTEST,
         LOGITTEST,
         KSTEST,
-        ABSTRACTION_LEVEL
+        ABSTRACTION_LEVEL,
+        HERITAGE
       )]
 
     # First, calculate the counts for target and control subjects
@@ -146,7 +147,8 @@ format_results <-
           CONTROL_SUBJECT_COUNT,
           TARGET_SUBJECT_PREVALENCE,
           CONTROL_SUBJECT_PREVALENCE,
-          ABSTRACTION_LEVEL
+          ABSTRACTION_LEVEL,
+          HERITAGE
         )]
     }
 
@@ -897,3 +899,260 @@ update_features <- function(features, scaled_prev) {
     features[scaled_prev, on = "CONCEPT_ID", nomatch = 0]
   return(features)
 }
+
+
+
+# Prepare filtered_target for correlation analysis and trajectories
+
+prepare_filtered_target <- function(filtered_target, correlation_threshold = 0.95) {
+  if (is.null(filtered_target) || nrow(filtered_target$target_row_annotation) == 0) {
+    stop("After filtering there are no concepts left.")
+  }
+
+  if (is.null(nrow(filtered_target$target_matrix))) {
+    filtered_target$target_matrix <-
+      t(as.matrix(filtered_target$target_matrix)[1:length(filtered_target$target_matrix), , drop = FALSE])
+    rownames(filtered_target$target_matrix) <-
+      rownames(filtered_target$target_row_annotation)
+  }
+
+  target_matrix <- t(as.matrix(filtered_target$target_matrix))
+  # Calculate the correlation matrix
+  correlation_matrix <- stats::cor(target_matrix, method = "pearson", use = "pairwise.complete.obs")
+  # Replace NA values with 0
+  correlation_matrix[is.na(correlation_matrix)] <- 0
+
+  # Set diagonal elements to 1
+  diag(correlation_matrix) <- 1
+  # Create a graph from the correlation matrix where edges only exist for correlation > threshold
+  graph <- igraph::graph_from_adjacency_matrix(correlation_matrix > correlation_threshold,
+                                               mode = "undirected",
+                                               weighted = TRUE)
+
+  # Use a community detection algorithm to find clusters of highly inter-correlated concepts
+  clusters <- igraph::cluster_walktrap(graph)
+
+  # Map concept IDs to names
+  concept_ids <- rownames(filtered_target$target_row_annotation)
+  concept_names <- filtered_target$target_row_annotation$CONCEPT_NAME
+  names_vector <- stats::setNames(concept_names, concept_ids)
+
+  groups <- lapply(unique(clusters$membership), function(cluster_id) {
+    ids <- which(clusters$membership == cluster_id)
+    group_names <- names_vector[ids]
+    if (length(group_names) > 1) {
+      return(stats::setNames(group_names, concept_ids[ids]))
+    } else {
+      return(NULL)
+    }
+  })
+
+  groups <- Filter(Negate(is.null), groups)
+  groups <- groups[order(sapply(groups, length), decreasing = TRUE)]
+
+  # Perform intra-group clustering
+  ordered_groups <- lapply(groups, function(group) {
+    group_ids <- names(group)
+    group_matrix <- target_matrix[, group_ids, drop = FALSE]
+
+    # Skip clustering if group has only one concept or insufficient variability
+    if (ncol(group_matrix) <= 1 || all(apply(group_matrix, 1, var) == 0, na.rm = TRUE)) {
+      return(group)
+    }
+
+    # Compute a distance matrix within the group
+    group_distance <- as.dist(1 - stats::cor(group_matrix, method = "pearson", use = "pairwise.complete.obs"))
+
+    # Check for NA/NaN in distance matrix
+    if (any(is.na(group_distance))) {
+      return(group) # Return as-is if clustering is not possible
+    }
+    # Perform hierarchical clustering
+    hc <- hclust(group_distance)
+
+    # Order group IDs based on hierarchical clustering
+    ordered_ids <- group_ids[hc$order]
+    stats::setNames(group[ordered_ids], ordered_ids)
+  })
+
+  ordered_concept_ids <- unlist(ordered_groups, use.names = TRUE)
+  ordered_concept_names <- unname(ordered_concept_ids)
+
+  # Reorder annotations and matrix based on clustered order
+  ordered_annotation <- filtered_target$target_row_annotation[match(names(ordered_concept_ids),
+                                                                    rownames(filtered_target$target_row_annotation)), ]
+  ordered_matrix <- as.matrix(filtered_target$target_matrix[names(ordered_concept_ids), , drop = FALSE])
+  rownames(ordered_matrix) <- ordered_concept_names  # Set ordered concept names as rownames
+
+  # Determine gap positions for visualizations
+  group_lengths <- sapply(ordered_groups, length)
+  gaps_row <- cumsum(group_lengths)[-length(group_lengths)]
+
+  filtered_target$correlation_analysis <- list()
+  filtered_target$correlation_analysis$ordered_matrix <- ordered_matrix
+  filtered_target$correlation_analysis$groups <- ordered_groups
+  filtered_target$correlation_analysis$gaps_row <- gaps_row
+
+  return(filtered_target)
+}
+
+
+
+
+plot_correlation_heatmap <- function(filtered_target) {
+  if (is.null(filtered_target) ||
+      nrow(filtered_target$target_row_annotation) == 0) {
+    return(
+      ggplot2::ggplot() +
+        ggplot2::annotate(
+          "text",
+          x = 0.5,
+          y = 0.5,
+          label = "After filtering there are no concepts left",
+          hjust = 0.5,
+          vjust = 0.5,
+          size = 12,
+          fontface = "bold",
+          color = "black"
+        ) +
+        ggplot2::theme_void()
+    )
+  }
+
+  heatmap <- pheatmap::pheatmap(
+    filtered_target$correlation_analysis$ordered_matrix,
+    gaps_row = filtered_target$correlation_analysis$gaps_row,
+    cluster_rows = FALSE,
+    cluster_cols = TRUE,
+    show_colnames = FALSE,
+    color = c("#e5f5f9", "#2ca25f")
+  )
+
+  return(heatmap)
+}
+
+plot_correlation_trajectory_graph <- function(filtered_target, selectedIds = NULL, edgePrevalence = 0.5, selectionList) {
+  if (is.null(filtered_target) | is.null(selectedIds) | is.null(edgePrevalence) | is.null(selectionList)) {
+    graph <- visNetwork::visNetwork(
+      nodes = data.frame(id = 1, label = "No data available"),
+      edges = NULL
+    ) %>%
+      visNetwork::visOptions(highlightNearest = FALSE, nodesIdSelection = FALSE) %>%
+      visNetwork::visPhysics(enabled = FALSE) %>%
+      visNetwork::visNodes(color = list(background = "#f0f0f0", border = "#000000")) %>%
+      visNetwork::visEdges(smooth = FALSE) %>%
+      visNetwork::visInteraction(dragNodes = FALSE, dragView = FALSE, zoomView = FALSE)
+    return(graph)
+  }
+
+  patients_data <- filtered_target$target_time_annotation %>%
+    dplyr::filter(CONCEPT_ID %in% selectedIds)
+
+  result <- patients_data %>%
+    tidyr::unnest(TIME_TO_EVENT) %>%
+    dplyr::select(PERSON_ID, CONCEPT_NAME, TIME_TO_EVENT) %>%
+    dplyr::mutate(TIME_TO_EVENT = TIME_TO_EVENT + 1) %>%
+    dplyr::group_by(PERSON_ID) %>%
+    dplyr::mutate(
+      MAX_TIME_TO_EVENT = max(TIME_TO_EVENT) # Find the maximum time for each person
+    ) %>%
+    dplyr::ungroup() %>%
+    dplyr::bind_rows(
+      # Add a START event for each patient
+      patients_data %>%
+        tidyr::unnest(TIME_TO_EVENT) %>%
+        dplyr::distinct(PERSON_ID) %>%
+        dplyr::mutate(CONCEPT_NAME = "START", TIME_TO_EVENT = 0),
+
+      # Add an EXIT event for each patient
+      patients_data %>%
+        tidyr::unnest(TIME_TO_EVENT) %>%
+        dplyr::group_by(PERSON_ID) %>%
+        dplyr::summarise(TIME_TO_EVENT = max(TIME_TO_EVENT) + 1, .groups = "drop") %>%
+        dplyr::mutate(CONCEPT_NAME = "EXIT")
+    ) %>%
+    dplyr::arrange(PERSON_ID, TIME_TO_EVENT)
+
+  # use selectionList if initialized
+  if(length(selectionList) > 1){
+  `%||%` <- function(x, y) if (!is.null(x)) x else y
+  selectionList[["START"]] = "All events"
+  selectionList[["EXIT"]] = "All events"
+
+  result <- result %>%
+    dplyr::mutate(selection = sapply(CONCEPT_NAME, function(x) selectionList[[x]] %||% "All events"))
+
+  # Filter based on the selection column
+ result = result %>%
+   dplyr::group_by(PERSON_ID, CONCEPT_NAME) %>%
+   dplyr::filter(case_when(
+      selection == "All events" ~ TRUE,
+      selection == "First occurrence" ~ TIME_TO_EVENT == min(TIME_TO_EVENT),
+      selection == "Last occurrence" ~ TIME_TO_EVENT == max(TIME_TO_EVENT),
+      TRUE ~ FALSE
+    )) %>%
+   dplyr::distinct(PERSON_ID, CONCEPT_NAME, TIME_TO_EVENT, .keep_all = TRUE) %>% # Ensure no duplicates
+   dplyr::ungroup() %>%
+   dplyr::select(-selection) # Drop the helper column
+}
+
+  total_patients <- result %>%
+    dplyr::distinct(PERSON_ID) %>%
+    nrow()
+  edges <- result %>%
+    dplyr::arrange(PERSON_ID, TIME_TO_EVENT) %>%
+    dplyr::group_by(PERSON_ID) %>%
+    dplyr::mutate(
+      NEXT_CONCEPT_NAME = dplyr::lead(CONCEPT_NAME),
+      TRANSITION_TIME = dplyr::lead(TIME_TO_EVENT) - TIME_TO_EVENT
+    ) %>%
+    dplyr::filter(!is.na(NEXT_CONCEPT_NAME)) %>%
+    dplyr::ungroup() %>%
+    dplyr::select(PERSON_ID, CONCEPT_NAME, NEXT_CONCEPT_NAME, TRANSITION_TIME)
+
+  edges_summary <- edges %>%
+    dplyr::group_by(CONCEPT_NAME, NEXT_CONCEPT_NAME) %>%
+    dplyr::summarise(
+      weight = dplyr::n(),
+      prevalence_perc = (dplyr::n_distinct(PERSON_ID) / total_patients),
+      median_transition_time = mean(TRANSITION_TIME, na.rm = TRUE),
+      .groups = "drop"
+    )
+
+  filtered_edges <- edges_summary %>%
+    dplyr::filter(prevalence_perc >= edgePrevalence)
+
+  nodes <- unique(c(filtered_edges$CONCEPT_NAME, filtered_edges$NEXT_CONCEPT_NAME)) %>%
+    tibble::tibble(id = ., label = as.character(.)) %>%
+    dplyr::mutate(size = 15)
+
+  edges_vis <- filtered_edges %>%
+    dplyr::rename(from = CONCEPT_NAME, to = NEXT_CONCEPT_NAME) %>%
+    dplyr::mutate(
+      label = paste("Time:", round(median_transition_time, 1), " day(s)", "\nPrev.:", round(prevalence_perc*100, 1), "%"),
+      length = 100
+    )
+
+  graph <- visNetwork::visNetwork(nodes, edges_vis, height = "1000px", width = "100%") %>%
+    visNetwork::visEdges(
+      arrows = "to",
+      smooth = list(
+        type = "curvedCW", # Use clockwise curvature for smoother edges
+        roundness = 0.2    # Adjust the curvature amount (higher values = more curve)
+      )
+    ) %>%
+    visNetwork::visOptions(
+      highlightNearest = TRUE,
+      nodesIdSelection = FALSE
+    ) %>%
+    visNetwork::visPhysics(enabled = FALSE) %>% # Disable physics completely
+    visNetwork::visInteraction(
+      dragNodes = TRUE,  # Allow manual dragging of nodes
+      dragView = TRUE,   # Enable panning of the graph
+      zoomView = TRUE    # Enable zooming
+    )
+
+  return(graph)
+}
+
+

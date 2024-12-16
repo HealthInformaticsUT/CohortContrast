@@ -22,9 +22,12 @@
 #' @param runKSTests boolean for Kolmogorov-Smirnov tests
 #' @param getAllAbstractions boolean for creating abstractions' levels for
 #' the imported data, this is useful when using GUI and exploring data
+#' @param getSourceData boolean for fetching source data
 #' @param maximumAbstractionLevel Maximum level of abstraction allowed
 #' @param createOutputFiles Boolean for creating output files,
 #' the default value is TRUE
+#' @param lookbackDays FASLE or an integer stating the lookback period for
+#' cohort index date
 #' @param complName Name of the output file
 #' @param numCores Number of cores to allocate to parallel proccessing
 #' @param safeRun boolean for only returning summarized data
@@ -96,7 +99,7 @@
 CohortContrast <- function(cdm,
                            targetTable = NULL,
                            controlTable = NULL,
-                           pathToResults,
+                           pathToResults = getwd(),
                            domainsIncluded = c(
                              "Drug",
                              "Condition",
@@ -109,12 +112,14 @@ CohortContrast <- function(cdm,
                            prevalenceCutOff = 10,
                            topK = FALSE,
                            presenceFilter = 0.005,
+                           lookbackDays = FALSE,
                            complementaryMappingTable = NULL,
                            runZTests = TRUE,
                            runLogitTests = TRUE,
                            runKSTests = TRUE,
                            getAllAbstractions = FALSE,
-                           maximumAbstractionLevel = 10,
+                           getSourceData = FALSE,
+                           maximumAbstractionLevel = 5,
                            createOutputFiles = TRUE,
                            complName = NULL,
                            numCores = parallel::detectCores() - 1,
@@ -123,6 +128,12 @@ CohortContrast <- function(cdm,
   assertRequiredCohortTable(targetTable)
   assertRequiredCohortTable(controlTable)
   pathToResults = convertToAbsolutePath(pathToResults)
+  if(!isFALSE(lookbackDays)){
+    targetTable = targetTable %>% dplyr::mutate(cohort_start_date - lookbackDays)
+    targetTable = resolveCohortTableOverlaps(targetTable, cdm = cdm)
+    controlTable = controlTable %>% dplyr::mutate(cohort_start_date - lookbackDays)
+    controlTable = resolveCohortTableOverlaps(controlTable, cdm = cdm)
+  }
   cdm <- createCohortContrastCdm(cdm = cdm, targetTable = targetTable, controlTable = controlTable)
   targetCohortId = 2
 
@@ -136,13 +147,16 @@ CohortContrast <- function(cdm,
     runLogitTests = runLogitTests,
     runKSTests = runKSTests,
     getAllAbstractions = getAllAbstractions,
+    getSourceData = getSourceData,
+    lookbackDays = lookbackDays,
     safeRun = safeRun
   )
 
   data = generateTables(
     cdm = cdm,
-    domainsIncluded = domainsIncluded,
+    domainsIncluded = domainsIncluded
   )
+
   data$config = config
   cl <- parallel::makeCluster(numCores)
   doParallel::registerDoParallel(cl)
@@ -179,6 +193,15 @@ if (is.data.frame(complementaryMappingTable) | getAllAbstractions) {
   }
 }
   parallel::stopCluster(cl)
+
+  #?
+  if (getSourceData) {
+    data = generateSourceTables(
+      data = data,
+      domainsIncluded = domainsIncluded
+    )
+  }
+
 
   data = createDataFeatures(data, topK)
   data = handleTests(data,
@@ -543,11 +566,12 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
       # Create the dataset for logistic regression
       concept_data <- data_patients %>%
         dplyr::filter(.data$ABSTRACTION_LEVEL == abstraction_level, .data$CONCEPT_ID == concept_id) %>%
+        dplyr::group_by(.data$PERSON_ID, .data$COHORT_DEFINITION_ID) %>%
         dplyr::mutate(
           PREVALENCE = 1,
           TARGET = dplyr::if_else(.data$COHORT_DEFINITION_ID == targetCohortId, 1, 0),
           CONTROL = dplyr::if_else(.data$COHORT_DEFINITION_ID == targetCohortId, 0, 1)
-        ) %>% dplyr::select(.data$COHORT_DEFINITION_ID, .data$PREVALENCE, .data$TARGET, .data$CONTROL)
+        ) %>% dplyr::ungroup() %>% dplyr::select(.data$COHORT_DEFINITION_ID, .data$PREVALENCE, .data$TARGET, .data$CONTROL)
 
 
       no_match_target = data_initial %>% dplyr::filter(.data$COHORT_DEFINITION_ID == targetCohortId) %>% nrow() - concept_data %>% dplyr::filter(.data$COHORT_DEFINITION_ID == targetCohortId) %>% nrow()
@@ -557,10 +581,14 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
       no_match_target_df = NULL
       no_match_control_df = NULL
       if(no_match_target != 0){
-      no_match_target_df = data.frame(COHORT_DEFINITION_ID = "target", PREVALENCE = 0, TARGET = rep(1, no_match_target), CONTROL = 0)
+
+      # print(concept_id)
+      # print(no_match_target)
+      no_match_target_df = data.frame(COHORT_DEFINITION_ID = "target", PREVALENCE = 0, TARGET = rep(1, times = no_match_target), CONTROL = 0)
       }
       if(no_match_control != 0){
-      no_match_control_df = data.frame(COHORT_DEFINITION_ID = "control", PREVALENCE = 0, TARGET = 0, CONTROL = rep(1, no_match_control))
+      # print(no_match_control)
+      no_match_control_df = data.frame(COHORT_DEFINITION_ID = "control", PREVALENCE = 0, TARGET = 0, CONTROL = rep(1, times = no_match_control))
       }
       concept_data = rbind(rbind(no_match_target_df, no_match_control_df), concept_data)
 
@@ -594,6 +622,7 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
       })
 
       if (!is.na(p_value) && p_value < alpha) {
+       # print("Times 1")
         level_results <- rbind(
           level_results,
           data.frame(
@@ -605,6 +634,7 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
         )
       }
       else if (prevalence_cohort_1 == 0 | prevalence_cohort_2 == 0) {
+       # print("Times 2")
         level_results <- rbind(
           level_results,
           data.frame(
@@ -616,6 +646,7 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
         )
       }
       else {
+      #  print("Times 3")
         level_results <- rbind(
           level_results,
           data.frame(
@@ -722,11 +753,15 @@ calculate_data_features <-
         values_from = .data$count,
         values_fill = list(count = 0)
       )
+
+    # Resolve possible conflicts in concept names
+    data = resolveConceptNameOverlap(data)
+
     count_target <- n_patients$`2`
     count_control <- n_patients$`1`
     # Update data features with prevalence calculations
     data_features <- data$data_patients %>%
-      dplyr::group_by(.data$CONCEPT_ID, .data$CONCEPT_NAME, .data$ABSTRACTION_LEVEL) %>%
+      dplyr::group_by(.data$CONCEPT_ID, .data$CONCEPT_NAME, .data$ABSTRACTION_LEVEL, .data$HERITAGE) %>%
       dplyr::summarise(
         TARGET_SUBJECT_COUNT = sum(.data$COHORT_DEFINITION_ID == 2 &
                                      .data$PREVALENCE > 0),
@@ -762,11 +797,11 @@ calculate_data_features <-
     data$data_features <- data_features
 
     filtered_keys <- data_features %>%
-      dplyr::select(.data$ABSTRACTION_LEVEL, .data$CONCEPT_ID) %>%
+      dplyr::select(.data$ABSTRACTION_LEVEL, .data$CONCEPT_ID, .data$HERITAGE) %>%
       dplyr::distinct()
 
     data$data_patients <- data$data_patients %>%
-      dplyr::inner_join(filtered_keys, by = c("ABSTRACTION_LEVEL", "CONCEPT_ID"))
+      dplyr::inner_join(filtered_keys, by = c("ABSTRACTION_LEVEL", "CONCEPT_ID", "HERITAGE"))
 
     return(data)
   }
@@ -1059,4 +1094,32 @@ if(data$config$safeRun)
   }
   save_object(data, path = filePath)
   printCustomMessage(paste("Saved the result to ", filePath, sep = ""))
+}
+
+#' This function resolves concept name/label overlaps
+#' @param data Data list object
+#' @keywords internal
+resolveConceptNameOverlap <- function(data) {
+  # Get the data from the input
+  df <- data$data_patients
+  conflict_check <- df %>%
+    dplyr::group_by(CONCEPT_NAME, ABSTRACTION_LEVEL) %>%
+    dplyr::summarise(count = dplyr::n_distinct(CONCEPT_ID), .groups = "drop") %>%
+    dplyr::filter(count > 1)
+
+  if (nrow(conflict_check) > 0) {
+    # If conflicts exist, resolve by renaming concept names
+    df <- df %>%
+      dplyr::group_by(CONCEPT_NAME, ABSTRACTION_LEVEL) %>%
+      dplyr::mutate(
+        ordinal = dplyr::dense_rank(CONCEPT_ID), # Assign a unique ordinal for each CONCEPT_ID
+        CONCEPT_NAME = dplyr::if_else( ordinal != 1, paste0(CONCEPT_NAME, " (", ordinal + 1, ")"), CONCEPT_NAME)
+      ) %>%
+      dplyr::ungroup() %>%
+      dplyr::select(-ordinal)
+  }
+
+  # Update the data list
+  data$data_patients <- df
+  return(data)
 }

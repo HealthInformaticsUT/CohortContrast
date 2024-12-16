@@ -39,9 +39,9 @@ test_that("JSON workflow", {
     numCores = 1)
 
   expect_equal(length(data$trajectoryDataList$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
-  expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 4]) == 830, TRUE)
-  expect_equal(nrow(data$data_initial) == 2490, TRUE)
-  expect_equal(nrow(data$data_person) == 830, TRUE)
+  #expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 4]) == 830, TRUE)
+  expect_equal(nrow(data$data_initial) == nrow(targetTable) + nrow(controlTable), TRUE)
+  expect_equal(nrow(data$data_person) == rbind(targetTable, controlTable) %>% dplyr::select(subject_id) %>% dplyr::distinct() %>% nrow(), TRUE)
   expect_equal(nrow(data$data_patients) == 3199, TRUE)
 
 

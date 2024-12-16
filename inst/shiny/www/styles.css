@@ -1,0 +1,43 @@
+#combine_corr_btn {
+  color: black;
+  width: 300px;
+  background-color: orange;
+  font-weight: bold;
+  border-color: black;
+}
+
+
+#combine_btn {
+  color: black;
+  width: 200px;
+  background-color: orange;
+  font-weight: bold;
+  border-color: black;
+}
+
+
+#reset_btn_mappings {
+  color: black;
+  width: 200px;
+  background-color: lightblue;
+  font-weight: bold;
+  border-color: black;
+}
+
+#save_btn {
+  color: black;
+  width: 200px;
+  background-color: lightgreen;
+  font-weight: bold;
+  border-color: black;
+}
+
+#visual_snapshot {
+  color: black;
+  width: 300px;
+  background-color: lightgreen;
+  font-weight: bold;
+  border-color: black;
+}
+
+
