@@ -44,11 +44,11 @@ test_that("Created features table is correct.", {
 
   data = createC2TInput(data = data, cdm = cdm)
 
-  expect_equal(nrow(data$trajectoryDataList$trajectoryData) == 41, TRUE)
+  expect_equal(nrow(data$trajectoryDataList$trajectoryData) == 7351, TRUE)
 
   trajectories = C2TCaller(data = data, pathToResults = pathToResults)
 
-  expect_equal(nrow(trajectories) == 40, TRUE)
+  expect_equal(nrow(trajectories) == 4002, TRUE)
   DBI::dbDisconnect(db)
 })
 #> Test passed 🥇

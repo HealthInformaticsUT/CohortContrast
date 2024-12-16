@@ -10,6 +10,7 @@ sidebar <- shinydashboard::dashboardSidebar(
       tabName = "dashboard",
       icon = icon("dashboard")
     ),
+    shinydashboard::menuItem("Correlation", tabName = "correlation", icon = icon("link")),
     shinydashboard::menuItem("Mapping", tabName = "mapping", icon = icon("sliders")),
     shinydashboard::menuItem("Filtering", tabName = "filtering", icon = icon("filter")),
     shinydashboard::menuItem("Help", tabName = "help", icon = icon("receipt"))
@@ -19,6 +20,9 @@ sidebar <- shinydashboard::dashboardSidebar(
 # Define the dashboard body
 body <- shinydashboard::dashboardBody(
   waiter::use_waiter(),
+  tags$head(
+    tags$link(rel = "stylesheet", type = "text/css", href = "styles.css")
+  ),
   shinydashboard::tabItems(
     # Dashboard tab
     shinydashboard::tabItem(
@@ -85,11 +89,15 @@ body <- shinydashboard::dashboardBody(
           sliderInput(
             "abstraction_lvl",
             h3("Abstraction level"),
-            min = -1,
+            min = -2,
             max = 10,
             value = -1,
             step = 1
           )
+        ),
+        column(
+          width = 4,
+          uiOutput("lookBackSlider"),
         )
       ),
       shiny::hr(),
@@ -168,6 +176,49 @@ body <- shinydashboard::dashboardBody(
       ))
     ),
     shinydashboard::tabItem(
+      tabName = "correlation",
+      h3("Correlation analysis"),
+      fluidRow(
+        column(
+          width = 4,
+          sliderInput(
+            "correlation_threshold",
+            h3("Correlation cutoff"),
+            min = 0,
+            max = 1,
+            value = 0.95,
+            step = 0.01
+          ),
+        ),
+        column(
+          width = 4,
+          uiOutput("correlation_group_selection"),
+          actionButton("combine_corr_btn", "Combine State Group Concepts"),
+        ),
+        column(
+          width = 4,
+          sliderInput(
+            "edge_prevalence_threshold",
+            h3("Edge prevalence cutoff"),
+            min = 0,
+            max = 1,
+            value = 0.5,
+            step = 0.01
+          )
+        )
+        ),
+      fluidRow(tabsetPanel(
+        tabPanel("Heatmap",
+                 plotOutput("correlationHeatmapPlot")
+                 ),
+        tabPanel("Trajectories",
+                 visNetwork::visNetworkOutput("trajectoryGraph"),
+                 uiOutput("dynamic_selectize_trajectory_inputs")
+
+                 )
+      ))
+    ),
+    shinydashboard::tabItem(
       tabName = "filtering",
       h3("Concept Filtering Panel"),
 
@@ -239,7 +290,7 @@ body <- shinydashboard::dashboardBody(
         shiny::tags$h4("Prevalence Cutoff"),
         shiny::tags$p("The prevalence cutoff is the minimum percentage of people who should have the concept in the target cohort. Concepts with a prevalence below this cutoff will be filtered out."),
         shiny::tags$h4("Abstraction level"),
-        shiny::tags$p("The abstraction level slider helps you to automatically combine or expand concepts. The levels are calculated based on concept ancestor table in the CDM. Level -1 stands for default imported concept ids, the levels from 0 to 10 represent (0 - highest level, 10 - lowest level) the distance in concept hierarchy from the ancestor of highest level."),
+        shiny::tags$p("The abstraction level slider helps you to automatically combine or expand concepts. The levels are calculated based on concept ancestor table in the CDM. Level -1 stands for default imported concept ids and level -2 for source data (if it was set TRUE). The levels from 0 to 10 represent (0 - highest level, 10 - lowest level) the distance in concept hierarchy from the ancestor of highest level."),
         shiny::tags$h4("Scale for Rate"),
         shiny::tags$p("When enabled, the prevalence will be calculated on a yearly basis for each person. This takes into account the total number of occurrences of the concept in the observation period."),
         shiny::tags$h4("Inverse Target"),
@@ -249,7 +300,15 @@ body <- shinydashboard::dashboardBody(
         shiny::tags$h4("Apply Logit-test"),
         shiny::tags$p("Apply Logit-test for filtering concepts based on the significance inside a logit model. This test is performed using a logistic regression model."),
         shiny::tags$h4("Remove Untreated Patients"),
-        shiny::tags$p("Remove all patients who have no concept in the target cohort.")
+        shiny::tags$p("Remove all patients who have no concept in the target cohort."),
+        shiny::tags$h4("Correlation cutoff"),
+        shiny::tags$p("Under the correlation tab, this cutoff references the correlation value which will be used for forming concept groups.
+                      When there are groups forming with extremely high values it might indicate that those concepts have the same meaning and they should be mapped together.
+                      When there are groups forming with moderately high values it might indicate that this combination is a treatment arm."),
+        shiny::tags$h4("Edge prevalence cutoff"),
+        shiny::tags$p("When a correlation group has been selected it can be shown on a trajectory graph. For filtering which edges are shown play around with the value.
+                      If the cutoff point is set to 50% this means that all the edges (transitions) which are shown are present for at least 50% of the people
+                      who have had any of the concepts (in the selected group) occurring to them.")
       )
     )
   )

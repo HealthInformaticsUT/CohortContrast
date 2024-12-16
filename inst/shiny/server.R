@@ -22,6 +22,9 @@ server <- function(input, output, session) {
   data_features <- shiny::reactiveVal(NULL)
   data_patients <- shiny::reactiveVal(NULL)
   data_initial <- shiny::reactiveVal(NULL)
+  correlation_groups <- shiny::reactiveVal(NULL)
+  selected_correlation_group <- shiny::reactiveVal(NULL)
+  selected_correlation_group_labels <- shiny::reactiveVal(NULL)
   target_row_annotation <- shiny::reactiveVal(NULL)
   target_col_annotation <- shiny::reactiveVal(NULL)
   target_time_annotation <- shiny::reactiveVal(NULL)
@@ -36,6 +39,7 @@ server <- function(input, output, session) {
   # Reactive values to store the last state of input counters
   last_add_filter_value <- reactiveVal(0)
   last_disregard_filter_value <- reactiveVal(0)
+  lookback_days <- reactiveVal(NULL)
 
 
 # Plots' height coefficient
@@ -85,8 +89,16 @@ server <- function(input, output, session) {
     )
   )
 
+  correlationHeatmapPlotWaiter <- waiter::Waiter$new(
+    id = "correlationHeatmapPlot", # Targeting the correlation heatmap plot
+    html = htmltools::tagList(
+      htmltools::div(style = "color: white; font-size: 18px; text-align: center;", "Loading Correlation Heatmap Plot..."),
+      waiter::spin_3()
+    )
+  )
+
   timePanelWaiter <- waiter::Waiter$new(
-    id = "time_panelPlot", # Targeting the heatmap plot
+    id = "time_panelPlot", # Targeting the time plot
     html = htmltools::tagList(
       htmltools::div(style = "color: white; font-size: 18px; text-align: center;", "Loading Time Panel..."),
       waiter::spin_3()
@@ -230,6 +242,8 @@ server <- function(input, output, session) {
         data_patients(object$data_patients)
         data_initial(object$data_initial)
         target_mod(object$data_features)
+
+        lookback_days(loaded_data()$config$lookbackDays)
       })
       fullScreenWaiter$hide()
       if (!is.null(object$complementaryMappingTable)) complementaryMappingTable(object$complementaryMappingTable)
@@ -262,6 +276,7 @@ server <- function(input, output, session) {
 
   target_filtered <- shiny::reactive({
     # fullScreenWaiter$show()
+    correlation_cutoff <- if (!is.null(input$correlation_threshold)) input$correlation_threshold else 0.95
     result <- filter_target(
       target(),
       input$prevalence,
@@ -269,13 +284,53 @@ server <- function(input, output, session) {
       input$domain,
       removeUntreated = if (input$removeUntreated) TRUE else FALSE
     )
+    result <- prepare_filtered_target(result, correlation_cutoff)
     target_row_annotation(result$target_row_annotation)
     target_col_annotation(result$target_col_annotation)
     target_time_annotation(result$target_time_annotation)
     target_matrix(result$target_matrix)
+    correlation_groups(result$correlation_analysis$groups)
     # fullScreenWaiter$hide()
     result
   })
+
+
+  output$lookBackSlider <- renderUI({
+    req(lookback_days()) # Ensure lookback_days is available
+    if (is.numeric(lookback_days())) {
+      sliderInput(
+        inputId = "lookback_slider",
+        h3("Lookback days"),
+        min = -lookback_days(),
+        max = 0,
+        value = 0,
+        step = ceiling(lookback_days() / 10)
+      )
+    } else {
+      NULL
+    }
+  })
+
+  shiny::observe({
+    if (!is.null(input$lookback_slider)) {
+      # Use isolate to prevent unnecessary reactivity
+      threshold <- abs(isolate(input$lookback_slider))
+      # Filter data based on the slider value
+      updated_data <- original_data()$data_patients %>%
+        dplyr::rowwise() %>%
+        dplyr::mutate(
+          TIME_TO_EVENT = list(TIME_TO_EVENT[TIME_TO_EVENT >= lookback_days() - threshold])
+        ) %>%
+        dplyr::ungroup() %>%
+        dplyr::filter(lengths(TIME_TO_EVENT) > 0) # Remove rows where TIME_TO_EVENT is empty
+
+      # Update the reactive value without triggering unnecessary reactivity
+      isolate({
+        data_patients(updated_data)
+      })
+    }
+  })
+
 
   # Render plots
   output$prevalencePlot <- shiny::renderPlot(
@@ -332,6 +387,37 @@ server <- function(input, output, session) {
     height = function() min(160 + nrOfConcepts() * 24, 10000)
   )
 
+  output$correlationHeatmapPlot <- shiny::renderPlot(
+    {
+      correlationHeatmapPlotWaiter$show()
+      result <- tryCatch(
+        {
+          plot_correlation_heatmap(target_filtered())
+        },
+        error = function(e) {
+          print(e)
+          plot_correlation_heatmap(NULL)
+        }
+      )
+      correlationHeatmapPlotWaiter$hide()
+      result
+    },
+    height = function() min(160 + nrOfConcepts() * 24, 10000)
+  )
+
+  # # Server
+  output$trajectoryGraph <- visNetwork::renderVisNetwork({
+    # Ensure required inputs are available
+    req(target_filtered(), selected_correlation_group(), input$edge_prevalence_threshold)
+    # Call the function to create the graph
+    plot_correlation_trajectory_graph(
+      target_filtered(),
+      selected_correlation_group(),
+      input$edge_prevalence_threshold,
+      selected_trajectory_filtering_values()
+    )
+  })
+
   shiny::observeEvent(input$visual_snapshot, {
       shiny::showModal(shiny::modalDialog(
         title = "Save snapshot",
@@ -355,14 +441,16 @@ server <- function(input, output, session) {
     config$presenceFilter <- input$prevalence
     config$domainsIncluded <- input$domain
 
+    temp_filtered_target = list(target_matrix = target_matrix(),
+                                target_row_annotation = target_row_annotation(),
+                                target_col_annotation = target_col_annotation(),
+                                target_time_annotation = target_time_annotation()
+    )
+    temp_filtered_target = prepare_filtered_target(temp_filtered_target, input$correlation_threshold)
     ccObject <- list(
       data_features = data_features() %>% dplyr::filter(.data$CONCEPT_ID %in% as.integer(rownames(target_matrix())),
                                                         .data$ABSTRACTION_LEVEL == input$abstraction_lvl),
-      filtered_target = list(target_matrix = target_matrix(),
-      target_row_annotation = target_row_annotation(),
-      target_col_annotation = target_col_annotation(),
-      target_time_annotation = target_time_annotation()
-      ),
+      filtered_target = temp_filtered_target,
       config = config
     )
     CohortContrast:::save_object(object = ccObject, path = fileName)
@@ -417,7 +505,29 @@ server <- function(input, output, session) {
     combiningWaiter$show()
     shiny::removeModal()
     new_concept_name <- input$new_concept_name
-    combineSelectedConcepts(new_concept_name)
+    combineSelectedConcepts(new_concept_name, isManualCombine = T)
+    target_mod(data_features())
+
+    loaded_data(list(
+      data_initial = data_initial(),
+      data_patients = data_patients(),
+      data_features = data_features(),
+      data_person = loaded_data()$data_person,
+      target_matrix = loaded_data()$target_matrix,
+      target_row_annotation = loaded_data()$target_row_annotation,
+      target_col_annotation = loaded_data()$target_col_annotation,
+      config = loaded_data()$config
+    ))
+    shiny::updateCheckboxInput(session, "dt_select_all", "Select all", value = F)
+    combiningWaiter$hide()
+  })
+
+
+  shiny::observeEvent(input$accept_corr_btn, {
+    combiningWaiter$show()
+    shiny::removeModal()
+    new_concept_name <- input$new_concept_name
+    combineSelectedConcepts(new_concept_name, isManualCombine = FALSE)
     target_mod(data_features())
 
     loaded_data(list(
@@ -449,6 +559,77 @@ server <- function(input, output, session) {
     }
   })
 
+
+  shiny::observeEvent(input$combine_corr_btn, {
+    if (!is.null(selected_correlation_group())) {
+      shiny::showModal(shiny::modalDialog(
+        title = "Combine Concepts",
+        textInput("new_concept_name", "Enter New Concept Name:", ""),
+        footer = htmltools::tagList(
+          shiny::modalButton("Cancel"),
+          shiny::actionButton("accept_corr_btn", "Accept")
+        )
+      ))
+    } else {
+      shiny::showNotification("Select a correlation group to combine", type = "warning")
+    }
+  })
+
+  # Dynamically generate selectizeInput elements in two columns
+  output$dynamic_selectize_trajectory_inputs <- renderUI({
+    if (any(selected_correlation_group_labels() == "")) {
+      return(NULL)
+    }
+
+    state_names <- selected_correlation_group_labels()
+
+    # Split state names into two roughly equal groups
+    n <- length(state_names)
+    half <- ceiling(n / 2)
+    col1_states <- state_names[1:half]
+    col2_states <- state_names[(half + 1):n]
+
+    # Create the UI layout with two columns
+    fluidRow(
+      h4("  Filter trajectory states"),
+      column(
+        width = 6, # First column (half width)
+        lapply(col1_states, function(state) {
+          selectizeInput(
+            inputId = paste0("select_", state),
+            label = state,
+            choices = c("First occurrence", "All events", "Last occurrence"),
+            selected = "All events"
+          )
+        })
+      ),
+      column(
+        width = 6, # Second column (half width)
+        lapply(col2_states, function(state) {
+          selectizeInput(
+            inputId = paste0("select_", state),
+            label = state,
+            choices = c("First occurrence", "All events", "Last occurrence"),
+            selected = "All events"
+          )
+        })
+      )
+    )
+  })
+
+  selected_trajectory_filtering_values <- reactive({
+    state_names <- selected_correlation_group_labels()
+
+    # Get the selected value for each state
+    selections <- lapply(state_names, function(state) {
+      input[[paste0("select_", state)]] # Access input value dynamically
+    })
+
+    # Return a named list
+    names(selections) <- state_names
+    selections
+  })
+
   # Reset data to original
   shiny::observeEvent(input$reset_btn_mappings, {
     initial_data <- list(
@@ -474,7 +655,6 @@ server <- function(input, output, session) {
 
   # Save data to file on button press
   shiny::observeEvent(input$save_btn, {
-    snapshotWaiter$show()
     # Create the base file path
     CohortContrast:::createPathToResults(paste0(pathToResults, "/snapshots"))
     file_base <- stringr::str_c(pathToResults, "/snapshots/", studyName(), "_Snapshot")
@@ -486,16 +666,20 @@ server <- function(input, output, session) {
       file_path <- stringr::str_c(file_base, "_", counter, ".rds")
       counter <- counter + 1
     }
+
+    temp_filtered_target = list(target_matrix = target_matrix(),
+                                target_row_annotation = target_row_annotation(),
+                                target_col_annotation = target_col_annotation(),
+                                target_time_annotation = target_time_annotation()
+    )
+    temp_filtered_target = prepare_filtered_target(temp_filtered_target, input$correlation_threshold)
     # Extract the data from the reactive
     ccObject <- list(
       data_initial = data_initial(),
       data_patients = data_patients(),
       data_features = data_features(),
       data_person = loaded_data()$data_person,
-      filtered_target = list(target_matrix = target_matrix(),
-                             target_row_annotation = target_row_annotation(),
-                             target_col_annotation = target_col_annotation(),
-                             target_time_annotation = target_time_annotation()),
+      filtered_target = temp_filtered_target,
       complementaryMappingTable = complementaryMappingTable(),
       config = loaded_data()$config
     )
@@ -523,14 +707,79 @@ server <- function(input, output, session) {
   })
 
   #################################################################### FILTERING (REMOVE CONCEPTS)
-  # Reactive expression to prepare choices with both CONCEPT_ID and CONCEPT_NAME for display
-  choices_filtering <- shiny::reactive({
-    data_filtering <- data_features()
-    stats::setNames(
-      data_filtering$CONCEPT_ID,
-      paste0(data_filtering$CONCEPT_NAME, " (", data_filtering$CONCEPT_ID, ")")
+  # # Reactive expression to prepare choices with both CONCEPT_ID and CONCEPT_NAME for display
+
+  # Server-side rendering of the pickerInput
+  output$correlation_group_selection <- shiny::renderUI({
+    shinyWidgets::pickerInput(
+      inputId = "filter_correlation_group",
+      label = h3("Select correlation group"),
+      choices = NULL, # Start with no choices, they will be loaded server-side
+      multiple = FALSE,
+      options = shinyWidgets::pickerOptions(
+        liveSearch = TRUE, # Enable live search in the dropdown
+        title = "Search & select a group",
+        header = "Select a group",
+        style = "btn-primary"
+      )
     )
   })
+
+  # Monitor correlation_groups() for changes
+  shiny::observe({
+    # Fetch the updated correlation groups
+    groups <- correlation_groups()
+    # Create a named list for the pickerInput choices
+    data_groups <- list()
+
+    # Iterate through the groups to create group-level choices with formatted names
+    for (i in seq_along(groups)) {
+      group <- groups[[i]]
+      concept_ids <- names(group)
+      concept_names <- as.character(group)
+
+      # Create a formatted label for the group, adding line breaks for each concept
+      group_label <- paste(
+        sprintf("<b>State Group %d</b>", i), # Bold group name
+        paste(concept_names, collapse = "<br>"), # Join concept names with line breaks
+        sep = "<br>"
+      )
+
+      # Add to the data_groups list
+      data_groups[[paste("State Group", i)]] <- setNames(
+        paste(concept_ids, collapse = ";"), # Concatenate all IDs for this group
+        group_label # Use the formatted label
+      )
+    }
+
+    # Update the pickerInput choices with group-level options
+    # Update the pickerInput choices with group-level options
+    shinyWidgets::updatePickerInput(
+      session,
+      "filter_correlation_group",
+      choices = unlist(data_groups), # Flatten the list for pickerInput
+      choicesOpt = list(
+        content = unname(unlist(lapply(data_groups, names))) # Add HTML labels
+      )
+    )
+  })
+
+  # selected ids
+  shiny::observeEvent(input$filter_correlation_group, {
+    # Retrieve the selected group
+    selected <- input$filter_correlation_group
+    # Initialize a variable to store selected IDs
+    selected_ids <- NULL
+
+    if (!is.null(selected)) {
+      # Split the selected group value into individual IDs
+      selected_ids <- unlist(strsplit(selected, ";"))
+    }
+    # Update the reactive value with the selected IDs
+    selected_correlation_group(selected_ids)
+    selected_correlation_group_labels(getConceptIDLabels(ids = selected_ids, data = data_features(), absLvl = input$abstraction_lvl))
+  })
+
 
   # TODO sometimes does not load, cannot always recreate
   # Server-side selectize input for filtering by CONCEPT_ID and CONCEPT_NAME
@@ -881,8 +1130,9 @@ server <- function(input, output, session) {
   })
 
   # Function to combine selected concepts
-  combineSelectedConcepts <- function(new_concept_name) {
+  combineSelectedConcepts <- function(new_concept_name, isManualCombine = TRUE) {
     selected_rows <- input$concept_table_rows_selected
+    selected_ids <- selected_correlation_group()
     abstraction_level <- input$abstraction_lvl
     data_features <- data_features()
     data_patients <- data_patients()
@@ -897,17 +1147,43 @@ server <- function(input, output, session) {
     count_target <- n_patients$target
     count_control <- n_patients$control
 
-    # Step 3: Filtering processed_table and selecting concept IDs
     processed_table <- target_mod()[ABSTRACTION_LEVEL == abstraction_level]
+
+    selected_concept_ids = NA
+    representingConceptId = NA
+    representingHeritage = NA
+    representingZTest = NA
+    representingLogitTest = NA
+    representingKSTest = NA
+
+    if(isManualCombine) {
+    # Step 3: Filtering processed_table and selecting concept IDs
     selected_concept_ids <- as.numeric(processed_table$CONCEPT_ID[selected_rows])
     representingConceptId <- selected_concept_ids[
       which.max(as.numeric(processed_table$PREVALENCE_DIFFERENCE_RATIO[selected_rows]))
     ]
+    representingHeritage <- processed_table$HERITAGE[selected_rows][
+      which.max(as.numeric(processed_table$PREVALENCE_DIFFERENCE_RATIO[selected_rows]))]
 
     # Step 4: Determining ZTEST, KSTEST and LOGITTEST values
     representingZTest <- any(processed_table$ZTEST[selected_rows])
     representingLogitTest <- any(processed_table$LOGITTEST[selected_rows])
     representingKSTest <- any(processed_table$KSTEST[selected_rows])
+    }
+    else {
+      # Step 3: Filtering processed_table and selecting concept IDs
+      selected_concept_ids <- as.numeric(selected_ids)
+      representingConceptId <- selected_concept_ids[
+        which.max(as.numeric(processed_table[CONCEPT_ID %in% selected_concept_ids, PREVALENCE_DIFFERENCE_RATIO]))
+      ]
+      representingHeritage <- processed_table[CONCEPT_ID %in% selected_concept_ids, HERITAGE][
+        which.max(as.numeric(processed_table[CONCEPT_ID %in% selected_concept_ids, PREVALENCE_DIFFERENCE_RATIO]))]
+
+      # Step 4: Determining ZTEST, KSTEST and LOGITTEST values
+      representingZTest <- any(processed_table[CONCEPT_ID %in% selected_concept_ids, ZTEST])
+      representingLogitTest <- any(processed_table[CONCEPT_ID %in% selected_concept_ids, LOGITTEST])
+      representingKSTest <- any(processed_table[CONCEPT_ID %in% selected_concept_ids, KSTEST])
+    }
 
     # Step 5: Updating data_features with new values
     data_features[
@@ -915,19 +1191,20 @@ server <- function(input, output, session) {
       `:=`(
         ZTEST = representingZTest,
         LOGITTEST = representingLogitTest,
-        KSTEST = representingKSTest
+        KSTEST = representingKSTest,
+        HERITAGE = representingHeritage
       )
     ]
 
     # target_mod_data <- data_patients
-    # Step 1: Select and filter relevant rows
-    selected_heritage <- data_patients[
-      CONCEPT_ID %in% selected_concept_ids & ABSTRACTION_LEVEL == abstraction_level,
-      unique(HERITAGE)
-    ]
-
-    # Step 2: Find the most frequent heritage
-    most_frequent_heritage <- names(sort(table(selected_heritage), decreasing = TRUE)[1])
+    # # Step 1: Select and filter relevant rows
+    # selected_heritage <- data_patients[
+    #   CONCEPT_ID %in% selected_concept_ids & ABSTRACTION_LEVEL == abstraction_level,
+    #   unique(HERITAGE)
+    # ]
+    #
+    # # Step 2: Find the most frequent heritage
+    # most_frequent_heritage <- names(sort(table(selected_heritage), decreasing = TRUE)[1])
 
     # Step 3: Identify rows to update
     rows_to_update <- data_patients[
@@ -940,7 +1217,7 @@ server <- function(input, output, session) {
       `:=`(
         CONCEPT_ID = representingConceptId,
         CONCEPT_NAME = new_concept_name,
-        HERITAGE = most_frequent_heritage
+        HERITAGE = representingHeritage
       )
     ]
 
@@ -954,7 +1231,7 @@ server <- function(input, output, session) {
 
     # Step 1: Select specific columns from data_features
     data_features_temp <- data_features[
-      , .(CONCEPT_ID, ABSTRACTION_LEVEL, ZTEST,ZTEST_P_VALUE, LOGITTEST,LOGITTEST_P_VALUE, KSTEST, KSTEST_P_VALUE)
+      , .(CONCEPT_ID, ABSTRACTION_LEVEL, ZTEST,ZTEST_P_VALUE, LOGITTEST,LOGITTEST_P_VALUE, KSTEST, KSTEST_P_VALUE, HERITAGE)
     ]
 
     # Step 2: Summarize data_patients by CONCEPT_ID, CONCEPT_NAME, and ABSTRACTION_LEVEL
@@ -1088,7 +1365,8 @@ server <- function(input, output, session) {
       LOGITTEST = representingLogitTest,
       LOGITTEST_P_VALUE = representingLogitTestPValue,
       KSTEST = representingKSTest,
-      KSTEST_P_VALUE = representingKSTestPValue
+      KSTEST_P_VALUE = representingKSTestPValue,
+      HERITAGE = representingHeritage
     )]
 
     # Tests end
@@ -1271,4 +1549,11 @@ server <- function(input, output, session) {
       config = loaded_data()$config
     ))
   }
-}
+  getConceptIDLabels = function(ids, data, absLvl) {
+    if(length(ids) > 1) {
+      labels = data[(CONCEPT_ID %in% ids) & (ABSTRACTION_LEVEL == absLvl), CONCEPT_NAME]
+      return(labels)
+    } else {return("")}
+  }
+  }
+

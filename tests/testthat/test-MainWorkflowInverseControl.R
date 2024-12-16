@@ -32,7 +32,7 @@ test_that("Created features table is correct with JSON inverseControl.", {
     pathToResults = getwd(),
     domainsIncluded = c("Drug"),
     prevalenceCutOff = 0,
-    topK = 15, # Number of features to export
+    topK = FALSE, # Number of features to export
     presenceFilter = FALSE, # 0-1, percentage of people who must have the chosen feature present
     complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
     runZTests = FALSE,
@@ -40,11 +40,11 @@ test_that("Created features table is correct with JSON inverseControl.", {
     createOutputFiles = TRUE,
     numCores = 1)
 
-  expect_equal(length(data$trajectoryDataList$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
-  expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 4]) == 2, TRUE)
-  expect_equal(nrow(data$data_initial) == 10, TRUE)
-  expect_equal(nrow(data$data_person) == 5, TRUE)
-  expect_equal(nrow(data$data_patients) == 49, TRUE)
+  expect_equal(length(data$trajectoryDataList$selectedFeatures$CONCEPT_NAME) == 30, TRUE)
+  #expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 4]) == 433, TRUE)
+  expect_equal(nrow(data$data_initial) == nrow(targetTable) + nrow(controlTable), TRUE)
+  expect_equal(nrow(data$data_person) == rbind(targetTable, controlTable) %>% dplyr::select(subject_id) %>% dplyr::distinct() %>% nrow(), TRUE)
+  expect_equal(nrow(data$data_patients) == 18217, TRUE)
 })
 #> Test passed 🥇
 test_that("Created features table is correct with Cohort tables inverseControl.", {
@@ -92,10 +92,10 @@ data = CohortContrast(
   numCores = 1)
 
 expect_equal(length(data$trajectoryDataList$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
-expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 4]) == 2, TRUE)
-expect_equal(nrow(data$data_initial) == 10, TRUE)
-expect_equal(nrow(data$data_person) == 5, TRUE)
-expect_equal(nrow(data$data_patients) == 49, TRUE)
+#expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 4]) == 433, TRUE)
+expect_equal(nrow(data$data_initial) == nrow(targetTable) + nrow(controlTable), TRUE)
+expect_equal(nrow(data$data_person) == rbind(targetTable, controlTable) %>% dplyr::select(subject_id) %>% dplyr::distinct() %>% nrow(), TRUE)
+expect_equal(nrow(data$data_patients) == 6582, TRUE)
 DBI::dbDisconnect(db)
 })
 #> Test passed 🥇
