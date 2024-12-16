@@ -56,7 +56,7 @@ C2TCaller <- function(data, pathToResults,
                       outOfCohortAllowed = FALSE
                       ) {
   if (is.null(data$trajectoryDataList$trajectoryData)) {
-    stop("ERROR: No trajectory information in data object. Check if CohortContrast was run with createC2TInput == TRUE!")
+    stop("ERROR: No trajectory information in data object. You have to run createC2TInput beforehand!")
   } else if (is.null(data$trajectoryDataList$selectedFeatureNames)){
     stop("ERROR: No feature information in data object. Maybe use more lenient filters?")
   } else {

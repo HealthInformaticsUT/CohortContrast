@@ -122,6 +122,7 @@ and input data:
       topK = FALSE, # Number of features to export
       presenceFilter = 0.2, # 0-1, percentage of people who must have the chosen feature present
       complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
+      getSourceData = FALSE, # If true will generate summaries with source data as well
       runZTests = TRUE,
       runLogitTests = FALSE,
       createOutputFiles = TRUE,
@@ -137,6 +138,9 @@ The CohortContrast package generates the following outputs:
     These can be analysed in the GUI.
 2.  Using GUI with `runCohortContrastGUI` generates plots as well as
     saves the last state of your analysis in the GUI.
+3.  There is an example .rds file in `./inst/example/example.rds`.
+    You can view it in the GUI if you copy it to your `pathToResults` path.
+    
 
 <!-- -->    
 

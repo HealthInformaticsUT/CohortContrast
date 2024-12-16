@@ -10,18 +10,20 @@ CohortContrast(
   cdm,
   targetTable = NULL,
   controlTable = NULL,
-  pathToResults,
+  pathToResults = getwd(),
   domainsIncluded = c("Drug", "Condition", "Measurement", "Observation", "Procedure",
     "Visit", "Visit detail"),
   prevalenceCutOff = 10,
   topK = FALSE,
   presenceFilter = 0.005,
+  lookbackDays = FALSE,
   complementaryMappingTable = NULL,
   runZTests = TRUE,
   runLogitTests = TRUE,
   runKSTests = TRUE,
   getAllAbstractions = FALSE,
-  maximumAbstractionLevel = 10,
+  getSourceData = FALSE,
+  maximumAbstractionLevel = 5,
   createOutputFiles = TRUE,
   complName = NULL,
   numCores = parallel::detectCores() - 1,
@@ -49,6 +51,9 @@ Maximum number of features exported.}
 \item{presenceFilter}{numeric > if set, removes all features represented
 less than the given percentage}
 
+\item{lookbackDays}{FASLE or an integer stating the lookback period for
+cohort index date}
+
 \item{complementaryMappingTable}{Mappingtable for mapping concept_ids if
 present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,}
 
@@ -60,6 +65,8 @@ present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,}
 
 \item{getAllAbstractions}{boolean for creating abstractions' levels for
 the imported data, this is useful when using GUI and exploring data}
+
+\item{getSourceData}{boolean for fetching source data}
 
 \item{maximumAbstractionLevel}{Maximum level of abstraction allowed}
 

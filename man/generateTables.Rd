@@ -7,7 +7,6 @@ Create relations of cohorts (target and control) to the database}
 \usage{
 generateTables(
   cdm,
-  pathToResults = getwd(),
   domainsIncluded = c("Drug", "Condition", "Measurement", "Observation", "Procedure",
     "Visit", "Visit detail")
 )
