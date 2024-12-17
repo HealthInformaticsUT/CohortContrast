@@ -2,9 +2,7 @@
 % Please edit documentation in R/CohortContrast.R
 \name{CohortContrast}
 \alias{CohortContrast}
-\title{CohortContrast analysis function
-After running this function on your CDM instance successfully you can
-either use the extracted outputs or run the CohortContrast shiny app.}
+\title{Run CohortContrast Analysis Performs cohort comparison analysis on a CDM instance. Outputs can be further used for exploration or visualized using the CohortContrast Shiny app.}
 \usage{
 CohortContrast(
   cdm,
@@ -37,25 +35,19 @@ CohortContrast(
 
 \item{controlTable}{Table for control cohort (tbl)}
 
-\item{pathToResults}{Path to the results folder,
-can be project's working directory}
+\item{pathToResults}{Path to the results folder, can be project's working directory}
 
 \item{domainsIncluded}{list of CDM domains to include}
 
-\item{prevalenceCutOff}{numeric > if set, removes all of the concepts
-which are not present (in target) more than prevalenceCutOff times}
+\item{prevalenceCutOff}{numeric > if set, removes all of the concepts which are not present (in target) more than prevalenceCutOff times}
 
-\item{topK}{numeric > if set, keeps this number of features in the analysis.
-Maximum number of features exported.}
+\item{topK}{numeric > if set, keeps this number of features in the analysis. Maximum number of features exported.}
 
-\item{presenceFilter}{numeric > if set, removes all features represented
-less than the given percentage}
+\item{presenceFilter}{numeric > if set, removes all features represented less than the given percentage}
 
-\item{lookbackDays}{FASLE or an integer stating the lookback period for
-cohort index date}
+\item{lookbackDays}{FALSE or an integer stating the lookback period for cohort index date}
 
-\item{complementaryMappingTable}{Mappingtable for mapping concept_ids if
-present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,}
+\item{complementaryMappingTable}{Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,}
 
 \item{runZTests}{boolean for Z-tests}
 
@@ -63,29 +55,25 @@ present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,}
 
 \item{runKSTests}{boolean for Kolmogorov-Smirnov tests}
 
-\item{getAllAbstractions}{boolean for creating abstractions' levels for
-the imported data, this is useful when using GUI and exploring data}
+\item{getAllAbstractions}{boolean for creating abstractions' levels for the imported data, this is useful when using GUI and exploring data}
 
 \item{getSourceData}{boolean for fetching source data}
 
 \item{maximumAbstractionLevel}{Maximum level of abstraction allowed}
 
-\item{createOutputFiles}{Boolean for creating output files,
-the default value is TRUE}
+\item{createOutputFiles}{Boolean for creating output files, the default value is TRUE}
 
 \item{complName}{Name of the output file}
 
-\item{numCores}{Number of cores to allocate to parallel proccessing}
+\item{numCores}{Number of cores to allocate to parallel processing}
 
 \item{safeRun}{boolean for only returning summarized data}
 }
 \description{
-CohortContrast analysis function
-After running this function on your CDM instance successfully you can
-either use the extracted outputs or run the CohortContrast shiny app.
+Run CohortContrast Analysis Performs cohort comparison analysis on a CDM instance. Outputs can be further used for exploration or visualized using the CohortContrast Shiny app.
 }
 \examples{
-# Example of setting up CohortContrast tables with a dummy database
+\dontrun{
 control <- data.frame(
   cohort_definition_id = c(1, 1, 1, 1, 1),
   subject_id = c(5325, 3743, 2980, 1512, 2168),
@@ -143,4 +131,6 @@ data = CohortContrast(
 )
 
 DBI::dbDisconnect(con)
+}
+
 }

@@ -1,10 +1,8 @@
-#' @importFrom dplyr %>%
-
-#' @title Generate analysis tables
+#'  Generate analysis tables
 #' Create relations of cohorts (target and control) to the database
 #' @param cdm CDMConnector object: connection to the database
 #' @param domainsIncluded list of CDM domains to include
-#'
+#' @importFrom dplyr %>%
 #' @return object of dataframes and updated cdm object
 #'
 #' @keywords internal
@@ -506,13 +504,10 @@ generateTables <- function(cdm,
 }
 
 
-
-#' @importFrom dplyr %>%
-
-#' @title Resolve overlaps inside the cohort table
+#'  Resolve overlaps inside the cohort table
 #' @param cohortTable A table with cohort table characteristics
 #' @param cdm CDMConnector object: connection to the database
-#'
+#' @importFrom dplyr %>%
 #' @return A dataframe like cohort table with resolved overlaps
 #'
 #' @export
@@ -551,10 +546,10 @@ return(resolvedTable)
 
 
 
-#' @title Generate source code analysis tables
+#'  Generate source code analysis tables
 #' @param data CohortContrast object
 #' @param domainsIncluded list of CDM domains to include
-#'
+#' @importFrom dplyr %>%
 #' @return object of dataframes and updated cdm object
 #'
 #' @keywords internal

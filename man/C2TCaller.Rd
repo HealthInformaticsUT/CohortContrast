@@ -51,7 +51,7 @@ This function acts as a Cohort2Trajectory wrapper
     Sys.getenv("OHDSI_RESULTS")
   writeSchema <-
     Sys.getenv("OHDSI_WRITE")
-  writePrefix <- "cc_"
+  writePrefix <- "CohortContrast"
 
   db = DBI::dbConnect(
     RPostgres::Postgres(),

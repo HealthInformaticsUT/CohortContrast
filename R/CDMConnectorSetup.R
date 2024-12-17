@@ -109,7 +109,7 @@ createControlCohortInverse <- function(cdm, targetTable) {
   return(result)
 }
 
-#' @title Read cohort from database cohort table
+#'  Read cohort from database cohort table
 #' @param cdm CDMConnector object
 #' @param db Database instance (DBI)
 #' @param tableName Name of the table where the cohort is defined
@@ -146,7 +146,7 @@ cohortFromCohortTable <- function(cdm,
 }
 
 
-#' @title Read cohort from data.frame object
+#'  Read cohort from data.frame object
 #' @param data A data frame with cohort data
 #' @param cohortId The id for cohort in cohorts' table, if NULL whole table will be imported
 #'
@@ -185,16 +185,14 @@ cohortFromDataTable <- function(data, cohortId = NULL) {
   return(cohortTable)
 }
 
-
-#' @title Read cohort from CSV
+#' Read cohort from CSV
 #' @param pathToCsv Path to the cohort data CSV file
 #' @param cohortId The id for cohort in cohorts' table, if NULL whole table will be imported
 #'
 #' @return a tbl object for further CohortContrast usage
 #'
 #' @export
-#' @examples
-#' \dontrun{
+#' @examples \dontrun{
 #' pathToCsv = './cohorts.csv'
 #' targetTable <- cohortFromCSV(pathToCsv = pathToCsv, cohortId = 2)
 #'}
@@ -209,8 +207,7 @@ cohortFromCSV <- function(pathToCsv, cohortId = NULL) {
   return(cohortTable)
 }
 
-
-#' @title Read cohort from JSON
+#'  Read cohort from JSON
 #' @param pathToJSON Path to the cohort data JSON file
 #' @param cdm  Connection to the database (package CDMConnector)
 #' @param cohortId The id for cohort in cohorts' table, if NULL whole table will be imported
@@ -237,7 +234,7 @@ cohortFromJSON <- function(pathToJSON, cdm, cohortId = NULL) {
   return(cohortTable)
 }
 
-#' @title Insert cohort tables to CDM instance, preparing them from CohortContrast analysis
+#'  Insert cohort tables to CDM instance, preparing them from CohortContrast analysis
 #' @param cdm CDMConnector object
 #' @param targetTable Table for target cohort (tbl)
 #' @param controlTable Table for control cohort (tbl)

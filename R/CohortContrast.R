@@ -1,44 +1,30 @@
-#' @importFrom foreach %dopar%
 
-#' @title CohortContrast analysis function
-#' After running this function on your CDM instance successfully you can
-#' either use the extracted outputs or run the CohortContrast shiny app.
+#' Run CohortContrast Analysis Performs cohort comparison analysis on a CDM instance. Outputs can be further used for exploration or visualized using the CohortContrast Shiny app.
 #' @param cdm Connection to database
 #' @param targetTable Table for target cohort (tbl)
 #' @param controlTable Table for control cohort (tbl)
-#' @param pathToResults Path to the results folder,
-#' can be project's working directory
+#' @param pathToResults Path to the results folder, can be project's working directory
 #' @param domainsIncluded list of CDM domains to include
-#' @param prevalenceCutOff numeric > if set, removes all of the concepts
-#' which are not present (in target) more than prevalenceCutOff times
-#' @param topK numeric > if set, keeps this number of features in the analysis.
-#' Maximum number of features exported.
-#' @param presenceFilter numeric > if set, removes all features represented
-#' less than the given percentage
-#' @param complementaryMappingTable Mappingtable for mapping concept_ids if
-#' present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,
+#' @param prevalenceCutOff numeric > if set, removes all of the concepts which are not present (in target) more than prevalenceCutOff times
+#' @param topK numeric > if set, keeps this number of features in the analysis. Maximum number of features exported.
+#' @param presenceFilter numeric > if set, removes all features represented less than the given percentage
+#' @param complementaryMappingTable Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,
 #' @param runZTests boolean for Z-tests
 #' @param runLogitTests boolean for logit-tests
 #' @param runKSTests boolean for Kolmogorov-Smirnov tests
-#' @param getAllAbstractions boolean for creating abstractions' levels for
-#' the imported data, this is useful when using GUI and exploring data
+#' @param getAllAbstractions boolean for creating abstractions' levels for the imported data, this is useful when using GUI and exploring data
 #' @param getSourceData boolean for fetching source data
 #' @param maximumAbstractionLevel Maximum level of abstraction allowed
-#' @param createOutputFiles Boolean for creating output files,
-#' the default value is TRUE
-#' @param lookbackDays FASLE or an integer stating the lookback period for
-#' cohort index date
+#' @param createOutputFiles Boolean for creating output files, the default value is TRUE
+#' @param lookbackDays FALSE or an integer stating the lookback period for cohort index date
 #' @param complName Name of the output file
-#' @param numCores Number of cores to allocate to parallel proccessing
+#' @param numCores Number of cores to allocate to parallel processing
 #' @param safeRun boolean for only returning summarized data
-#'
 #' @importFrom dplyr %>%
 #' @importFrom foreach %dopar%
-#'
 #' @export
-#'
 #' @examples
-#' # Example of setting up CohortContrast tables with a dummy database
+#' \dontrun{
 #' control <- data.frame(
 #'   cohort_definition_id = c(1, 1, 1, 1, 1),
 #'   subject_id = c(5325, 3743, 2980, 1512, 2168),
@@ -96,6 +82,8 @@
 #' )
 #'
 #' DBI::dbDisconnect(con)
+#' }
+#'
 CohortContrast <- function(cdm,
                            targetTable = NULL,
                            controlTable = NULL,
@@ -394,7 +382,7 @@ queryHeritageData <-
     return(results_list)
   }
 
-#' @title This function performs Z-tests on the patient prevalence data target vs control
+#'  This function performs Z-tests on the patient prevalence data target vs control
 #'
 #' @param data_patients Prevalence data for patients
 #' @param data_initial Imported cohort dataframe
@@ -517,7 +505,7 @@ performPrevalenceAnalysis <- function(data_patients,
   return(significant_concepts)
 }
 
-#' @title This function learns separate logistic regression models on the patient prevalence data target vs control
+#'  This function learns separate logistic regression models on the patient prevalence data target vs control
 #'
 #' @param data_patients Prevalence data for patients
 #' @param data_initial Imported cohort dataframe
@@ -665,7 +653,7 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
 }
 
 
-#' @title This function performs kolmogorov-smirnov tests on the patient concept occurrence date data target vs uniform distribution
+#'  This function performs kolmogorov-smirnov tests on the patient concept occurrence date data target vs uniform distribution
 #'
 #' @param data_features Summarised data of features
 #' @param targetCohortId Target cohort id
