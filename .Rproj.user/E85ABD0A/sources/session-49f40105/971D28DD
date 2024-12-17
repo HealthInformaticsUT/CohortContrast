@@ -1,0 +1,26 @@
+{
+    "id": "971D28DD",
+    "path": "~/UT/R-packages/Develop/Git/CohortContrast/R/C2TWrapper.R",
+    "project_path": "R/C2TWrapper.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1734428487619.0,
+    "source_on_save": false,
+    "relative_order": 5,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "12,22",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1734429426,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1734429426070,
+    "read_only": false,
+    "read_only_alternatives": []
+}

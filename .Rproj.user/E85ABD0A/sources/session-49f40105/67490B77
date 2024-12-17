@@ -1,0 +1,26 @@
+{
+    "id": "67490B77",
+    "path": "~/UT/R-packages/Develop/Git/CohortContrast/R/CohortContrast.R",
+    "project_path": "R/CohortContrast.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1734429215339.0,
+    "source_on_save": false,
+    "relative_order": 8,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "85,2",
+        "scrollLine": "75"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1734435686,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1734435686428,
+    "read_only": false,
+    "read_only_alternatives": []
+}
