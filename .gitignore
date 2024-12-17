@@ -6,3 +6,11 @@ inst/doc
 /doc/
 /docs/
 /Meta/
+.Renviron
+*.yml
+*.html
+*.Rmd
+/tutorials/
+/vignettes/
+/news/
+
