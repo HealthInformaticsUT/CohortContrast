@@ -1,5 +1,5 @@
 
-#' Run CohortContrast Analysis Performs cohort comparison analysis on a CDM instance. Outputs can be further used for exploration or visualized using the CohortContrast Shiny app.
+#' Run CohortContrast Analysis
 #' @param cdm Connection to database
 #' @param targetTable Table for target cohort (tbl)
 #' @param controlTable Table for control cohort (tbl)

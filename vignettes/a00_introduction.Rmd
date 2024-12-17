@@ -18,7 +18,7 @@ knitr::opts_chunk$set(
 
 The **CohortContrast** package is designed to facilitate cohort exploration. It accepts a target cohort of any size from your OMOP CDM instance and allows you to provide a custom control cohort or generate one using matching or inverse controls. The package performs concept-level enrichment analysis and provides a handy GUI for visualization, mapping, and trajectory creation
 
-## Initiating databse connection
+## Initiating database connection
 
 We use the [CDMConnector](https://cran.r-project.org/web/packages/CDMConnector/index.html) package is used to establish the database connection. You can configure the connection either by reading credentials from a `.Renviron` file or explicitly writing them in your script.
 

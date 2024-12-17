@@ -2,7 +2,7 @@
 % Please edit documentation in R/CohortContrast.R
 \name{CohortContrast}
 \alias{CohortContrast}
-\title{Run CohortContrast Analysis Performs cohort comparison analysis on a CDM instance. Outputs can be further used for exploration or visualized using the CohortContrast Shiny app.}
+\title{Run CohortContrast Analysis}
 \usage{
 CohortContrast(
   cdm,
@@ -70,7 +70,7 @@ CohortContrast(
 \item{safeRun}{boolean for only returning summarized data}
 }
 \description{
-Run CohortContrast Analysis Performs cohort comparison analysis on a CDM instance. Outputs can be further used for exploration or visualized using the CohortContrast Shiny app.
+Run CohortContrast Analysis
 }
 \examples{
 \dontrun{
