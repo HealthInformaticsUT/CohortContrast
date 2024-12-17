@@ -1,0 +1,115 @@
+---
+title: "Execution"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{a01_execution}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Executing the study
+
+Now as we have initiated database connection and created the `targetTable` as well as the `cohortTable` we are ready to initiate the execution function for the study.
+
+
+```{r, include = TRUE, eval=FALSE, echo=TRUE}
+
+################################################################################
+#
+# Execute
+#
+################################################################################
+
+data = CohortContrast::CohortContrast(
+  cdm,
+  targetTable = targetTable,
+  controlTable = controlTable,
+  pathToResults = getwd(),
+  domainsIncluded = c(
+    "Drug",
+    "Condition",
+    "Measurement",
+    "Observation",
+    "Procedure",
+    "Visit",
+    "Visit detail"
+  ),
+  prevalenceCutOff = 2.5,
+  topK = FALSE, # Number of features to export
+  presenceFilter = 0.2, # 0-1, percentage of people who must have the chosen feature present
+  complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
+  getSourceData = FALSE, # If true will generate summaries with source data as well
+  runZTests = TRUE,
+  runLogitTests = FALSE,
+  createOutputFiles = TRUE,
+  safeRun = FALSE,
+  complName = "CohortContrastStudy")
+
+```
+
+## The parameters
+
+There are multiple parameters we can tweak for different outcomes:
+
+### Mandatory:
+
+`cdm` Connection to the database
+
+`targetTable` Table for target cohort
+
+`controlTable` Table for control cohort
+
+`pathToResults` Path to the results folder, can be project's working directory
+
+`domainsIncluded` list of CDM domains to include, choose from Drug, Condition, Measurement, Observation, Procedure, Visit, Visit detail
+
+`complName` Name of the output file
+
+
+
+### Customization:
+
+`runZTests` boolean for running Z-tests, tests is ran between the prevalence metrics
+
+`runLogitTests` boolean for logit-tests on the prevalence, builds a model for predicting whether the patient is in target or control
+
+`runKSTests` boolean for Kolmogorov-Smirnov tests on the occurrence time (vs uniform distribution)
+
+`getAllAbstractions` boolean for creating abstractions' levels for the imported data, this is useful when using GUI and exploring data
+
+`maximumAbstractionLevel` Maximum level of abstraction allowed, if `getAllAbstractions` is TRUE, for hierarchy the concept_hierarchy table is used
+
+`getSourceData` boolean for fetching source data, the data abstraction level which is used to map to OMOP CDM
+
+`lookbackDays` FALSE or an integer stating the look-back period for cohort index date. This can be used inside the GUI which has a slider for adding look-back data.
+
+`prevalenceCutOff` numeric or FALSE, if set, removes all of the concepts which are not present (in target) more than `prevalenceCutOff` times. Eg if set to 2, only concepts present double in target are exported.
+
+`topK` numeric or FALSE, if set, keeps at maximum this number of features in the analysis. Maximum number of features exported.
+
+`presenceFilter` numeric or FALSE, if set, removes all features represented by fewer target cohort subjects than the given percentage
+
+`complementaryMappingTable` data frame or FALSE. Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,
+
+`numCores` Number of cores to allocate to parallel processing, by default max number of cores - 1
+
+`createOutputFiles` Boolean for creating output files, the default value is TRUE
+
+`safeRun` boolean for only returning summarized data
+
+### Notes:
+
+When using the GUI `prevalenceCutOff`, `presenceFilter` can be changed on a slider.
+
+The effect of `runZTests` and `runLogitTests` can be toggled.
+
+The function will output a file with `complName`, in this case `CohortContrastStudy.rds` to the pathToResults path.
+
+
