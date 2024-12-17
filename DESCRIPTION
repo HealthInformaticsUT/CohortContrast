@@ -44,7 +44,9 @@ Suggests:
     PatientProfiles (>= 1.1.0),
     duckdb,
     DBI (>= 1.2.0),
-    readr
+    readr,
+    knitr,
+    rmarkdown
 Remotes:
     Appsilon/shiny.fluent,
     HealthInformaticsUT/Cohort2Trajectory,
@@ -52,3 +54,4 @@ Remotes:
 Config/testthat/edition: 3
 Config/testthat/parallel: true
 URL: https://healthinformaticsut.github.io/CohortContrast/
+VignetteBuilder: knitr
