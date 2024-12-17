@@ -1,7 +1,0 @@
-"0","################################################################################"
-"0","#"
-"0","# Resolve conflicts"
-"0","#"
-"0","#################################################################################"
-"0","targetTable = CohortContrast::resolveCohortTableOverlaps(cdm = cdm, cohortTable = targetTable)"
-"0","controlTable = CohortContrast::resolveCohortTableOverlaps(cdm = cdm, cohortTable = controlTable)"
