@@ -1,0 +1,26 @@
+{
+    "id": "CDB0587E",
+    "path": "~/UT/R-packages/Develop/Git/CohortContrast/R/CDMConnectorSetup.R",
+    "project_path": "R/CDMConnectorSetup.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1734423483621.0,
+    "source_on_save": false,
+    "relative_order": 6,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "73,12",
+        "scrollLine": "63"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1734419288,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1734419288,
+    "read_only": false,
+    "read_only_alternatives": []
+}

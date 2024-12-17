@@ -1,0 +1,88 @@
+pathToResults = getwd()
+
+################################################################################
+#
+# Initiate the database connection
+#
+#################################################################################
+
+user <- Sys.getenv("DB_USERNAME") #TODO
+pw <- Sys.getenv("DB_PASSWORD") #TODO
+server <- stringr::str_c(Sys.getenv("DB_HOST"), "/", Sys.getenv("DB_NAME")) #TODO
+port <- Sys.getenv("DB_PORT") #TODO
+
+cdmSchema <-
+  Sys.getenv("OHDSI_CDM") #TODO # Schema which contains the OHDSI Common Data Model
+cdmVocabSchema <-
+  Sys.getenv("OHDSI_VOCAB") #TODO # Schema which contains the OHDSI Common Data Model vocabulary tables.
+cdmResultsSchema <-
+  Sys.getenv("OHDSI_RESULTS") #TODO # Schema which contains "cohort" table (is not mandatory)
+writeSchema <-
+  Sys.getenv("OHDSI_WRITE") #TODO # Schema for temporary tables, will be deleted
+writePrefix <- "cc_"
+
+db = DBI::dbConnect(
+  RPostgres::Postgres(),
+  dbname = Sys.getenv("DB_NAME"),
+  host = Sys.getenv("DB_HOST"),
+  user = Sys.getenv("DB_USERNAME"),
+  password = Sys.getenv("DB_PASSWORD"),
+  port  = port
+)
+
+cdm <- CDMConnector::cdmFromCon(
+  con = db,
+  cdmSchema = cdmSchema,
+  achillesSchema = cdmResultsSchema,
+  writeSchema = c(schema = writeSchema, prefix = writePrefix),
+)
+
+
+
+# cohortsTableSchemaName = cdmResultsSchema
+# cohortsTableName = 'cohort'
+# targetCohortId = 568
+# controlCohortId = 571
+
+targetTable = test$data_initial %>% filter(COHORT_DEFINITION_ID == "target")
+controlTable = test$data_initial %>% filter(COHORT_DEFINITION_ID != "target")
+colnames(targetTable) = tolower(colnames(targetTable))
+colnames(controlTable) = tolower(colnames(controlTable))
+
+################################################################################
+#
+# CDM target and control modula
+#
+################################################################################
+
+# targetTable <- CohortContrast::cohortFromCohortTable(cdm = cdm, db = db,
+#                                                      tableName = cohortsTableName, schemaName = cdmResultsSchema, cohortId = targetCohortId)
+# 
+# controlTable <- CohortContrast::cohortFromCohortTable(cdm = cdm, db = db,
+#                                                       tableName = cohortsTableName, schemaName = cdmResultsSchema, cohortId = controlCohortId)
+
+data = CohortContrast::CohortContrast(
+  cdm,
+  targetTable = targetTable,
+  controlTable = controlTable,
+  pathToResults = getwd(),
+  domainsIncluded = c(
+    "Drug",
+    "Condition",
+    "Measurement",
+    "Observation",
+    "Procedure",
+    "Visit",
+    "Visit detail"
+  ),
+  prevalenceCutOff = 2.5,
+  topK = FALSE, # Number of features to export
+  presenceFilter = 0.2, # 0-1, percentage of people who must have the chosen feature present
+  complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
+  getSourceData = FALSE, # If true will generate summaries with source data as well
+  runZTests = TRUE,
+  runLogitTests = TRUE,
+  createOutputFiles = TRUE,
+  lookbackDays = 180,
+  safeRun = FALSE,
+  complName = "Alocholic_Liver_disease")

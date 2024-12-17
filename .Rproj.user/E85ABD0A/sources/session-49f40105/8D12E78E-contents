@@ -1,0 +1,11 @@
+DB_USERNAME=markus
+DB_PASSWORD=Maarjaviktoria90
+DB_HOST=localhost
+DB_NAME=maitt
+DB_PORT=63333
+EUNOMIA_DATA_FOLDER="./tests/tmp/datasets/"
+OHDSI_CDM=ohdsi_cdm_202207
+OHDSI_VOCAB=ohdsi_cdm_202207
+OHDSI_RESULTS=ohdsi_results_202207
+OHDSI_WRITE=user_markus
+
