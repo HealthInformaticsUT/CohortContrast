@@ -326,7 +326,7 @@ server <- function(input, output, session) {
 
       # Update the reactive value without triggering unnecessary reactivity
       isolate({
-        data_patients(updated_data)
+        data_patients(data.table::as.data.table(updated_data))
       })
     }
   })
@@ -1196,17 +1196,6 @@ server <- function(input, output, session) {
       )
     ]
 
-    # target_mod_data <- data_patients
-    # # Step 1: Select and filter relevant rows
-    # selected_heritage <- data_patients[
-    #   CONCEPT_ID %in% selected_concept_ids & ABSTRACTION_LEVEL == abstraction_level,
-    #   unique(HERITAGE)
-    # ]
-    #
-    # # Step 2: Find the most frequent heritage
-    # most_frequent_heritage <- names(sort(table(selected_heritage), decreasing = TRUE)[1])
-
-    # Step 3: Identify rows to update
     rows_to_update <- data_patients[
       , CONCEPT_ID %in% selected_concept_ids & ABSTRACTION_LEVEL == abstraction_level
     ]
@@ -1228,12 +1217,10 @@ server <- function(input, output, session) {
       by = .(COHORT_DEFINITION_ID, PERSON_ID, CONCEPT_ID, CONCEPT_NAME, HERITAGE, ABSTRACTION_LEVEL)
     ]
     # Assuming data_features and data_patients are data.tables
-
     # Step 1: Select specific columns from data_features
     data_features_temp <- data_features[
       , .(CONCEPT_ID, ABSTRACTION_LEVEL, ZTEST,ZTEST_P_VALUE, LOGITTEST,LOGITTEST_P_VALUE, KSTEST, KSTEST_P_VALUE, HERITAGE)
     ]
-
     # Step 2: Summarize data_patients by CONCEPT_ID, CONCEPT_NAME, and ABSTRACTION_LEVEL
 
     data_features <- data_patients[
