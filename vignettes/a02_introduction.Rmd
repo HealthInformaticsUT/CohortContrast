@@ -39,8 +39,8 @@ To activate a study, you ***must click on it's name***. Let's activate the breas
 
 You may want to map some concepts together. The 'Correlation' tab helps you to find concept groups which are highly correlated.
 
-  - Concept might be highly correlated because they mean the same thing (eg metoclopramide as ingredient and as a drug)
-  - Concept might be highly correlated because they are part of the same treatment arm (eg diagnostic biopsy and evaluation of the biopsy)
+  - Concepts might be highly correlated because they mean the same thing (eg metoclopramide as ingredient and as a drug)
+  - Concepts might be highly correlated because they are part of the same treatment arm (eg diagnostic biopsy and evaluation of the biopsy)
   
 ![Correlated groups' heatmap](../man/figures/a02_3.png)
 
