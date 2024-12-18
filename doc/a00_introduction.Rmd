@@ -1,0 +1,190 @@
+---
+title: "Introduction"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{a00_introduction}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Introduction
+
+The **CohortContrast** package is designed to facilitate cohort exploration. It accepts a target cohort of any size from your OMOP CDM instance and allows you to provide a custom control cohort or generate one using matching or inverse controls. The package performs concept-level enrichment analysis and provides a handy GUI for visualization, mapping, and trajectory creation
+
+## Initiating database connection
+
+We use the [CDMConnector](https://cran.r-project.org/web/packages/CDMConnector/index.html) package is used to establish the database connection. You can configure the connection either by reading credentials from a `.Renviron` file or explicitly writing them in your script.
+
+```{r, include = TRUE, eval=FALSE, echo=TRUE}
+################################################################################
+#
+# Initiate the database connection
+#
+#################################################################################
+
+user <- Sys.getenv("DB_USERNAME")
+pw <- Sys.getenv("DB_PASSWORD")
+server <- stringr::str_c(Sys.getenv("DB_HOST"), "/", Sys.getenv("DB_NAME"))
+port <- Sys.getenv("DB_PORT")
+
+cdmSchema <-
+  Sys.getenv("OHDSI_CDM") # Schema which contains the OHDSI Common Data Model
+cdmVocabSchema <-
+  Sys.getenv("OHDSI_VOCAB") # Schema which contains the OHDSI Common Data Model vocabulary tables.
+cdmResultsSchema <-
+  Sys.getenv("OHDSI_RESULTS") # Schema which contains "cohort" table (is not mandatory)
+writeSchema <-
+  Sys.getenv("OHDSI_WRITE") # Schema for temporary tables, will be deleted
+writePrefix <- "cc_"
+
+db = DBI::dbConnect(
+  RPostgres::Postgres(),
+  dbname = Sys.getenv("DB_NAME"),
+  host = Sys.getenv("DB_HOST"),
+  user = Sys.getenv("DB_USERNAME"),
+  password = Sys.getenv("DB_PASSWORD"),
+  port  = port
+)
+
+cdm <- CDMConnector::cdmFromCon(
+  con = db,
+  cdmSchema = cdmSchema,
+  achillesSchema = cdmResultsSchema,
+  writeSchema = c(schema = writeSchema, prefix = writePrefix),
+)
+```
+
+## Building a target cohort
+
+Let´s say we want to explore our cohort of breast cancer patients. We can import this target cohort multiple ways:
+
+### 1. Target cohort from OHDSI OMOP database.
+
+If your cohort is defined in ATLAS, you can use its unique cohort ID. Ensure the cohort is generated within ATLAS on the CDM instance.
+
+```{r, include = TRUE, eval=FALSE, echo=TRUE}
+################################################################################
+#
+# Create target table from OMOP CDM instance (ATLAS's cohort id)
+#
+#################################################################################
+
+cohortsTableName = 'cohort'
+targetCohortId = 1403
+
+targetTable <- CohortContrast::cohortFromCohortTable(cdm = cdm, db = db,
+   tableName = cohortsTableName, schemaName = cdmResultsSchema, cohortId = targetCohortId)
+```
+
+### 2. Target cohort from JSON description file.
+
+If you have the JSON expression of the cohort (exportable from ATLAS), you can import the cohort directly.
+
+
+```{r, include = TRUE, eval=FALSE, echo=TRUE}
+################################################################################
+#
+# Create target table from a JSON
+#
+#################################################################################
+ pathToJSON = '/Users/markushaug/UT/R-packages/Develop/Git/CohortContrast/tests/testthat/inst/JSON'
+ targetTable <- CohortContrast::cohortFromJSON(pathToJSON = pathToJSON, cdm)
+```
+
+### 3. Target cohort from a CSV file.
+
+We can import the target table from a CSV. The file should have the same columns as present inside a cohort table (cohort_definition_id, subject_id, cohort_start_date, cohort_end_date).
+
+```{r, include = TRUE, eval=FALSE, echo=TRUE}
+################################################################################
+#
+# Create target table from a CSV
+#
+#################################################################################
+pathToCsv = '/Users/markushaug/UT/R-packages/Develop/Git/CohortContrast/tests/testthat/inst/CSV/cohort/cohort.csv'
+targetTable <- CohortContrast::cohortFromCSV(pathToCsv = pathToCsv, cohortId = 2)
+```
+
+### 4. Target cohort from a table
+
+We can also use a table in our memory.
+
+```{r, include = TRUE, eval=FALSE, echo=TRUE}
+################################################################################
+#
+# Create target table
+#
+#################################################################################
+library(tibble)
+#Create the dataframe
+ data <- tribble(
+   ~cohort_definition_id, ~subject_id, ~cohort_start_date, ~cohort_end_date,
+   1, 4804, '1997-03-23', '2018-10-29',
+   1, 4861, '1982-06-02', '2019-05-23',
+   1, 1563, '1977-06-25', '2019-04-20',
+   1, 2830, '2006-08-11', '2019-01-14',
+   1, 1655, '2004-09-29', '2019-05-24',
+   2, 5325, '1982-06-02', '2019-03-17',
+   2, 3743, '1997-03-23', '2018-10-07',
+   2, 2980, '2004-09-29', '2018-04-01',
+   2, 1512, '2006-08-11', '2017-11-29',
+   2, 2168, '1977-06-25', '2018-11-22'
+)
+targetTable <- cohortFromDataTable(data = data, cohortId = 2)
+```
+
+For cases 2-4 you do not have to specify the `cohortId` parameter inside the function call, but when multiple cohorts present it is advised.
+
+## Building a control cohort
+
+The control cohort is a cohort that the target cohort is compared against. This means we will check the proportions of each concept occurrence between the two cohorts. The result of the analysis is heavily dependant on both of them, therefore they should be selected with care.
+
+The control cohort can be generated the same way the target cohort has been shown to be generated in examples 1-4. But there are a few automatic ways the package  `CohortContrast` provides:
+
+### 1. Control cohort based on matches
+
+One of the scientific approaches is to select matches from the database (based on age and sex). There are parameters such as `ratio` which shown how many controls we want for each case. Also `min` (at least that many matches error otherwise) and `max` (at maximum n matches) parameters can be used.
+
+```{r, include = TRUE, eval=FALSE, echo=TRUE}
+################################################################################
+#
+# Create control cohort table based on matches
+#
+#################################################################################
+controlTable = CohortContrast::createControlCohortMatching(cdm = cdm, targetTable = targetTable, ratio = 4)
+```
+
+### 2. Control cohort based on inverse controls
+
+Sometimes it makes the most sense to use inverse controls (the same subjects during observation period not described in target cohort). This is the case for example if we want to see the contrast after a diagnosis.
+
+```{r, include = TRUE, eval=FALSE, echo=TRUE}
+################################################################################
+#
+# Create control cohort table based on inverse controls
+#
+#################################################################################
+controlTable = CohortContrast::createControlCohortInverse(cdm = cdm, targetTable = targetTable)
+```
+
+## Other considerations
+
+If you have constructed the cohorts by hand it is strongly advised to check and resolve overlap conflicts as well as conflicts with observation period inside the OMOP CDM.
+
+```{r, include = TRUE, eval=FALSE, echo=TRUE}
+################################################################################
+#
+# Resolve conflicts
+#
+#################################################################################
+targetTable = CohortContrast::resolveCohortTableOverlaps(cdm = cdm, cohortTable = targetTable)
+controlTable = CohortContrast::resolveCohortTableOverlaps(cdm = cdm, cohortTable = controlTable)
+```
+
