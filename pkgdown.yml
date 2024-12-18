@@ -1,0 +1,10 @@
+pandoc: 2.19.2
+pkgdown: 2.1.1
+pkgdown_sha: ~
+articles:
+  a00_introduction: a00_introduction.html
+  a01_execution: a01_execution.html
+last_built: 2024-12-18T09:44Z
+urls:
+  reference: https://healthinformaticsut.github.io/CohortContrast/reference
+  article: https://healthinformaticsut.github.io/CohortContrast/articles
