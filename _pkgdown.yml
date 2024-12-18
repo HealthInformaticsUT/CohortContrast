@@ -1,7 +1,7 @@
 url: https://healthinformaticsut.github.io/CohortContrast/
 template:
   assets:
-    - vignettes/images
+    - man/figures
   bootstrap: 5
   light-switch: yes
   bslib:
