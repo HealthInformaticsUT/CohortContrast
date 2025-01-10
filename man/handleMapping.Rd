@@ -9,7 +9,7 @@ handleMapping(data, complementaryMappingTable, abstractionLevel = -1)
 \arguments{
 \item{data}{Data list object}
 
-\item{complementaryMappingTable}{Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,}
+\item{complementaryMappingTable}{Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_NAME, NEW_CONCEPT_ID, NEW_CONCEPT_NAME, ABSTRACTION_LEVEL,}
 
 \item{abstractionLevel}{Level of abstraction, by default -1 (imported data level)}
 }

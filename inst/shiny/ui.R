@@ -10,8 +10,7 @@ sidebar <- shinydashboard::dashboardSidebar(
       tabName = "dashboard",
       icon = icon("dashboard")
     ),
-    shinydashboard::menuItem("Correlation", tabName = "correlation", icon = icon("link")),
-    shinydashboard::menuItem("Mapping", tabName = "mapping", icon = icon("sliders")),
+    shinydashboard::menuItem("Concept search", tabName = "mapping", icon = icon("sliders")),
     shinydashboard::menuItem("Filtering", tabName = "filtering", icon = icon("filter")),
     shinydashboard::menuItem("Help", tabName = "help", icon = icon("receipt"))
   )
@@ -84,15 +83,35 @@ body <- shinydashboard::dashboardBody(
             step = 0.01
           )
         ),
+        tags$style(HTML("
+    .irs-grid-text {
+      transform: rotate(-45deg); /* Rotates the text 45 degrees counterclockwise */
+      transform-origin: center; /* Keeps the text aligned */
+      white-space: nowrap; /* Prevents text from wrapping */
+    }
+  ")),
         column(
           width = 4,
-          sliderInput(
-            "abstraction_lvl",
-            h3("Abstraction level"),
-            min = -2,
-            max = 10,
-            value = -1,
-            step = 1
+          shinyWidgets::sliderTextInput(
+            inputId = "abstraction_lvl",
+            label = h3("Abstraction level"),
+            choices = c(
+              "original",
+              "0",
+              "1",
+              "2",
+              "3",
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "source"
+            ),
+            selected = "original",
+            grid = TRUE
           )
         ),
         column(
@@ -161,9 +180,22 @@ body <- shinydashboard::dashboardBody(
               offText = "Off"
             ),
             shiny::textOutput("removeUntreatedValue")
+          ),
+          shiny::div(
+            shiny.fluent::Toggle.shinyInput(
+              "correlationView",
+              label = "Apply correlation view",
+              value = FALSE,
+              onText = "On",
+              offText = "Off"
+            ),
+            shiny::textOutput("correlationViewValue")
           )
         )
       ),
+      hr(),
+      # Add correlation view values here
+        uiOutput("dynamic_correlation_widgets"),
       hr(),
       shiny::actionButton("visual_snapshot", "Create visual snapshot!"),
       fluidRow(tabsetPanel(
@@ -172,49 +204,10 @@ body <- shinydashboard::dashboardBody(
         tabPanel("Time panel",
                  plotOutput("time_panelPlot")),
         tabPanel("Heatmap",
-                 plotOutput("heatmapPlot"))
-      ))
-    ),
-    shinydashboard::tabItem(
-      tabName = "correlation",
-      h3("Correlation analysis"),
-      fluidRow(
-        column(
-          width = 4,
-          sliderInput(
-            "correlation_threshold",
-            h3("Correlation cutoff"),
-            min = 0,
-            max = 1,
-            value = 0.95,
-            step = 0.01
-          ),
-        ),
-        column(
-          width = 4,
-          uiOutput("correlation_group_selection"),
-          actionButton("combine_corr_btn", "Combine State Group Concepts"),
-        ),
-        column(
-          width = 4,
-          sliderInput(
-            "edge_prevalence_threshold",
-            h3("Edge prevalence cutoff"),
-            min = 0,
-            max = 1,
-            value = 0.5,
-            step = 0.01
-          )
-        )
-        ),
-      fluidRow(tabsetPanel(
-        tabPanel("Heatmap",
-                 plotOutput("correlationHeatmapPlot")
-                 ),
+                 plotOutput("heatmapPlot")),
         tabPanel("Trajectories",
-                 visNetwork::visNetworkOutput("trajectoryGraph"),
+                 uiOutput("dynamicGraphUI"),
                  uiOutput("dynamic_selectize_trajectory_inputs")
-
                  )
       ))
     ),
@@ -277,7 +270,11 @@ body <- shinydashboard::dashboardBody(
         actionButton("combine_btn", "Combine Selected"),
         actionButton("reset_btn_mappings", "Reset"),
         actionButton("save_btn", "Snapshot")
-      )
+      ),
+      h3("Mapping History"),
+      fluidRow(
+        div(style = 'overflow-x: auto;', DT::DTOutput("mapping_history_table"))
+      ),
     ),
     # Settings tab
     shinydashboard::tabItem(

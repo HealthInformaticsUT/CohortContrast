@@ -323,7 +323,7 @@ filter_target <-
   }
 
 
-plot_prevalence <- function(filtered_target) {
+plot_prevalence <- function(filtered_target, isCorrelationView = FALSE) {
   # Check if the input is NULL or empty
   if (is.null(filtered_target) ||
       nrow(filtered_target$target_row_annotation) == 0) {
@@ -336,7 +336,7 @@ plot_prevalence <- function(filtered_target) {
           label = "After filtering there are no concepts left",
           hjust = 0.5,
           vjust = 0.5,
-          size = 20,
+          size = 12,
           fontface = "bold",
           color = "black"
         ) +
@@ -459,6 +459,12 @@ plot_prevalence <- function(filtered_target) {
   plotdata <-
     merge(plotdata, heritage_colors, by = "HERITAGE", all.x = TRUE)
 
+  # Initialize plots
+  p1 <- NULL
+  p2 <- NULL
+  p3 <- NULL
+
+  if(!isCorrelationView){
   # Plot
   p1 <-
     ggplot2::ggplot(
@@ -582,7 +588,135 @@ plot_prevalence <- function(filtered_target) {
       strip.text.y = ggplot2::element_blank(),
       axis.ticks.y = ggplot2::element_blank()
     )
+  } else {
+    # Extract ordered data
+    ordered_matrix <- filtered_target$correlation_analysis$ordered_matrix
+    gaps_row <- filtered_target$correlation_analysis$gaps_row
 
+    # Reorder plotdata based on ordered_matrix row order
+    ordered_indices <- match(rownames(ordered_matrix), plotdata$CONCEPT_NAME)
+    plotdata <- plotdata[ordered_indices, ]
+
+    # Add gaps as a grouping variable
+    plotdata$Group <- cut(seq_len(nrow(plotdata)), breaks = c(0, gaps_row, nrow(plotdata)), labels = FALSE)
+
+    # Plot grouped heatmap with gaps_row handling
+    p1 <- ggplot2::ggplot(
+      plotdata,
+      ggplot2::aes(
+        x = PREVALENCE,
+        y = stringr::str_sub(CONCEPT_NAME, 1, 60),
+        fill = 10 ** PREVALENCE_LOG
+      )
+    ) +
+      ggplot2::geom_bar(stat = "identity") +
+      ggplot2::geom_text(
+        ggplot2::aes(
+          label = scales::label_comma(accuracy = 0.01)(10 ** PREVALENCE_LOG),
+          x = PREVALENCE + 0.01
+        ),
+        hjust = 0,
+        size = 3
+      ) +
+      ggplot2::facet_grid(Group ~ ., space = "free_y", scales = "free_y") +
+      ggplot2::scale_fill_viridis_c(
+        "\nRisk ratio (log10 scaled)\ncompared to background",
+        limits = c(1, 100),
+        trans = "log10",
+        oob = scales::squish
+      ) +
+      ggplot2::scale_x_continuous(labels = scales::label_percent(),
+                                  sec.axis = ggplot2::dup_axis()) +
+      ggplot2::ggtitle("Prevalence") +
+      ggplot2::theme_bw() +
+      ggplot2::theme(
+        plot.title = ggplot2::element_text(hjust = 1),
+        axis.title = ggplot2::element_blank(),
+        legend.position = "top",
+        legend.title = ggplot2::element_text(size = 10),
+        strip.background = ggplot2::element_blank(),
+        strip.text = ggplot2::element_blank(),
+        panel.spacing = ggplot2::unit(0.5, "lines"),
+        axis.text.y = ggplot2::element_text(size = 10)
+      )
+
+    p2 <- ggplot2::ggplot(
+      plotdata,
+      ggplot2::aes(
+        y = CONCEPT_NAME,
+        x = AGE_DIFF_ESTIMATE,
+        color = AGE_DIFF_SIGNIFICANT
+      )
+    ) +
+      ggplot2::geom_point() +
+      ggplot2::geom_errorbar(
+        ggplot2::aes(
+          xmin = AGE_DIFF_LOW,
+          xmax = AGE_DIFF_HIGH
+        ),
+        linewidth = 1
+      ) +
+      ggplot2::geom_vline(
+        ggplot2::aes(xintercept = AVERAGE_AGE_OVERALL),
+        color = "darkgreen"
+      ) +
+      ggplot2::facet_grid(Group ~ ., space = "free_y", scales = "free_y") +
+      ggplot2::scale_color_manual(values = c("grey60", "blue")) +
+      ggplot2::scale_x_continuous(sec.axis = ggplot2::dup_axis()) +
+      ggplot2::theme_bw() +
+      ggplot2::theme(
+        plot.title = element_text(hjust = 1),
+        axis.title = ggplot2::element_blank(),
+        axis.text.y = ggplot2::element_blank(),
+        axis.ticks.y = ggplot2::element_blank(),
+        strip.background = ggplot2::element_blank(),
+        strip.text = ggplot2::element_blank(),
+        legend.position = "none",
+        panel.spacing = ggplot2::unit(0.5, "lines")
+      ) +
+      ggplot2::ggtitle("Age in group")
+
+
+    # Plot male proportion differences with gaps_row handling
+    p3 <- ggplot2::ggplot(
+      plotdata,
+      ggplot2::aes(
+        y = CONCEPT_NAME,
+        x = MALE_PROP_DIFF_ESTIMATE,
+        color = MALE_PROP_DIFF_SIGNIFICANT
+      )
+    ) +
+      ggplot2::geom_point() +
+      ggplot2::geom_errorbar(
+        ggplot2::aes(
+          xmin = MALE_PROP_DIFF_LOW,
+          xmax = MALE_PROP_DIFF_HIGH
+        ),
+        linewidth = 1
+      ) +
+      ggplot2::geom_vline(
+        ggplot2::aes(xintercept = MALE_PROP_OVERALL),
+        color = "darkgreen"
+      ) +
+      ggplot2::facet_grid(Group ~ ., space = "free_y", scales = "free_y") +
+      ggplot2::scale_color_manual(values = c("grey60", "blue")) +
+      ggplot2::scale_x_continuous(labels = scales::label_percent(),
+                                  sec.axis = ggplot2::dup_axis(),
+                                  limits = c(0,1)) +
+      ggplot2::theme_bw() +
+      ggplot2::theme(
+        plot.title = element_text(hjust = 1),
+        axis.title = ggplot2::element_blank(),
+        axis.text.y = ggplot2::element_blank(),
+        axis.ticks.y = ggplot2::element_blank(),
+        strip.background = ggplot2::element_blank(),
+        strip.text = ggplot2::element_blank(),
+        legend.position = "none",
+        panel.spacing = ggplot2::unit(0.5, "lines")
+      ) +
+      ggplot2::ggtitle("Male percentage in group")
+
+    }
   # Combine plots
   p <-
     p1 + p2 + p3 + patchwork::plot_layout(nrow = 1, heights = c(1, 1, 1))
@@ -745,7 +879,7 @@ plot_heatmap <- function(filtered_target) {
   )
 }
 
-plot_time <- function(filtered_target) {
+plot_time <- function(filtered_target, isCorrelationView = FALSE) {
   # Check if the input is NULL or empty
   if (is.null(filtered_target) ||
       nrow(filtered_target$target_row_annotation) == 0) {
@@ -800,7 +934,9 @@ plot_time <- function(filtered_target) {
       # Similarly for KSTEST
       .groups = "drop"                     # Drop grouping information after summarising
     )
-
+  # initialize p2
+  p2 <- NULL
+  if(!isCorrelationView) {
   plot_data3 = plot_data %>% dplyr::select(.data$CONCEPT_NAME,
                                            .data$TIME_TO_EVENT,
                                            .data$HERITAGE,
@@ -809,7 +945,6 @@ plot_time <- function(filtered_target) {
 
   time_min <- min(plot_data3$TIME_TO_EVENT, na.rm = TRUE)
   time_max <- max(plot_data3$TIME_TO_EVENT, na.rm = TRUE)
-
   # Heritage text dataset
   heritage_annot = plot_data3 %>%
     dplyr::mutate(CONCEPT_NAME = stringr::str_sub(.data$CONCEPT_NAME, 1, 60)) %>%
@@ -852,6 +987,81 @@ plot_time <- function(filtered_target) {
       # Hide strip text
       panel.spacing = ggplot2::unit(0.5, "lines")  # Reduce spacing between panels
     )
+  } else {
+    # Extract ordered data
+    ordered_matrix <- filtered_target$correlation_analysis$ordered_matrix
+    gaps_row <- filtered_target$correlation_analysis$gaps_row
+
+    # Reorder plot_data based on ordered_matrix row order
+    ordered_indices <- match(rownames(ordered_matrix), plot_data$CONCEPT_NAME)
+    plot_data <- plot_data[ordered_indices, ]
+    plot_data$Group <- cut(seq_len(nrow(plot_data)), breaks = c(0, gaps_row, nrow(plot_data)), labels = FALSE)
+
+    # Unnest TIME_TO_EVENT
+    plot_data3 <- plot_data %>%
+      dplyr::select(.data$CONCEPT_NAME, .data$TIME_TO_EVENT, .data$Group) %>%
+      tidyr::unnest(.data$TIME_TO_EVENT)  # Flatten TIME_TO_EVENT list
+
+    # Get time range
+    time_min <- min(plot_data3$TIME_TO_EVENT, na.rm = TRUE)
+    time_max <- max(plot_data3$TIME_TO_EVENT, na.rm = TRUE)
+
+    # Create a palette that repeats as needed for the number of groups
+    num_groups <- length(unique(plot_data3$Group))
+    palette_colors <- RColorBrewer::brewer.pal(min(num_groups, 12), "Set3")
+    palette_colors <- rep(palette_colors, length.out = num_groups)  # Repeat colors to match groups
+
+    # Create the plot with repeated fill colors for groups
+    p2 <- ggplot2::ggplot(
+      plot_data3,
+      ggplot2::aes(
+        y = .data$CONCEPT_NAME,
+        x = .data$TIME_TO_EVENT,
+        group = .data$CONCEPT_NAME,
+        fill = factor(.data$Group)  # Map Group to fill
+      )
+    ) +
+      # Add horizontal violin plot
+      ggplot2::geom_violin(
+        width = 1.2,
+        color = NA,
+        alpha = 0.5,
+        trim = FALSE
+      ) +
+      ggplot2::geom_boxplot(
+        fill = NA,  # Keep boxplot borders
+        outliers = FALSE,
+        width = 0.3
+      ) +
+      # Faceting by Group
+      ggplot2::facet_grid(
+        .data$Group ~ .,
+        scales = "free_y",
+        space = "free"
+      ) +
+      ggplot2::scale_x_continuous(
+        limits = c(time_min, time_max),
+        sec.axis = ggplot2::dup_axis(),
+        expand = ggplot2::expansion(mult = 0.01)
+      ) +
+      # Manually define fill colors for groups
+      ggplot2::scale_fill_manual(values = palette_colors) +
+      # Enhance the plot appearance with a minimal theme
+      ggplot2::theme_bw() +
+      ggplot2::labs(
+        title = "Event occurrences timing (days since index)",
+        x = "",
+        y = ""
+      ) +
+      ggplot2::theme(
+        legend.position = "none",
+        strip.background = ggplot2::element_blank(),
+        strip.text.y = ggplot2::element_blank(),
+        axis.text.y = ggplot2::element_text(size = 10),
+        axis.title = ggplot2::element_blank(),
+        panel.spacing = ggplot2::unit(0.5, "lines")
+      )
+  }
   return(p2)
 }
 
@@ -904,6 +1114,7 @@ update_features <- function(features, scaled_prev) {
 
 # Prepare filtered_target for correlation analysis and trajectories
 
+# Prepare filtered_target for correlation analysis and trajectories
 prepare_filtered_target <- function(filtered_target, correlation_threshold = 0.95) {
   if (is.null(filtered_target) || nrow(filtered_target$target_row_annotation) == 0) {
     stop("After filtering there are no concepts left.")
@@ -940,14 +1151,9 @@ prepare_filtered_target <- function(filtered_target, correlation_threshold = 0.9
   groups <- lapply(unique(clusters$membership), function(cluster_id) {
     ids <- which(clusters$membership == cluster_id)
     group_names <- names_vector[ids]
-    if (length(group_names) > 1) {
-      return(stats::setNames(group_names, concept_ids[ids]))
-    } else {
-      return(NULL)
-    }
+    stats::setNames(group_names, concept_ids[ids])
   })
 
-  groups <- Filter(Negate(is.null), groups)
   groups <- groups[order(sapply(groups, length), decreasing = TRUE)]
 
   # Perform intra-group clustering
@@ -956,7 +1162,7 @@ prepare_filtered_target <- function(filtered_target, correlation_threshold = 0.9
     group_matrix <- target_matrix[, group_ids, drop = FALSE]
 
     # Skip clustering if group has only one concept or insufficient variability
-    if (ncol(group_matrix) <= 1 || all(apply(group_matrix, 1, var) == 0, na.rm = TRUE)) {
+    if (all(apply(group_matrix, 1, var) == 0, na.rm = TRUE) || ncol(group_matrix) <= 1) {
       return(group)
     }
 
@@ -974,6 +1180,24 @@ prepare_filtered_target <- function(filtered_target, correlation_threshold = 0.9
     ordered_ids <- group_ids[hc$order]
     stats::setNames(group[ordered_ids], ordered_ids)
   })
+
+  # Calculate inter-group correlations
+  group_correlations <- matrix(0, nrow = length(ordered_groups), ncol = length(ordered_groups))
+  for (i in seq_along(ordered_groups)) {
+    for (j in seq_along(ordered_groups)) {
+      if (i != j) {
+        group_i <- names(ordered_groups[[i]])
+        group_j <- names(ordered_groups[[j]])
+        group_correlations[i, j] <- mean(correlation_matrix[group_i, group_j], na.rm = TRUE)
+      }
+    }
+  }
+
+  # Perform clustering on the group correlation matrix
+  group_distance <- as.dist(1 - group_correlations)
+  hc_groups <- hclust(group_distance)
+  ordered_group_indices <- hc_groups$order
+  ordered_groups <- ordered_groups[ordered_group_indices]
 
   ordered_concept_ids <- unlist(ordered_groups, use.names = TRUE)
   ordered_concept_names <- unname(ordered_concept_ids)
@@ -996,9 +1220,6 @@ prepare_filtered_target <- function(filtered_target, correlation_threshold = 0.9
   return(filtered_target)
 }
 
-
-
-
 plot_correlation_heatmap <- function(filtered_target) {
   if (is.null(filtered_target) ||
       nrow(filtered_target$target_row_annotation) == 0) {
@@ -1019,30 +1240,63 @@ plot_correlation_heatmap <- function(filtered_target) {
     )
   }
 
+  ordered_matrix <- filtered_target$correlation_analysis$ordered_matrix
+  gaps_row <- filtered_target$correlation_analysis$gaps_row
+
+  # Compute row-wise clustering
+  dist_matrix <- stats::as.dist(1 - stats::cor(t(ordered_matrix), method = "pearson", use = "pairwise.complete.obs"))
+  hc_rows <- stats::hclust(dist_matrix)
+
+  # Cut the dendrogram into clusters
+  num_clusters <- length(gaps_row) + 1 # Define number of clusters based on gaps
+  cluster_labels <- stats::cutree(hc_rows, k = num_clusters)
+
+  # Plot heatmap with cutree_rows
   heatmap <- pheatmap::pheatmap(
-    filtered_target$correlation_analysis$ordered_matrix,
-    gaps_row = filtered_target$correlation_analysis$gaps_row,
-    cluster_rows = FALSE,
-    cluster_cols = TRUE,
-    show_colnames = FALSE,
-    color = c("#e5f5f9", "#2ca25f")
+    ordered_matrix,
+    cluster_rows = hc_rows,            # Pass the row dendrogram
+    cluster_cols = TRUE,               # Cluster columns
+    cutree_rows = num_clusters,        # Number of row clusters (defines gaps)
+    show_colnames = FALSE,             # Hide column names
+    color = c("#e5f5f9", "#2ca25f"),   # Custom colors
+    treeheight_row = 50                # Height of the row dendrogram
   )
 
   return(heatmap)
 }
 
-plot_correlation_trajectory_graph <- function(filtered_target, selectedIds = NULL, edgePrevalence = 0.5, selectionList) {
-  if (is.null(filtered_target) | is.null(selectedIds) | is.null(edgePrevalence) | is.null(selectionList)) {
-    graph <- visNetwork::visNetwork(
-      nodes = data.frame(id = 1, label = "No data available"),
-      edges = NULL
-    ) %>%
-      visNetwork::visOptions(highlightNearest = FALSE, nodesIdSelection = FALSE) %>%
-      visNetwork::visPhysics(enabled = FALSE) %>%
-      visNetwork::visNodes(color = list(background = "#f0f0f0", border = "#000000")) %>%
-      visNetwork::visEdges(smooth = FALSE) %>%
-      visNetwork::visInteraction(dragNodes = FALSE, dragView = FALSE, zoomView = FALSE)
-    return(graph)
+plot_correlation_trajectory_graph <- function(filtered_target, selectedIds = NULL, edgePrevalence = 0.5, selectionList, corrInitiated = FALSE) {
+  if (isFALSE(corrInitiated)){
+    plot <- ggplot2::ggplot() +
+      ggplot2::annotate(
+        "text",
+        x = 0.5,
+        y = 0.5,
+        label = "Correlation view must be enabled",
+        hjust = 0.5,
+        vjust = 0.5,
+        size = 12,
+        fontface = "bold",
+        color = "black"
+      ) +
+      ggplot2::theme_void()
+    return(plot)
+  }
+  else if (is.null(selectedIds) | length(selectedIds) == 0) {
+    plot <- ggplot2::ggplot() +
+      ggplot2::annotate(
+        "text",
+        x = 0.5,
+        y = 0.5,
+        label = "A correlation group must be selected",
+        hjust = 0.5,
+        vjust = 0.5,
+        size = 12,
+        fontface = "bold",
+        color = "black"
+      ) +
+      ggplot2::theme_void()
+    return(plot)
   }
 
   patients_data <- filtered_target$target_time_annotation %>%
