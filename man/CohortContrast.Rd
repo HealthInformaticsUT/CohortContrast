@@ -47,7 +47,7 @@ CohortContrast(
 
 \item{lookbackDays}{FALSE or an integer stating the lookback period for cohort index date}
 
-\item{complementaryMappingTable}{Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,}
+\item{complementaryMappingTable}{Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_NAME, NEW_CONCEPT_ID, NEW_CONCEPT_NAME, ABSTRACTION_LEVEL,}
 
 \item{runZTests}{boolean for Z-tests}
 

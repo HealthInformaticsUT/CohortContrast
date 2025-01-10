@@ -20,6 +20,52 @@ save_object <- function(object, path) {
 }
 
 
+#' Function for saving metadata table to path
+#'
+#' @param object Object to save
+#' @param path Path to the file saved
+#' @keywords internal
+
+save_object_metadata <- function(object, path) {
+  # Check if the data .rds exists
+  if (file.exists(path)) {
+    cli::cli_alert_success("Object with analysis data exists!")
+  } else {
+    cli::cli_alert_danger("No data object! Check execution function completion.")
+    return(NULL)
+  }
+
+  # Calculate the number of unique patients in target and control cohorts
+  rows_target <- object$data_initial %>%
+    dplyr::filter(COHORT_DEFINITION_ID == "target") %>%
+    dplyr::summarise(unique_patients = dplyr::n_distinct(SUBJECT_ID)) %>%
+    dplyr::pull(unique_patients)
+
+  rows_control <- object$data_initial %>%
+    dplyr::filter(COHORT_DEFINITION_ID == "control") %>%
+    dplyr::summarise(unique_patients = dplyr::n_distinct(SUBJECT_ID)) %>%
+    dplyr::pull(unique_patients)
+
+  # Calculate the number of significant differences in Z-Test
+  ztest_significant <- object$data_features %>%
+    dplyr::filter(ZTEST == TRUE & ABSTRACTION_LEVEL == -1)
+  ztest_significant_count <- nrow(ztest_significant)
+
+  # Prepare the metadata summary data frame
+  temp <- data.frame(
+    study = object$config$complName,
+    target_patients = rows_target,
+    control_patients = rows_control,
+    z_count = ztest_significant_count,
+    stringsAsFactors = FALSE
+  )
+  # Mutate file
+  path <- sub("\\.rds$", ".csv", path)
+  # Save the updated metadata back to the specified path
+  utils::write.csv(temp, path, row.names = F)
+}
+
+
 #' Function for controlling whether patient exists in a cohort
 #'
 #' @param data A dataframe object with SUBJECT_ID values

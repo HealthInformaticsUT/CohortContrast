@@ -8,7 +8,7 @@
 #' @param prevalenceCutOff numeric > if set, removes all of the concepts which are not present (in target) more than prevalenceCutOff times
 #' @param topK numeric > if set, keeps this number of features in the analysis. Maximum number of features exported.
 #' @param presenceFilter numeric > if set, removes all features represented less than the given percentage
-#' @param complementaryMappingTable Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,
+#' @param complementaryMappingTable Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_NAME, NEW_CONCEPT_ID, NEW_CONCEPT_NAME, ABSTRACTION_LEVEL,
 #' @param runZTests boolean for Z-tests
 #' @param runLogitTests boolean for logit-tests
 #' @param runKSTests boolean for Kolmogorov-Smirnov tests
@@ -796,7 +796,7 @@ calculate_data_features <-
 
 #' This function uses complementaryMappingTable to map concepts to custom names
 #' @param data Data list object
-#' @param complementaryMappingTable Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_ID.new, CONCEPT_NAME.new,
+#' @param complementaryMappingTable Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_NAME, NEW_CONCEPT_ID, NEW_CONCEPT_NAME, ABSTRACTION_LEVEL,
 #' @param abstractionLevel Level of abstraction, by default -1 (imported data level)
 #'
 #' @keywords internal
@@ -814,9 +814,9 @@ handleMapping <- function(data, complementaryMappingTable, abstractionLevel = -1
   data_patients <- data_patients %>%
     dplyr::left_join(complementaryMappingTable,
                      by = "CONCEPT_ID", relationship = "many-to-many") %>%
-    dplyr:: mutate(CONCEPT_ID = dplyr::if_else(is.na(.data$CONCEPT_ID.new), .data$CONCEPT_ID, .data$CONCEPT_ID.new)) %>%
-    dplyr:: mutate(CONCEPT_NAME = dplyr::if_else(is.na(.data$CONCEPT_NAME.new), .data$CONCEPT_NAME, .data$CONCEPT_NAME.new)) %>%
-    dplyr::select(-.data$CONCEPT_ID.new, -.data$CONCEPT_NAME.new)
+    dplyr:: mutate(CONCEPT_ID = dplyr::if_else(is.na(.data$NEW_CONCEPT_ID), .data$CONCEPT_ID, .data$NEW_CONCEPT_ID)) %>%
+    dplyr:: mutate(CONCEPT_NAME = dplyr::if_else(is.na(.data$NEW_CONCEPT_NAME), .data$CONCEPT_NAME, .data$NEW_CONCEPT_NAME)) %>%
+    dplyr::select(-.data$NEW_CONCEPT_ID, -.data$NEW_CONCEPT_NAME)
 
   # Step 3: Summarize data_patients to aggregate PREVALENCE
   final_data <- data_patients %>%
@@ -1081,6 +1081,7 @@ if(data$config$safeRun)
     # TODO export plots?
   }
   save_object(data, path = filePath)
+  save_object_metadata(data, path = filePath)
   printCustomMessage(paste("Saved the result to ", filePath, sep = ""))
 }
 

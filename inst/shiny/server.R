@@ -31,7 +31,7 @@ server <- function(input, output, session) {
   target_matrix <- shiny::reactiveVal(NULL)
   selected_filters <- shiny::reactiveVal(list())
   selected_patient_filters <- shiny::reactiveVal(list())
-  complementaryMappingTable <- shiny::reactiveVal(data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), ABSTRACTION_LEVEL = integer(), stringsAsFactors = FALSE))
+  complementaryMappingTable <- shiny::reactiveVal(data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character() , ABSTRACTION_LEVEL = integer(), stringsAsFactors = FALSE))
   removeButtonCounter <- shiny::reactiveVal(0)
   removeButtonCounterMap <- shiny::reactiveValues()
   filterButtonCounter <- shiny::reactiveVal(0)
@@ -119,34 +119,17 @@ server <- function(input, output, session) {
       file_path <- stringr::str_c(pathToResults, "/", study_name, ".rds")
 
       if (file.exists(file_path)) {
-        object <- readRDS(file_path)
-        object$data_initial <- data.table::as.data.table(object$data_initial)
-
-        # Use isolate to prevent reactivity triggers
-        shiny::isolate({
-          loaded_data(object)
-          original_data(object)
-        })
-
-        rows_target <- object$data_initial[
-          COHORT_DEFINITION_ID == "target",
-          data.table::uniqueN(SUBJECT_ID)
-        ]
-        rows_control <- object$data_initial[
-          COHORT_DEFINITION_ID == "control",
-          data.table::uniqueN(SUBJECT_ID)
-        ]
-
-        ztest_significant = subset(object$data_features,
-               ZTEST == TRUE & ABSTRACTION_LEVEL == -1)
-        ztest_significant = nrow(ztest_significant)
-
-        temp = data.frame("Study" = study_name,
-                   "Target patients" = rows_target,
-                   "Control patients" = rows_control,
-                   "ZTEST" = ztest_significant)
+        # Mutate file
+        file_path <- sub("\\.rds$", ".csv", file_path)
+        if (file.exists(file_path)) {
+        metadata <- utils::read.csv(file_path)
+        temp = data.frame("Study" = metadata$study,
+                   "Target patients" = metadata$target_patients,
+                   "Control patients" = metadata$control_patients,
+                   "ZTEST" = metadata$z_count)
         names(temp) <- c("Study", "Target patients", "Control patients", "Significant differences (Z-Test)")
         study_df_temp = rbind(study_df_temp, temp)
+      }
       }
     }
 
@@ -261,7 +244,8 @@ server <- function(input, output, session) {
     applyInverseTarget <- if (!is.null(input$applyInverseTarget) && input$applyInverseTarget) TRUE else FALSE
     applyZTest <- if (!is.null(input$applyZTest) && input$applyZTest) TRUE else FALSE
     applyLogitTest <- if (!is.null(input$applyLogitTest) && input$applyLogitTest) TRUE else FALSE
-    abstractionLevel <- if (!is.null(input$applyLogitTest)) input$abstraction_lvl else 0
+    parsed_abstraction_value <- ifelse(input$abstraction_lvl == "original", -1, ifelse(input$abstraction_lvl == "source", -2, as.numeric(input$abstraction_lvl)))
+    abstractionLevel <- if (!is.null(parsed_abstraction_value)) parsed_abstraction_value else 0
     result <- format_results(
       data = loaded_data(),
       autoScaleRate = autoScaleRate,
@@ -338,11 +322,11 @@ server <- function(input, output, session) {
       prevalencePlotWaiter$show()
       result <- tryCatch(
         {
-          plot_prevalence(target_filtered())
+          plot_prevalence(target_filtered(), isCorrelationView = input$correlationView)
         },
         error = function(e) {
           print(e)
-          plot_prevalence(NULL)
+          plot_prevalence(NULL, isCorrelationView = FALSE)
         }
       )
       prevalencePlotWaiter$hide()
@@ -354,6 +338,8 @@ server <- function(input, output, session) {
   output$heatmapPlot <- shiny::renderPlot(
     {
       heatmapPlotWaiter$show()
+      result <- NULL
+      if (isFALSE(input$correlationView)) {
       result <- tryCatch(
         {
           plot_heatmap(target_filtered())
@@ -363,6 +349,18 @@ server <- function(input, output, session) {
           plot_heatmap(NULL)
         }
       )
+      }
+      else {
+        result <- tryCatch(
+          {
+            plot_correlation_heatmap(target_filtered())
+          },
+          error = function(e) {
+            print(e)
+            plot_correlation_heatmap(NULL)
+          }
+        )
+      }
       heatmapPlotWaiter$hide()
       result
     },
@@ -374,11 +372,11 @@ server <- function(input, output, session) {
       timePanelWaiter$show()
       result <- tryCatch(
         {
-          plot_time(target_filtered())
+          plot_time(target_filtered(), isCorrelationView = input$correlationView)
         },
         error = function(e) {
           print(e)
-          plot_heatmap(NULL)
+          plot_time(NULL)
         }
       )
       timePanelWaiter$hide()
@@ -414,8 +412,32 @@ server <- function(input, output, session) {
       target_filtered(),
       selected_correlation_group(),
       input$edge_prevalence_threshold,
-      selected_trajectory_filtering_values()
+      selected_trajectory_filtering_values(),
+      input$correlationView
     )
+  })
+
+  output$trajectoryGraphPlot <-  shiny::renderPlot({
+    # Ensure required inputs are available
+    # Call the function to create the graph
+    plot_correlation_trajectory_graph(
+      target_filtered(),
+      selected_correlation_group(),
+      input$edge_prevalence_threshold,
+      selected_trajectory_filtering_values(),
+      input$correlationView
+    )
+  },
+  height = 160)
+
+  output$dynamicGraphUI <- renderUI({
+    if (isFALSE(input$correlationView) | is.null(selected_correlation_group()) | length(selected_correlation_group()) == 0) {
+      # Use ggplot2 output
+      plotOutput("trajectoryGraphPlot")
+    } else {
+      # Use visNetwork output
+      visNetwork::visNetworkOutput("trajectoryGraph")
+    }
   })
 
   shiny::observeEvent(input$visual_snapshot, {
@@ -447,9 +469,10 @@ server <- function(input, output, session) {
                                 target_time_annotation = target_time_annotation()
     )
     temp_filtered_target = prepare_filtered_target(temp_filtered_target, input$correlation_threshold)
+    parsed_abstraction_value <- ifelse(input$abstraction_lvl == "original", -1, ifelse(input$abstraction_lvl == "source", -2, as.numeric(input$abstraction_lvl)))
     ccObject <- list(
       data_features = data_features() %>% dplyr::filter(.data$CONCEPT_ID %in% as.integer(rownames(target_matrix())),
-                                                        .data$ABSTRACTION_LEVEL == input$abstraction_lvl),
+                                                        .data$ABSTRACTION_LEVEL == parsed_abstraction_value),
       filtered_target = temp_filtered_target,
       config = config
     )
@@ -467,8 +490,10 @@ server <- function(input, output, session) {
     # Filter the data based on the user's selected abstraction level
     shiny::req(input$abstraction_lvl) # Ensure the input is available before proceeding
     shiny::req(input$studyName)
+    parsed_abstraction_value <- ifelse(input$abstraction_lvl == "original", -1, ifelse(input$abstraction_lvl == "source", -2, as.numeric(input$abstraction_lvl)))
+
     filtered_data <- target_mod()[
-      ABSTRACTION_LEVEL == input$abstraction_lvl
+      ABSTRACTION_LEVEL == parsed_abstraction_value
     ]
   })
 
@@ -483,6 +508,20 @@ server <- function(input, output, session) {
           list(targets = which(names(filtered_data()) %in% c("TIME_TO_EVENT", "ABSTRACTION_LEVEL")), visible = FALSE)
         )
       )
+    )
+  }, server = TRUE)
+
+  output$mapping_history_table <- DT::renderDT({
+    shiny::req(input$studyName)
+    DT::datatable(
+      complementaryMappingTable(),
+      selection = 'multiple',
+      filter = 'top',
+      # options = list(
+      #   columnDefs = list(
+      #     list(targets = which(names(filtered_data()) %in% c("TIME_TO_EVENT", "ABSTRACTION_LEVEL")), visible = FALSE)
+      #   )
+      # )
     )
   }, server = TRUE)
 
@@ -575,9 +614,9 @@ server <- function(input, output, session) {
     }
   })
 
-  # Dynamically generate selectizeInput elements in two columns
+
   output$dynamic_selectize_trajectory_inputs <- renderUI({
-    if (any(selected_correlation_group_labels() == "")) {
+    if (any(selected_correlation_group_labels() == "") | isFALSE(input$correlationView)) {
       return(NULL)
     }
 
@@ -589,30 +628,34 @@ server <- function(input, output, session) {
     col1_states <- state_names[1:half]
     col2_states <- state_names[(half + 1):n]
 
-    # Create the UI layout with two columns
-    fluidRow(
-      h4("  Filter trajectory states"),
-      column(
-        width = 6, # First column (half width)
-        lapply(col1_states, function(state) {
-          selectizeInput(
-            inputId = paste0("select_", state),
-            label = state,
-            choices = c("First occurrence", "All events", "Last occurrence"),
-            selected = "All events"
-          )
-        })
+    # Create the UI layout with a separate row for the title
+    tagList(
+      fluidRow(
+        column(12, h4("Filter trajectory states", style = "margin-top: 10px;"))
       ),
-      column(
-        width = 6, # Second column (half width)
-        lapply(col2_states, function(state) {
-          selectizeInput(
-            inputId = paste0("select_", state),
-            label = state,
-            choices = c("First occurrence", "All events", "Last occurrence"),
-            selected = "All events"
-          )
-        })
+      fluidRow(
+        column(
+          width = 6, # First column (half width)
+          lapply(col1_states, function(state) {
+            selectizeInput(
+              inputId = paste0("select_", state),
+              label = state,
+              choices = c("First occurrence", "All events", "Last occurrence"),
+              selected = "All events"
+            )
+          })
+        ),
+        column(
+          width = 6, # Second column (half width)
+          lapply(col2_states, function(state) {
+            selectizeInput(
+              inputId = paste0("select_", state),
+              label = state,
+              choices = c("First occurrence", "All events", "Last occurrence"),
+              selected = "All events"
+            )
+          })
+        )
       )
     )
   })
@@ -650,7 +693,7 @@ server <- function(input, output, session) {
     target_mod(original_data()$data_features)
 
     data_features(data_features())
-    complementaryMappingTable(if (!is.null(original_data()$complementaryMappingTable)) complementaryMappingTable(original_data()$complementaryMappingTable) else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), ABSTRACTION_LEVE = integer(), stringsAsFactors = FALSE))
+    complementaryMappingTable(if (!is.null(original_data()$complementaryMappingTable)) complementaryMappingTable(original_data()$complementaryMappingTable) else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character(), ABSTRACTION_LEVE = integer(), stringsAsFactors = FALSE))
     })
 
   # Save data to file on button press
@@ -686,7 +729,10 @@ server <- function(input, output, session) {
 
     # Extract trajectory generation info from session
     selectedFeatureIds = as.integer(ccObject$filtered_target$target_row_annotation %>% rownames())
-    ccObject$config$abstractionLevel = input$abstraction_lvl
+    parsed_abstraction_value <- ifelse(input$abstraction_lvl == "original", -1, ifelse(input$abstraction_lvl == "source", -2, as.numeric(input$abstraction_lvl)))
+
+    ccObject$config$abstractionLevel = parsed_abstraction_value
+
     selectedFeatureNames = ccObject$data_features %>%
       dplyr::filter(.data$ABSTRACTION_LEVEL == ccObject$config$abstractionLevel,
                     .data$CONCEPT_ID %in% selectedFeatureIds) %>%
@@ -709,11 +755,46 @@ server <- function(input, output, session) {
   #################################################################### FILTERING (REMOVE CONCEPTS)
   # # Reactive expression to prepare choices with both CONCEPT_ID and CONCEPT_NAME for display
 
+  output$dynamic_correlation_widgets <- renderUI({
+    if (isTRUE(input$correlationView)) {
+      fluidRow(
+        column(
+          width = 4,
+          sliderInput(
+            "correlation_threshold",
+            label = "Correlation cutoff",
+            min = 0,
+            max = 1,
+            value = 1,
+            step = 0.01
+          )
+        ),
+        column(
+          width = 4,
+          uiOutput("correlation_group_selection"),
+          actionButton("combine_corr_btn", "Combine State Group Concepts")
+        ),
+        column(
+          width = 4,
+          sliderInput(
+            "edge_prevalence_threshold",
+            label = "Edge prevalence cutoff",
+            min = 0,
+            max = 1,
+            value = 0.5,
+            step = 0.01
+          )
+        )
+      )
+    }
+  })
+
+
   # Server-side rendering of the pickerInput
   output$correlation_group_selection <- shiny::renderUI({
     shinyWidgets::pickerInput(
       inputId = "filter_correlation_group",
-      label = h3("Select correlation group"),
+      label = "Select correlation group",
       choices = NULL, # Start with no choices, they will be loaded server-side
       multiple = FALSE,
       options = shinyWidgets::pickerOptions(
@@ -752,8 +833,7 @@ server <- function(input, output, session) {
       )
     }
 
-    # Update the pickerInput choices with group-level options
-    # Update the pickerInput choices with group-level options
+        # Update the pickerInput choices with group-level options
     shinyWidgets::updatePickerInput(
       session,
       "filter_correlation_group",
@@ -777,7 +857,9 @@ server <- function(input, output, session) {
     }
     # Update the reactive value with the selected IDs
     selected_correlation_group(selected_ids)
-    selected_correlation_group_labels(getConceptIDLabels(ids = selected_ids, data = data_features(), absLvl = input$abstraction_lvl))
+    parsed_abstraction_value <- ifelse(input$abstraction_lvl == "original", -1, ifelse(input$abstraction_lvl == "source", -2, as.numeric(input$abstraction_lvl)))
+
+    selected_correlation_group_labels(getConceptIDLabels(ids = selected_ids, data = data_features(), absLvl = parsed_abstraction_value))
   })
 
 
@@ -1129,11 +1211,27 @@ server <- function(input, output, session) {
     keepUsersWithConcepts(filters)
   })
 
+  observeEvent(input$correlationView, {
+    # Only trigger when input$correlationView is TRUE
+    if (isTRUE(input$correlationView)) {
+      shiny::observe({
+        shiny::req(studyName())
+        later::later(function() {
+          isolate({
+            correlation_groups(NULL)
+          })
+        }, delay = 0.5)
+      })
+    }
+  })
+
   # Function to combine selected concepts
   combineSelectedConcepts <- function(new_concept_name, isManualCombine = TRUE) {
     selected_rows <- input$concept_table_rows_selected
     selected_ids <- selected_correlation_group()
-    abstraction_level <- input$abstraction_lvl
+    parsed_abstraction_value <- ifelse(input$abstraction_lvl == "original", -1, ifelse(input$abstraction_lvl == "source", -2, as.numeric(input$abstraction_lvl)))
+
+    abstraction_level <- parsed_abstraction_value
     data_features <- data_features()
     data_patients <- data_patients()
     data_initial <- data_initial()
@@ -1150,6 +1248,7 @@ server <- function(input, output, session) {
     processed_table <- target_mod()[ABSTRACTION_LEVEL == abstraction_level]
 
     selected_concept_ids = NA
+    selected_concept_names = NA
     representingConceptId = NA
     representingHeritage = NA
     representingZTest = NA
@@ -1159,6 +1258,8 @@ server <- function(input, output, session) {
     if(isManualCombine) {
     # Step 3: Filtering processed_table and selecting concept IDs
     selected_concept_ids <- as.numeric(processed_table$CONCEPT_ID[selected_rows])
+    selected_concept_names <- processed_table$CONCEPT_NAME[selected_rows]
+
     representingConceptId <- selected_concept_ids[
       which.max(as.numeric(processed_table$PREVALENCE_DIFFERENCE_RATIO[selected_rows]))
     ]
@@ -1173,6 +1274,7 @@ server <- function(input, output, session) {
     else {
       # Step 3: Filtering processed_table and selecting concept IDs
       selected_concept_ids <- as.numeric(selected_ids)
+      selected_concept_names <- processed_table[CONCEPT_ID %in% selected_concept_ids, CONCEPT_NAME]
       representingConceptId <- selected_concept_ids[
         which.max(as.numeric(processed_table[CONCEPT_ID %in% selected_concept_ids, PREVALENCE_DIFFERENCE_RATIO]))
       ]
@@ -1361,19 +1463,19 @@ server <- function(input, output, session) {
     data_features(data_features)
     data_patients(data_patients)
     # Update complementaryMappingTable
-    new_rows <- data.frame(CONCEPT_ID = selected_concept_ids, CONCEPT_NAME = new_concept_name, ABSTRACTION_LEVEL = abstraction_level, stringsAsFactors = FALSE)
+    new_rows <- data.frame(CONCEPT_ID = selected_concept_ids, CONCEPT_NAME = selected_concept_names,NEW_CONCEPT_ID = representingConceptId, NEW_CONCEPT_NAME = new_concept_name, ABSTRACTION_LEVEL = abstraction_level, stringsAsFactors = FALSE)
     complementary_mapping <- rbind(complementary_mapping, new_rows)
     # Update all related concept names in complementaryMappingTable
     # Step 1: Identify related concepts
     related_concepts <- complementary_mapping[
       complementary_mapping$CONCEPT_ID %in% selected_concept_ids & complementary_mapping$ABSTRACTION_LEVEL == abstraction_level,
-      "CONCEPT_NAME"
+      "NEW_CONCEPT_NAME"
     ]
     # Step 2: Update CONCEPT_NAME for related concepts
     complementary_mapping = data.table::as.data.table(complementary_mapping)
     complementary_mapping[
-      complementary_mapping$CONCEPT_NAME %in% related_concepts & complementary_mapping$ABSTRACTION_LEVEL == abstraction_level,
-      CONCEPT_NAME := new_concept_name
+      complementary_mapping$NEW_CONCEPT_NAME %in% related_concepts & complementary_mapping$ABSTRACTION_LEVEL == abstraction_level,
+      NEW_CONCEPT_NAME := new_concept_name
     ]
     # Step 3: Remove duplicates
     complementary_mapping <- unique(complementary_mapping)
@@ -1398,7 +1500,10 @@ server <- function(input, output, session) {
     if (length(filters) == 0) {
       return()
     }
-    abstraction_level <- input$abstraction_lvl
+    parsed_abstraction_value <- ifelse(input$abstraction_lvl == "original", -1, ifelse(input$abstraction_lvl == "source", -2, as.numeric(input$abstraction_lvl)))
+
+
+    abstraction_level <- parsed_abstraction_value
     data_features <- data_features()
     data_patients_filtering <- data_patients()
     data_initial_filtering <- data_initial()
@@ -1477,7 +1582,7 @@ server <- function(input, output, session) {
 
     # Step 2: Select specific columns
     data_features_temp <- data_features[
-      , .(CONCEPT_ID, ABSTRACTION_LEVEL, ZTEST,ZTEST_P_VALUE, LOGITTEST,LOGITTEST_P_VALUE, KSTEST, KSTEST_P_VALUE)
+      , .(CONCEPT_ID, ABSTRACTION_LEVEL, ZTEST,ZTEST_P_VALUE, LOGITTEST,LOGITTEST_P_VALUE, KSTEST, KSTEST_P_VALUE, HERITAGE)
     ]
     if (nrow(data_patients_filtering) == 0) {
       data_features_filtering <- data_features[0]

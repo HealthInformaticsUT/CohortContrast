@@ -38,7 +38,8 @@ Imports:
     reshape2,
     scales,
     Cohort2Trajectory,
-    TrajectoryViz
+    TrajectoryViz,
+    cli
 Suggests: 
     testthat (>= 3.0.0),
     PatientProfiles (>= 1.1.0),
