@@ -4,6 +4,7 @@
 .Ruserdata
 inst/doc
 /doc/
+/docs/
 /Meta/
 .Renviron
 *.yml
