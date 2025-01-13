@@ -1,0 +1,15 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+inst/doc
+/doc/
+/docs/
+/Meta/
+.Renviron
+*.yml
+*.html
+/tutorials/
+/news/
+*.rds
+README.Rmd
