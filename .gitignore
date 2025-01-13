@@ -9,8 +9,7 @@ inst/doc
 .Renviron
 *.yml
 *.html
-*.Rmd
 /tutorials/
-/vignettes/
 /news/
 *.rds
+README.Rmd
