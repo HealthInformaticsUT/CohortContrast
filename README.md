@@ -157,7 +157,7 @@ on malignant neoplasm of breast cohort!
 ### More information
 
 CohortContrast provides much more insight generation possibilities. See
-the package vignettes for more details (coming soon …).
+the package wiki for more details [here](https://healthinformaticsut.github.io/CohortContrast/)
 
 For feature requests create issues on Github or contact Markus Haug
 (<markus.haug@ut.ee>) personally.

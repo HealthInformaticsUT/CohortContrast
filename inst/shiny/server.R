@@ -24,7 +24,7 @@ server <- function(input, output, session) {
   data_initial <- shiny::reactiveVal(NULL)
   correlation_groups <- shiny::reactiveVal(NULL)
   selected_correlation_group <- shiny::reactiveVal(NULL)
-  selected_correlation_group_labels <- shiny::reactiveVal(NULL)
+  selected_correlation_group_labels <- shiny::reactiveVal(list(labels = character(0), labelsTrimmed = character(0)))
   target_row_annotation <- shiny::reactiveVal(NULL)
   target_col_annotation <- shiny::reactiveVal(NULL)
   target_time_annotation <- shiny::reactiveVal(NULL)
@@ -616,12 +616,12 @@ server <- function(input, output, session) {
 
 
   output$dynamic_selectize_trajectory_inputs <- renderUI({
-    if (any(selected_correlation_group_labels() == "") | isFALSE(input$correlationView)) {
+    if (length(selected_correlation_group_labels()$labels) == 0 | isFALSE(input$correlationView)) {
       return(NULL)
     }
 
     state_names <- selected_correlation_group_labels()
-
+    state_names <- state_names$labelsTrimmed
     # Split state names into two roughly equal groups
     n <- length(state_names)
     half <- ceiling(n / 2)
@@ -663,13 +663,16 @@ server <- function(input, output, session) {
   selected_trajectory_filtering_values <- reactive({
     state_names <- selected_correlation_group_labels()
 
+    state_names_trimmed <- state_names$labelsTrimmed
+    state_names_original <- state_names$labels
+
     # Get the selected value for each state
-    selections <- lapply(state_names, function(state) {
+    selections <- lapply(state_names_trimmed, function(state) {
       input[[paste0("select_", state)]] # Access input value dynamically
     })
 
     # Return a named list
-    names(selections) <- state_names
+    names(selections) <- state_names_original
     selections
   })
 
@@ -715,7 +718,8 @@ server <- function(input, output, session) {
                                 target_col_annotation = target_col_annotation(),
                                 target_time_annotation = target_time_annotation()
     )
-    temp_filtered_target = prepare_filtered_target(temp_filtered_target, input$correlation_threshold)
+    correlation_threshold = if(is.null(input$correlation_threshold)) 0.95 else input$correlation_threshold
+    temp_filtered_target = prepare_filtered_target(temp_filtered_target, correlation_threshold)
     # Extract the data from the reactive
     ccObject <- list(
       data_initial = data_initial(),
@@ -726,25 +730,20 @@ server <- function(input, output, session) {
       complementaryMappingTable = complementaryMappingTable(),
       config = loaded_data()$config
     )
-
     # Extract trajectory generation info from session
     selectedFeatureIds = as.integer(ccObject$filtered_target$target_row_annotation %>% rownames())
     parsed_abstraction_value <- ifelse(input$abstraction_lvl == "original", -1, ifelse(input$abstraction_lvl == "source", -2, as.numeric(input$abstraction_lvl)))
-
     ccObject$config$abstractionLevel = parsed_abstraction_value
-
     selectedFeatureNames = ccObject$data_features %>%
       dplyr::filter(.data$ABSTRACTION_LEVEL == ccObject$config$abstractionLevel,
                     .data$CONCEPT_ID %in% selectedFeatureIds) %>%
       dplyr::select(.data$CONCEPT_NAME) %>% dplyr::pull(.data$CONCEPT_NAME)
-
 
     trajectoryDataList = list(
       selectedFeatureIds = selectedFeatureIds,
       selectedFeatureNames = selectedFeatureNames
     )
     ccObject$trajectoryDataList = trajectoryDataList
-
     # Save the actual data to the file
     saveRDS(ccObject, file = file_path)
     snapshotWaiter$hide()
@@ -859,7 +858,7 @@ server <- function(input, output, session) {
     selected_correlation_group(selected_ids)
     parsed_abstraction_value <- ifelse(input$abstraction_lvl == "original", -1, ifelse(input$abstraction_lvl == "source", -2, as.numeric(input$abstraction_lvl)))
 
-    selected_correlation_group_labels(getConceptIDLabels(ids = selected_ids, data = data_features(), absLvl = parsed_abstraction_value))
+    selected_correlation_group_labels(getTrimmedConceptIDLabels(ids = selected_ids, data = data_features(), absLvl = parsed_abstraction_value))
   })
 
 
@@ -1641,11 +1640,19 @@ server <- function(input, output, session) {
       config = loaded_data()$config
     ))
   }
-  getConceptIDLabels = function(ids, data, absLvl) {
+
+  getTrimmedConceptIDLabels = function(ids, data, absLvl) {
     if(length(ids) > 1) {
+      # Fetch original labels
       labels = data[(CONCEPT_ID %in% ids) & (ABSTRACTION_LEVEL == absLvl), CONCEPT_NAME]
-      return(labels)
-    } else {return("")}
+      # Trim the labels
+      labelsTrimmed = sub("/C:.*", "", labels)
+      # Return a list with both labels and trimmed labels
+      return(list(labels = labels, labelsTrimmed = labelsTrimmed))
+    } else {
+      # Return an empty list if `ids` is not valid
+      return(list(labels = character(0), labelsTrimmed = character(0)))
+    }
   }
   }
 

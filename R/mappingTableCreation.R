@@ -22,12 +22,8 @@ generateMappingTable <- function(cdm, abstractionLevel = 10, data = NULL, concep
   max_minimal_separation_levels = unique(need_to_map_concept_ids %>% dplyr::select(.data$maximum_minimal_separation) %>% dplyr::pull())
 
   # Create an empty dataframe with the specified columns
-  complementaryMappingTable <- data.frame(
-    concept_id = integer(),
-    concept_id.new = integer(),
-    concept_name.new = character(),
-    stringsAsFactors = FALSE
-  )
+  complementaryMappingTable = data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character() , ABSTRACTION_LEVEL = integer(), stringsAsFactors = FALSE)
+
   for(min_separation_level in sort(max_minimal_separation_levels)){
     printCustomMessage(paste("Generating mapping for abstraction level",min_separation_level,'...', sep = " " ))
     # Create an empty dataframe with the specified columns
@@ -40,16 +36,19 @@ generateMappingTable <- function(cdm, abstractionLevel = 10, data = NULL, concep
                                                                                             concept_id.new = .data$ancestor_concept_id)
 
     abstractionLevelMappingTable = mappings %>% dplyr::left_join(concept %>% dplyr::filter(is.na(.data$invalid_reason)), by = c("concept_id.new" = "concept_id"), suffix = c("", ".concept")) %>%
-      dplyr::select(concept_id = .data$concept_id,
-                    concept_id.new = .data$concept_id.new,
-                    concept_name.new = .data$concept_name) %>% as.data.frame()
+      dplyr::inner_join(data$data_patients %>% dplyr::filter(ABSTRACTION_LEVEL == -1) %>% dplyr::select(CONCEPT_ID, CONCEPT_NAME) %>% dplyr::distinct() , by = c("concept_id" = "CONCEPT_ID"), suffix = c("old", "")) %>%
+      dplyr::select(CONCEPT_ID = .data$concept_id,
+                    CONCEPT_NAME = .data$CONCEPT_NAME,
+                    NEW_CONCEPT_ID = .data$concept_id.new,
+                    NEW_CONCEPT_NAME = .data$concept_name) %>% as.data.frame() %>%
+                    dplyr::mutate(ABSTRACTION_LEVEL = abstractionLevel)
     #complementaryMappingTable <- updateMapping(abstractionLevelMappingTable)
     complementaryMappingTable <- rbind(complementaryMappingTable, abstractionLevelMappingTable)
   }
-  complementaryMappingTable <- complementaryMappingTable %>% dplyr::select(CONCEPT_ID = .data$concept_id,
-                                                                           CONCEPT_ID.new = .data$concept_id.new,
-                                                                           CONCEPT_NAME.new = .data$concept_name.new)
-  complementaryMappingTable <- complementaryMappingTable %>% dplyr::mutate(CONCEPT_NAME.new = dplyr::if_else(is.na(.data$CONCEPT_NAME.new), paste("Unnamed concept", .data$CONCEPT_ID.new), .data$CONCEPT_NAME.new))
+  # complementaryMappingTable <- complementaryMappingTable %>% dplyr::select(CONCEPT_ID = .data$concept_id,
+  #                                                                          CONCEPT_ID.new = .data$concept_id.new,
+  #                                                                          CONCEPT_NAME.new = .data$concept_name.new)
+  complementaryMappingTable <- complementaryMappingTable %>% dplyr::mutate(NEW_CONCEPT_NAME = dplyr::if_else(is.na(.data$NEW_CONCEPT_NAME), paste("Unnamed concept", .data$NEW_CONCEPT_ID), .data$NEW_CONCEPT_NAME))
 
   return(complementaryMappingTable)
 }
@@ -70,7 +69,7 @@ assertAncestryCompleteness <- function(cdm){
 
 
 updateMapping <- function(mappingTable) {
-  required_columns <- c("CONCEPT_ID", "CONCEPT_ID.new", "CONCEPT_NAME.new")
+  required_columns <- c("CONCEPT_ID", "CONCEPT_NAME", "NEW_CONCEPT_ID", "NEW_CONCEPT_NAME", "ABSTRACTION_LEVEL")
   # Check if all required columns are present
   if (!all(required_columns %in% colnames(mappingTable))) {
   return(mappingTable)
@@ -81,19 +80,19 @@ updateMapping <- function(mappingTable) {
     mappingChanged <- FALSE
 
     # Create a copy of the original concept_id.new mappings for comparison after updating
-    originalMapping <- mappingTable$CONCEPT_ID.new
+    originalMapping <- mappingTable$NEW_CONCEPT_ID
 
     # Join the table to itself to find secondary mappings
     mappingTable <- mappingTable %>%
-      dplyr::left_join(mappingTable, by = c("CONCEPT_ID.new" = "CONCEPT_ID"), suffix = c("", ".copy"), relationship = "many-to-many") %>% dplyr::mutate(
-        CONCEPT_ID.new = dplyr::if_else(!is.na(.data$CONCEPT_ID.new.copy), .data$CONCEPT_ID.new.copy, .data$CONCEPT_ID.new),
-        CONCEPT_NAME.new = dplyr::if_else(!is.na(.data$CONCEPT_NAME.new.copy), .data$CONCEPT_NAME.new.copy, .data$CONCEPT_NAME.new)
+      dplyr::left_join(mappingTable, by = c("NEW_CONCEPT_ID" = "CONCEPT_ID"), suffix = c("", ".copy"), relationship = "many-to-many") %>% dplyr::mutate(
+        CONCEPT_ID.new = dplyr::if_else(!is.na(.data$NEW_CONCEPT_ID.copy), .data$NEW_CONCEPT_ID.copy, .data$NEW_CONCEPT_ID),
+        CONCEPT_NAME.new = dplyr::if_else(!is.na(.data$NEW_CONCEPT_NAME.copy), .data$NEW_CONCEPT_NAME.copy, .data$NEW_CONCEPT_NAME)
       ) %>%
-      dplyr::select(.data$CONCEPT_ID, .data$CONCEPT_ID.new, .data$CONCEPT_NAME.new)
+      dplyr::select(.data$CONCEPT_ID, .data$CONCEPT_NAME, .data$NEW_CONCEPT_ID, .data$NEW_CONCEPT_NAME, .data$ABSTRACTION_LEVEL)
 
     # Check if any mappings were updated
-    if (length(originalMapping) == length(mappingTable$CONCEPT_ID.new)){
-      if (!all(originalMapping == mappingTable$CONCEPT_ID.new)) {
+    if (length(originalMapping) == length(mappingTable$NEW_CONCEPT_ID)){
+      if (!all(originalMapping == mappingTable$NEW_CONCEPT_ID)) {
         mappingChanged <- TRUE
       }
     }
