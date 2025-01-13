@@ -1,0 +1,58 @@
+Package: CohortContrast
+Type: Package
+Title: CohortContrast: Package for cohorts' trajectory feature selection 
+Version: 0.0.0.900
+Author: Markus Haug
+Maintainer: Markus Haug <markus.haug@ut.ee>
+Authors@R: c(
+    person("Markus", "Haug", , "markus.haug@ut.ee", 
+    role = c("aut", "cre"), comment = c(ORCID = "0000-0003-0935-3307")),
+    person("Raivo", "Kolde", , "raivo.kolde@ut.ee", 
+    role = c("aut"), comment = c(ORCID = "0000-0003-2886-6298"))
+    )
+Description: After defining a target cohort (cohort we are intrested in) and a control cohort (cohort we use for general population or for comparison) the package workflow extracts medical interventions which are over-represented in the target cohort over observation period. The are different argument values users can experiment with such as topK (max number of exported eligible features), presenceFilter (% of people must have the intervention), prevalenceCutOff (if prevalence odds are less than the given value, the feature will not be extracted). This is a workflow for medical proccess investigation and feature extraction.
+License: Apache License (>= 2) | file LICENSE
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.3.2
+Imports:
+    dplyr,
+    tibble,
+    purrr,
+    tidyr,
+    pheatmap,
+    ggplot2 (>= 3.5.0),
+    stringr,
+    stats,
+    utils,
+    patchwork,
+    CDMConnector,
+    CohortConstructor,
+    omopgenerics,
+    shiny,
+    lubridate,
+    doParallel,
+    parallel,
+    foreach,
+    data.table,
+    reshape2,
+    scales,
+    Cohort2Trajectory,
+    TrajectoryViz,
+    cli
+Suggests: 
+    testthat (>= 3.0.0),
+    PatientProfiles (>= 1.1.0),
+    duckdb,
+    DBI (>= 1.2.0),
+    readr,
+    knitr,
+    rmarkdown
+Remotes:
+    Appsilon/shiny.fluent,
+    HealthInformaticsUT/Cohort2Trajectory,
+    HealthInformaticsUT/TrajectoryViz
+Config/testthat/edition: 3
+Config/testthat/parallel: true
+URL: https://healthinformaticsut.github.io/CohortContrast/
+VignetteBuilder: knitr

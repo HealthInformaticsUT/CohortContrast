@@ -1,0 +1,26 @@
+{
+    "id": "DABCE8FF",
+    "path": "~/UT/R-packages/Develop/example.R",
+    "project_path": null,
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1736145624400.0,
+    "source_on_save": false,
+    "relative_order": 2,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "50,18",
+        "scrollLine": "40"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1736578121,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1736578121335,
+    "read_only": false,
+    "read_only_alternatives": []
+}

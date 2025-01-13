@@ -1,0 +1,26 @@
+{
+    "id": "63DC913F",
+    "path": "~/UT/R-packages/Develop/Git/CohortContrast/R/mappingTableCreation.R",
+    "project_path": "R/mappingTableCreation.R",
+    "type": "r_source",
+    "hash": "1533875203",
+    "contents": "",
+    "dirty": false,
+    "created": 1736520210058.0,
+    "source_on_save": false,
+    "relative_order": 22,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "54,0",
+        "scrollLine": "16"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1736522929,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1736522929677,
+    "read_only": false,
+    "read_only_alternatives": []
+}

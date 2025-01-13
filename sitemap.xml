@@ -4,6 +4,12 @@
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/articles/a00_introduction.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/articles/a01_execution.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/articles/a02_interface.html</loc></url>
+<url><loc>https://healthinformaticsut.github.io/CohortContrast/articles/a03_prevalence_plot.html</loc></url>
+<url><loc>https://healthinformaticsut.github.io/CohortContrast/articles/a04_time_panel.html</loc></url>
+<url><loc>https://healthinformaticsut.github.io/CohortContrast/articles/a05_heatmap_plot.html</loc></url>
+<url><loc>https://healthinformaticsut.github.io/CohortContrast/articles/a06_correlation_view.html</loc></url>
+<url><loc>https://healthinformaticsut.github.io/CohortContrast/articles/a07_Cohort2Trajectory.html</loc></url>
+<url><loc>https://healthinformaticsut.github.io/CohortContrast/articles/a08_TrajectoryViz.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/articles/index.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/authors.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/index.html</loc></url>
@@ -50,6 +56,7 @@
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/sanitize_single.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/saveResult.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/save_object.html</loc></url>
+<url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/save_object_metadata.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/scale_to_1_0.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/stop_with_format.html</loc></url>
 </urlset>
