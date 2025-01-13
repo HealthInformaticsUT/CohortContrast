@@ -125,6 +125,10 @@ CohortContrast <- function(cdm,
   cdm <- createCohortContrastCdm(cdm = cdm, targetTable = targetTable, controlTable = controlTable)
   targetCohortId = 2
 
+  if(is.null(complementaryMappingTable)){
+    complementaryMappingTable = data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character() , ABSTRACTION_LEVEL = integer(), stringsAsFactors = FALSE)
+  }
+
   config = list(
     complName = complName,
     domainsIncluded = domainsIncluded,
@@ -146,6 +150,7 @@ CohortContrast <- function(cdm,
   )
 
   data$config = config
+  data$complementaryMappingTable = complementaryMappingTable
   cl <- parallel::makeCluster(numCores)
   doParallel::registerDoParallel(cl)
 
@@ -205,7 +210,7 @@ if (is.data.frame(complementaryMappingTable) | getAllAbstractions) {
   # Change ids to explicitly state "target" or "cohort"
   data$data_patients = dplyr::mutate(data$data_patients, COHORT_DEFINITION_ID = dplyr::if_else(.data$COHORT_DEFINITION_ID == 2, "target", "control"))
   data$data_initial = dplyr::mutate(data$data_initial, COHORT_DEFINITION_ID = dplyr::if_else(.data$COHORT_DEFINITION_ID == 2, "target", "control"))
-
+  data$complementaryMappingTable = complementaryMappingTable
   data = create_CohortContrast_object(data)
 
   if (createOutputFiles){
@@ -815,8 +820,15 @@ handleMapping <- function(data, complementaryMappingTable, abstractionLevel = -1
     dplyr::left_join(complementaryMappingTable,
                      by = "CONCEPT_ID", relationship = "many-to-many") %>%
     dplyr:: mutate(CONCEPT_ID = dplyr::if_else(is.na(.data$NEW_CONCEPT_ID), .data$CONCEPT_ID, .data$NEW_CONCEPT_ID)) %>%
-    dplyr:: mutate(CONCEPT_NAME = dplyr::if_else(is.na(.data$NEW_CONCEPT_NAME), .data$CONCEPT_NAME, .data$NEW_CONCEPT_NAME)) %>%
-    dplyr::select(-.data$NEW_CONCEPT_ID, -.data$NEW_CONCEPT_NAME)
+    dplyr:: mutate(CONCEPT_NAME = dplyr::if_else(is.na(.data$NEW_CONCEPT_NAME), .data$CONCEPT_NAME.x, .data$NEW_CONCEPT_NAME)) %>%
+  dplyr::select(COHORT_DEFINITION_ID = .data$COHORT_DEFINITION_ID,
+                PERSON_ID = .data$PERSON_ID,
+                CONCEPT_ID = .data$CONCEPT_ID,
+                CONCEPT_NAME = .data$CONCEPT_NAME,
+                PREVALENCE = .data$PREVALENCE,
+                HERITAGE = .data$HERITAGE,
+                TIME_TO_EVENT = .data$TIME_TO_EVENT,
+                ABSTRACTION_LEVEL= .data$ABSTRACTION_LEVEL.x)
 
   # Step 3: Summarize data_patients to aggregate PREVALENCE
   final_data <- data_patients %>%
@@ -1092,23 +1104,77 @@ resolveConceptNameOverlap <- function(data) {
   # Get the data from the input
   df <- data$data_patients
   conflict_check <- df %>%
-    dplyr::group_by(CONCEPT_NAME, ABSTRACTION_LEVEL) %>%
-    dplyr::summarise(count = dplyr::n_distinct(CONCEPT_ID), .groups = "drop") %>%
-    dplyr::filter(count > 1)
+    dplyr::group_by(.data$CONCEPT_NAME, .data$ABSTRACTION_LEVEL) %>%
+    dplyr::summarise(count = dplyr::n_distinct(.data$CONCEPT_ID), .groups = "drop") %>%
+    dplyr::filter(.data$count > 1)
 
   if (nrow(conflict_check) > 0) {
     # If conflicts exist, resolve by renaming concept names
     df <- df %>%
-      dplyr::group_by(CONCEPT_NAME, ABSTRACTION_LEVEL) %>%
+      dplyr::group_by(.data$CONCEPT_NAME,.data$ABSTRACTION_LEVEL) %>%
       dplyr::mutate(
-        ordinal = dplyr::dense_rank(CONCEPT_ID), # Assign a unique ordinal for each CONCEPT_ID
-        CONCEPT_NAME = dplyr::if_else( ordinal != 1, paste0(CONCEPT_NAME, " (", ordinal + 1, ")"), CONCEPT_NAME)
+        ordinal = dplyr::dense_rank(.data$CONCEPT_ID), # Assign a unique ordinal for each CONCEPT_ID
+        CONCEPT_NAME = dplyr::if_else( ordinal != 1, paste0(.data$CONCEPT_NAME, " (", ordinal, ")"), .data$CONCEPT_NAME)
       ) %>%
-      dplyr::ungroup() %>%
-      dplyr::select(-ordinal)
+      dplyr::ungroup()
+
+    cmt <- df %>% dplyr::select(.data$CONCEPT_ID, .data$CONCEPT_NAME, .data$ordinal, .data$ABSTRACTION_LEVEL) %>%
+      dplyr::distinct() %>%
+      dplyr::filter(ordinal > 1) %>%
+      dplyr::mutate(CONCEPT_ID = .data$CONCEPT_ID,
+                    NEW_CONCEPT_NAME = .data$CONCEPT_NAME,
+                    NEW_CONCEPT_ID = .data$CONCEPT_ID,
+                    CONCEPT_NAME = gsub("\\s*\\([^()]*\\)$", "", .data$CONCEPT_NAME),
+                    ABSTRACTION_LEVEL = .data$ABSTRACTION_LEVEL) %>%
+      dplyr::select(.data$CONCEPT_ID, .data$CONCEPT_NAME, .data$NEW_CONCEPT_ID, .data$NEW_CONCEPT_NAME, .data$ABSTRACTION_LEVEL)
+
+    for (i in 1:nrow(cmt)) {
+      row = cmt[i,]
+      cli::cli_alert_warning(paste0("Mapped '", row$CONCEPT_NAME, "' to '", row$NEW_CONCEPT_NAME, "' because of duplicate concept names for differing ids!"))
+    }
+
+    data$complementaryMappingTable = rbind(cmt,  data$complementaryMappingTable)
+    df <- df %>%  dplyr::select(-ordinal)
   }
 
   # Update the data list
+  data$data_patients <- df
+
+  # We have also seen an occurrence where same id and name among different heritage
+  conflict_check2 <- df %>% #dplyr::mutate(TMP_ID = paste0(CONCEPT_NAME, CONCEPT_ID)) %>%
+    dplyr::group_by(.data$CONCEPT_NAME,.data$ABSTRACTION_LEVEL, .data$CONCEPT_ID) %>%
+    dplyr::summarise(count = dplyr::n_distinct(.data$HERITAGE), .groups = "drop") %>%
+    dplyr::filter(.data$count > 1)
+
+  if (nrow(conflict_check2) > 0) {
+    # If conflicts exist, resolve by renaming concept names
+    df <- df %>%
+      dplyr::group_by(.data$CONCEPT_NAME,.data$ABSTRACTION_LEVEL, .data$CONCEPT_ID) %>%
+      dplyr::mutate(
+        ordinal = dplyr::dense_rank(.data$HERITAGE), # Assign a unique ordinal for each CONCEPT_ID
+        CONCEPT_ID = dplyr::if_else( ordinal != 1, .data$CONCEPT_ID + 1000000000*ordinal, .data$CONCEPT_ID),
+                                     CONCEPT_NAME = dplyr::if_else( .data$ordinal != 1, paste0(.data$CONCEPT_NAME, " (", .data$HERITAGE, ")"), .data$CONCEPT_NAME)) %>%
+      dplyr::ungroup()
+
+    cmt <- df %>% dplyr::select(.data$CONCEPT_ID, .data$CONCEPT_NAME, .data$ordinal, .data$ABSTRACTION_LEVEL) %>%
+      dplyr::distinct() %>%
+      dplyr::filter(.data$ordinal > 1) %>%
+      dplyr::mutate(                    NEW_CONCEPT_ID = .data$CONCEPT_ID,
+        CONCEPT_ID = CONCEPT_ID - 1000000000*.data$ordinal,
+                    NEW_CONCEPT_NAME = .data$CONCEPT_NAME,
+                    CONCEPT_NAME = gsub("\\s*\\([^()]*\\)$", "", .data$CONCEPT_NAME),
+                    ABSTRACTION_LEVEL = .data$ABSTRACTION_LEVEL) %>%
+      dplyr::select(.data$CONCEPT_ID, .data$CONCEPT_NAME, .data$NEW_CONCEPT_ID, .data$NEW_CONCEPT_NAME, .data$ABSTRACTION_LEVEL)
+
+    for (i in 1:nrow(cmt)) {
+      row = cmt[i,]
+      cli::cli_alert_warning(paste0("Mapped '", row$CONCEPT_NAME, "' to '", row$NEW_CONCEPT_NAME, "' because of concept non-uniqueness w domains!"))
+    }
+
+    data$complementaryMappingTable = rbind(cmt,  data$complementaryMappingTable)
+
+    df <- df %>%  dplyr::select(-ordinal)
+    }
   data$data_patients <- df
   return(data)
 }

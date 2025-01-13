@@ -39,12 +39,12 @@ save_object_metadata <- function(object, path) {
   rows_target <- object$data_initial %>%
     dplyr::filter(COHORT_DEFINITION_ID == "target") %>%
     dplyr::summarise(unique_patients = dplyr::n_distinct(SUBJECT_ID)) %>%
-    dplyr::pull(unique_patients)
+    dplyr::pull(.data$unique_patients)
 
   rows_control <- object$data_initial %>%
     dplyr::filter(COHORT_DEFINITION_ID == "control") %>%
     dplyr::summarise(unique_patients = dplyr::n_distinct(SUBJECT_ID)) %>%
-    dplyr::pull(unique_patients)
+    dplyr::pull(.data$unique_patients)
 
   # Calculate the number of significant differences in Z-Test
   ztest_significant <- object$data_features %>%
@@ -359,6 +359,7 @@ create_CohortContrast_object <- function(data) {
     data_initial = data$data_initial,
     data_person = data$data_person,
     data_features = data$data_features,
+    complementaryMappingTable = data$complementaryMappingTable,
     trajectoryDataList = data$trajectoryDataList,
     config = data$config
   )
