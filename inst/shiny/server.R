@@ -771,7 +771,7 @@ server <- function(input, output, session) {
         column(
           width = 4,
           uiOutput("correlation_group_selection"),
-          actionButton("combine_corr_btn", "Combine State Group Concepts")
+          actionButton("combine_corr_btn", "Combine Group Concepts")
         ),
         column(
           width = 4,

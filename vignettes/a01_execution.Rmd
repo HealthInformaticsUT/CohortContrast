@@ -16,7 +16,7 @@ knitr::opts_chunk$set(
 
 ## Executing the study
 
-Now as we have initiated database connection and created the `targetTable` as well as the `cohortTable` we are ready to initiate the execution function for the study.
+Now as we have initiated [database connection](https://healthinformaticsut.github.io/CohortContrast/articles/a00_introduction.html) and created the `targetTable` as well as the `cohortTable` we are ready to initiate the execution function for the study.
 
 
 ```{r, include = TRUE, eval=FALSE, echo=TRUE}
@@ -108,8 +108,9 @@ There are multiple parameters we can tweak for different outcomes:
 
 When using the GUI `prevalenceCutOff`, `presenceFilter` can be changed on a slider.
 
-The effect of `runZTests` and `runLogitTests` can be toggled.
+The effect of `runZTests` and `runLogitTests` can be toggled as a filter.
 
 The function will output a file with `complName`, in this case `CohortContrastStudy.rds` to the pathToResults path.
+The function also outputs a metadata file `CohortContrastStudy.csv` for quicker overview inside the GUI.
 
 

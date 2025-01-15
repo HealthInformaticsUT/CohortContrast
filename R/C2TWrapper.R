@@ -252,9 +252,44 @@ createC2TInput <-
           "COHORT_START_DATE",
           "COHORT_END_DATE")
 
+      data_states <- resolveMissingDates(data_states)
+
       data$trajectoryDataList$trajectoryData = rbind(as.data.frame(data_target), data_states)
       # Convert from int64 to integer
       data$trajectoryDataList$trajectoryData$SUBJECT_ID = as.integer(data$trajectoryDataList$trajectoryData$SUBJECT_ID)
       printCustomMessage("Cohort2Trajectory input can be now found under data$trajectoryDataList$trajectoryData")
     return(data)
   }
+
+
+#' Function for creating dataset which can be used as input for Cohort2Trajectory package
+#'
+#' @param data Cohort data with columns COHORT_DEFINITION_ID, SUBJECT_ID, COHORT_START_DATE, COHORT_END_DATE
+#' @param afterStart integer to add to COHORT_START_DATE if COHORT_END_DATE is missing
+#' @param beforeEnd integer to subtract from COHORT_END_DATE if COHORT_START_DATE is missing
+#' @keywords internal
+resolveMissingDates <- function(data,
+                                afterStart = 1,
+                                beforeEnd = 1){
+  if (!"COHORT_DEFINITION_ID" %in% names(data) ||
+      !"SUBJECT_ID" %in% names(data) ||
+      !"COHORT_START_DATE" %in% names(data) ||
+      !"COHORT_END_DATE" %in% names(data)) {
+    stop("The input data must contain the columns COHORT_DEFINITION_ID, SUBJECT_ID, COHORT_START_DATE, COHORT_END_DATE.")
+  }
+
+  data_updated <- data %>% dplyr::mutate(
+    COHORT_END_DATE = dplyr::if_else(is.na(COHORT_END_DATE) & !is.na(COHORT_START_DATE),
+                              COHORT_START_DATE + afterStart, COHORT_END_DATE),
+    COHORT_START_DATE = dplyr::if_else(is.na(COHORT_START_DATE) & !is.na(COHORT_END_DATE),
+                                 COHORT_END_DATE - beforeEnd, COHORT_START_DATE)
+  ) %>% dplyr::filter(!is.na(COHORT_START_DATE) & !is.na(COHORT_END_DATE))
+
+
+  # Notify the user about changes only if they are made
+  if (any(is.na(data %>% dplyr::select(COHORT_START_DATE,COHORT_END_DATE)))) {
+    cli::cli_alert_success("Resolved missing dates in the dataset for generating trajectories.")
+  }
+
+  return(data_updated)
+}

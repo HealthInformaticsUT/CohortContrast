@@ -139,7 +139,7 @@ The CohortContrast package generates the following outputs:
 2.  Using GUI with `runCohortContrastGUI` generates plots as well as
     saves the last state of your analysis in the GUI.
 3.  There is an example .rds file in `./inst/example/example.rds`.
-    You can view it in the GUI if you copy it to your `pathToResults` path.
+    You can view it in the GUI if you copy it (+ the `example.csv` file) to your `pathToResults` path.
     
 
 <!-- -->    
@@ -152,7 +152,7 @@ The CohortContrast package generates the following outputs:
 
 Check out the
 [demo](https://drive.google.com/file/d/1GqoSYIljBB79J8LXBup8Q7T6lkUWEiUp/view?usp=sharing)
-on malignant neoplasm of breast cohort!
+on malignant neoplasm of breast cohort! 
 
 ### More information
 

@@ -16,7 +16,7 @@ knitr::opts_chunk$set(
 
 ## Introduction
 
-If you have successfully executed the study on your target cohort you can explore the results inside the graphical user interface!
+If you have successfully [executed the study](https://healthinformaticsut.github.io/CohortContrast/articles/a01_execution.html) on your target cohort you can explore the results inside the graphical user interface!
 
 ```{r, include = TRUE, eval=FALSE, echo=TRUE}
 ################################################################################
@@ -34,6 +34,19 @@ In this example we have two studies in our `pathToResults` designated folder.
 To activate a study, you ***must click on it's name***. Let's activate the breast cancer study view.
 
 ![Selected study](../man/figures/a02_2.png)
+
+## Plots
+
+Descriptions of the different plots can be found in:
+
+  - [Prevalence plot](https://healthinformaticsut.github.io/CohortContrast/articles/a03_prevalence_plot.html)
+  - [Time panel](https://healthinformaticsut.github.io/CohortContrast/articles/a04_time_panel.html)
+  - [Heatmap plot](https://healthinformaticsut.github.io/CohortContrast/articles/a05_heatmap_plot.html)
+  - [Correlation view](https://healthinformaticsut.github.io/CohortContrast/articles/a06_correlation_view.html)
+  
+The controls are described in:
+
+  - [Interface controls](https://healthinformaticsut.github.io/CohortContrast/articles/a09_interface_controls.html)
 
 ## Mapping
 
