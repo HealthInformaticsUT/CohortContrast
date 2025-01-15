@@ -42,6 +42,7 @@
     <li><a class="dropdown-item" href="../articles/a06_correlation_view.html">Correlation view</a></li>
     <li><a class="dropdown-item" href="../articles/a07_Cohort2Trajectory.html">Cohort2Trajectory</a></li>
     <li><a class="dropdown-item" href="../articles/a08_TrajectoryViz.html">TrajectoryViz</a></li>
+    <li><a class="dropdown-item" href="../articles/a09_interface_controls.html">Interface controls</a></li>
   </ul>
 </li>
       </ul>
@@ -82,9 +83,10 @@
 <div class="section level2">
 <h2 id="executing-the-study">Executing the study<a class="anchor" aria-label="anchor" href="#executing-the-study"></a>
 </h2>
-<p>Now as we have initiated database connection and created the
-<code>targetTable</code> as well as the <code>cohortTable</code> we are
-ready to initiate the execution function for the study.</p>
+<p>Now as we have initiated <a href="https://healthinformaticsut.github.io/CohortContrast/articles/a00_introduction.html">database
+connection</a> and created the <code>targetTable</code> as well as the
+<code>cohortTable</code> we are ready to initiate the execution function
+for the study.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span></span>
 <span><span class="co">################################################################################</span></span>
@@ -182,9 +184,12 @@ default value is TRUE</p>
 <p>When using the GUI <code>prevalenceCutOff</code>,
 <code>presenceFilter</code> can be changed on a slider.</p>
 <p>The effect of <code>runZTests</code> and <code>runLogitTests</code>
-can be toggled.</p>
+can be toggled as a filter.</p>
 <p>The function will output a file with <code>complName</code>, in this
-case <code>CohortContrastStudy.rds</code> to the pathToResults path.</p>
+case <code>CohortContrastStudy.rds</code> to the pathToResults path. The
+function also outputs a metadata file
+<code>CohortContrastStudy.csv</code> for quicker overview inside the
+GUI.</p>
 </div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

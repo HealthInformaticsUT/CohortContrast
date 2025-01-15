@@ -11,7 +11,8 @@ articles:
   a06_correlation_view: a06_correlation_view.html
   a07_Cohort2Trajectory: a07_Cohort2Trajectory.html
   a08_TrajectoryViz: a08_TrajectoryViz.html
-last_built: 2025-01-13T09:47Z
+  a09_interface_controls: a09_interface_controls.html
+last_built: 2025-01-15T10:12Z
 urls:
   reference: https://healthinformaticsut.github.io/CohortContrast/reference
   article: https://healthinformaticsut.github.io/CohortContrast/articles
