@@ -20,7 +20,7 @@ The **CohortContrast** package is designed to facilitate cohort exploration. It 
 
 ## Initiating database connection
 
-We use the [CDMConnector](https://cran.r-project.org/web/packages/CDMConnector/index.html) package is used to establish the database connection. You can configure the connection either by reading credentials from a `.Renviron` file or explicitly writing them in your script.
+The [CDMConnector](https://cran.r-project.org/web/packages/CDMConnector/index.html) package is used to establish the database connection for running `CohortContrast`. You can configure the connection either by reading credentials from a `.Renviron` file or explicitly writing them in your script.
 
 ```{r, include = TRUE, eval=FALSE, echo=TRUE}
 ################################################################################
