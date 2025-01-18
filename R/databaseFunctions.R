@@ -18,300 +18,9 @@ generateTables <- function(cdm,
                                "Visit",
                                "Visit detail"
                              )) {
-  # Drug Exposure Patient Prevalence
+  cli::cli_alert_info("Collecting and joining tables. This process might take a lot of time.")
+  cli::cli_alert_info("Collecting concept table.")
   cdmConcepts = cdm$concept %>% dplyr::collect()
-
-  patient_drug_prevalence_table <- cdm$cohortcontrast_cohorts %>%
-    dplyr::inner_join(cdm$drug_exposure, by = c("subject_id" = "person_id")) %>%
-    dplyr::filter(
-      .data$drug_exposure_start_date >= .data$cohort_start_date &
-        .data$drug_exposure_start_date <= .data$cohort_end_date
-    ) %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      .data$drug_concept_id,
-      .data$drug_exposure_id,
-      .data$drug_exposure_start_date,
-      .data$cohort_start_date
-    ) %>%
-    dplyr::collect() %>%
-    dplyr::group_by(.data$cohort_definition_id,
-                    .data$subject_id,
-                    .data$drug_concept_id) %>%
-    dplyr::summarize(
-      prevalence = dplyr::n_distinct(.data$drug_exposure_id),
-      time_to_event = list(stats::na.omit(.data$drug_exposure_start_date - .data$cohort_start_date)),
-      .groups = "drop"
-    ) %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      .data$drug_concept_id,
-      .data$prevalence,
-      .data$time_to_event
-    ) %>%
-    dplyr::left_join(cdmConcepts, by = c("drug_concept_id" = "concept_id")) %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      concept_id = .data$drug_concept_id,
-      .data$concept_name,
-      .data$prevalence,
-      .data$time_to_event
-    ) %>%
-    dplyr::mutate(heritage = "drug_exposure")
-
-  # Condition Occurrence Patient Prevalence
-  patient_condition_prevalence_table <-
-    cdm$cohortcontrast_cohorts %>%
-    dplyr::inner_join(cdm$condition_occurrence, by = c("subject_id" = "person_id")) %>%
-    dplyr::filter(
-      .data$condition_start_date >= .data$cohort_start_date &
-        .data$condition_start_date <= .data$cohort_end_date
-    ) %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      .data$condition_concept_id,
-      .data$condition_occurrence_id,
-      .data$condition_start_date,
-      .data$cohort_start_date
-    ) %>%
-    dplyr::collect() %>%
-    dplyr::group_by(.data$cohort_definition_id,
-                    .data$subject_id,
-                    .data$condition_concept_id) %>%
-    dplyr::summarize(
-      prevalence = dplyr::n_distinct(.data$condition_occurrence_id),
-      time_to_event = list(stats::na.omit(.data$condition_start_date - .data$cohort_start_date)),
-      .groups = "drop"
-    ) %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      .data$condition_concept_id,
-      .data$prevalence,
-      .data$time_to_event
-    ) %>%
-    dplyr::left_join(cdmConcepts, by = c("condition_concept_id" = "concept_id")) %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      concept_id = .data$condition_concept_id,
-      .data$concept_name,
-      .data$prevalence,
-      .data$time_to_event
-    ) %>%
-    dplyr::mutate(heritage = "condition_occurrence")
-
-  # Measurement Patient Prevalence
-  patient_measurement_prevalence_table <-
-    cdm$cohortcontrast_cohorts %>%
-    dplyr::inner_join(cdm$measurement, by = c("subject_id" = "person_id")) %>%
-    dplyr::filter(
-      .data$measurement_date >= .data$cohort_start_date &
-        .data$measurement_date <= .data$cohort_end_date
-    ) %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      .data$measurement_concept_id,
-      .data$measurement_id,
-      .data$measurement_date,
-      .data$cohort_start_date
-    ) %>%
-    dplyr::collect() %>%
-    dplyr::group_by(.data$cohort_definition_id,
-                    .data$subject_id,
-                    .data$measurement_concept_id) %>%
-    dplyr::summarize(prevalence = dplyr::n_distinct(.data$measurement_id),
-                     time_to_event = list(stats::na.omit(.data$measurement_date - .data$cohort_start_date)),
-                     .groups = "drop") %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      .data$measurement_concept_id,
-      .data$prevalence,
-      .data$time_to_event
-    ) %>%
-    dplyr::left_join(cdmConcepts, by = c("measurement_concept_id" = "concept_id")) %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      concept_id = .data$measurement_concept_id,
-      .data$concept_name,
-      .data$prevalence,
-      .data$time_to_event
-    ) %>%
-    dplyr::mutate(heritage = "measurement")
-
-  # Procedure Occurrence Patient Prevalence
-  patient_procedure_prevalence_table <-
-    cdm$cohortcontrast_cohorts %>%
-    dplyr::inner_join(cdm$procedure_occurrence, by = c("subject_id" = "person_id")) %>%
-    dplyr::filter(
-      .data$procedure_date >= .data$cohort_start_date &
-        .data$procedure_date <= .data$cohort_end_date
-    ) %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      .data$procedure_concept_id,
-      .data$procedure_occurrence_id,
-      .data$procedure_date,
-      .data$cohort_start_date
-    ) %>%
-    dplyr::collect() %>%
-    dplyr::group_by(.data$cohort_definition_id,
-                    .data$subject_id,
-                    .data$procedure_concept_id) %>%
-    dplyr::summarize(
-      prevalence = dplyr::n_distinct(.data$procedure_occurrence_id),
-      time_to_event = list(stats::na.omit(.data$procedure_date - .data$cohort_start_date)),
-      .groups = "drop"
-    ) %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      .data$procedure_concept_id,
-      .data$prevalence,
-      .data$time_to_event
-    ) %>%
-    dplyr::left_join(cdmConcepts, by = c("procedure_concept_id" = "concept_id")) %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      concept_id = .data$procedure_concept_id,
-      .data$concept_name,
-      .data$prevalence,
-      .data$time_to_event
-    ) %>%
-    dplyr::mutate(heritage = "procedure_occurrence")
-
-  # Observation Patient Prevalence
-  patient_observation_prevalence_table <-
-    cdm$cohortcontrast_cohorts %>%
-    dplyr::inner_join(cdm$observation, by = c("subject_id" = "person_id")) %>%
-    dplyr::filter(
-      .data$observation_date >= .data$cohort_start_date &
-        .data$observation_date <= .data$cohort_end_date
-    ) %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      .data$observation_concept_id,
-      .data$observation_id,
-      .data$observation_date,
-      .data$cohort_start_date
-    ) %>%
-    dplyr::collect() %>%
-    dplyr::group_by(.data$cohort_definition_id,
-                    .data$subject_id,
-                    .data$observation_concept_id) %>%
-    dplyr::summarize(prevalence = dplyr::n_distinct(.data$observation_id),
-                     time_to_event = list(stats::na.omit(.data$observation_date - .data$cohort_start_date)),
-                     .groups = "drop") %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      .data$observation_concept_id,
-      .data$prevalence,
-      .data$time_to_event
-    ) %>%
-    dplyr::left_join(cdmConcepts, by = c("observation_concept_id" = "concept_id")) %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      concept_id = .data$observation_concept_id,
-      .data$concept_name,
-      .data$prevalence,
-      .data$time_to_event
-    ) %>%
-    dplyr::mutate(heritage = "observation")
-
-  # Visit Occurrence Patient Prevalence
-  patient_visit_prevalence_table <- cdm$cohortcontrast_cohorts %>%
-    dplyr::inner_join(cdm$visit_occurrence, by = c("subject_id" = "person_id")) %>%
-    dplyr::filter(
-      .data$visit_start_date >= .data$cohort_start_date &
-        .data$visit_start_date <= .data$cohort_end_date
-    ) %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      .data$visit_concept_id,
-      .data$visit_occurrence_id,
-      .data$visit_start_date,
-      .data$cohort_start_date
-    ) %>%
-    dplyr::collect() %>%
-    dplyr::group_by(.data$cohort_definition_id,
-                    .data$subject_id,
-                    .data$visit_concept_id) %>%
-    dplyr::summarize(
-      prevalence = dplyr::n_distinct(.data$visit_occurrence_id),
-      time_to_event = list(stats::na.omit(.data$visit_start_date - .data$cohort_start_date)),
-      .groups = "drop"
-    ) %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      .data$visit_concept_id,
-      .data$prevalence,
-      .data$time_to_event
-    ) %>%
-    dplyr::left_join(cdmConcepts, by = c("visit_concept_id" = "concept_id")) %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      concept_id = .data$visit_concept_id,
-      .data$concept_name,
-      .data$prevalence,
-      .data$time_to_event
-    ) %>%
-    dplyr::mutate(heritage = "visit_occurrence")
-
-  # Visit Detail Patient Prevalence
-  patient_visit_detail_prevalence_table <-
-    cdm$cohortcontrast_cohorts %>%
-    dplyr::inner_join(cdm$visit_detail, by = c("subject_id" = "person_id")) %>%
-    dplyr::filter(
-      .data$visit_detail_start_date >= .data$cohort_start_date &
-        .data$visit_detail_start_date <= .data$cohort_end_date
-    ) %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      .data$visit_detail_concept_id,
-      .data$visit_detail_id,
-      .data$visit_detail_start_date,
-      .data$cohort_start_date
-    ) %>%
-    dplyr::collect() %>%
-    dplyr::group_by(.data$cohort_definition_id,
-                    .data$subject_id,
-                    .data$visit_detail_concept_id) %>%
-    dplyr::summarize(prevalence = dplyr::n_distinct(.data$visit_detail_id),
-                     time_to_event = list(stats::na.omit(.data$visit_detail_start_date - .data$cohort_start_date)),
-                     .groups = "drop") %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      .data$visit_detail_concept_id,
-      .data$prevalence,
-      .data$time_to_event
-    ) %>%
-    dplyr::left_join(cdmConcepts, by = c("visit_detail_concept_id" = "concept_id")) %>%
-    dplyr::select(
-      .data$cohort_definition_id,
-      .data$subject_id,
-      concept_id = .data$visit_detail_concept_id,
-      .data$concept_name,
-      .data$prevalence,
-      .data$time_to_event
-    ) %>%
-    dplyr::mutate(heritage = "visit_detail")
 
   ############################################################################
   #
@@ -343,6 +52,51 @@ generateTables <- function(cdm,
     if (domain %in% domainsIncluded) {
       if (domain == "Visit") {
         printCustomMessage("Querying visit occurrence data from database ...")
+
+        # Visit Occurrence Patient Prevalence
+        cli::cli_alert_info("Collecting visit occurrence table.")
+        patient_visit_prevalence_table <- cdm$cohortcontrast_cohorts %>%
+          dplyr::inner_join(cdm$visit_occurrence, by = c("subject_id" = "person_id")) %>%
+          dplyr::filter(
+            .data$visit_start_date >= .data$cohort_start_date &
+              .data$visit_start_date <= .data$cohort_end_date
+          ) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            .data$visit_concept_id,
+            .data$visit_occurrence_id,
+            .data$visit_start_date,
+            .data$cohort_start_date
+          ) %>%
+          dplyr::collect() %>%
+          dplyr::group_by(.data$cohort_definition_id,
+                          .data$subject_id,
+                          .data$visit_concept_id) %>%
+          dplyr::summarize(
+            prevalence = dplyr::n_distinct(.data$visit_occurrence_id),
+            time_to_event = list(stats::na.omit(.data$visit_start_date - .data$cohort_start_date)),
+            .groups = "drop"
+          ) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            .data$visit_concept_id,
+            .data$prevalence,
+            .data$time_to_event
+          ) %>%
+          dplyr::left_join(cdmConcepts, by = c("visit_concept_id" = "concept_id")) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            concept_id = .data$visit_concept_id,
+            .data$concept_name,
+            .data$prevalence,
+            .data$time_to_event
+          ) %>%
+          dplyr::mutate(heritage = "visit_occurrence")
+
+
         data_to_add <- patient_visit_prevalence_table %>%
           dplyr::group_by(
             .data$cohort_definition_id,
@@ -359,6 +113,50 @@ generateTables <- function(cdm,
           rbind(data_patients, data_to_add %>% as.data.frame())
       } else if (domain == "Visit detail") {
         printCustomMessage("Querying visit detail data from database ...")
+
+        # Visit Detail Patient Prevalence
+        cli::cli_alert_info("Collecting visit detail table.")
+        patient_visit_detail_prevalence_table <-
+          cdm$cohortcontrast_cohorts %>%
+          dplyr::inner_join(cdm$visit_detail, by = c("subject_id" = "person_id")) %>%
+          dplyr::filter(
+            .data$visit_detail_start_date >= .data$cohort_start_date &
+              .data$visit_detail_start_date <= .data$cohort_end_date
+          ) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            .data$visit_detail_concept_id,
+            .data$visit_detail_id,
+            .data$visit_detail_start_date,
+            .data$cohort_start_date
+          ) %>%
+          dplyr::collect() %>%
+          dplyr::group_by(.data$cohort_definition_id,
+                          .data$subject_id,
+                          .data$visit_detail_concept_id) %>%
+          dplyr::summarize(prevalence = dplyr::n_distinct(.data$visit_detail_id),
+                           time_to_event = list(stats::na.omit(.data$visit_detail_start_date - .data$cohort_start_date)),
+                           .groups = "drop") %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            .data$visit_detail_concept_id,
+            .data$prevalence,
+            .data$time_to_event
+          ) %>%
+          dplyr::left_join(cdmConcepts, by = c("visit_detail_concept_id" = "concept_id")) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            concept_id = .data$visit_detail_concept_id,
+            .data$concept_name,
+            .data$prevalence,
+            .data$time_to_event
+          ) %>%
+          dplyr::mutate(heritage = "visit_detail")
+
+
         data_to_add <- patient_visit_detail_prevalence_table %>%
           dplyr::group_by(
             .data$cohort_definition_id,
@@ -375,6 +173,49 @@ generateTables <- function(cdm,
           rbind(data_patients, data_to_add %>% as.data.frame())
       } else if (domain == "Drug") {
         printCustomMessage("Querying drug exposure data from database ...")
+
+        cli::cli_alert_info("Collecting drug exposure table.")
+        patient_drug_prevalence_table <- cdm$cohortcontrast_cohorts %>%
+          dplyr::inner_join(cdm$drug_exposure, by = c("subject_id" = "person_id")) %>%
+          dplyr::filter(
+            .data$drug_exposure_start_date >= .data$cohort_start_date &
+              .data$drug_exposure_start_date <= .data$cohort_end_date
+          ) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            .data$drug_concept_id,
+            .data$drug_exposure_id,
+            .data$drug_exposure_start_date,
+            .data$cohort_start_date
+          ) %>%
+          dplyr::collect() %>%
+          dplyr::group_by(.data$cohort_definition_id,
+                          .data$subject_id,
+                          .data$drug_concept_id) %>%
+          dplyr::summarize(
+            prevalence = dplyr::n_distinct(.data$drug_exposure_id),
+            time_to_event = list(stats::na.omit(.data$drug_exposure_start_date - .data$cohort_start_date)),
+            .groups = "drop"
+          ) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            .data$drug_concept_id,
+            .data$prevalence,
+            .data$time_to_event
+          ) %>%
+          dplyr::left_join(cdmConcepts, by = c("drug_concept_id" = "concept_id")) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            concept_id = .data$drug_concept_id,
+            .data$concept_name,
+            .data$prevalence,
+            .data$time_to_event
+          ) %>%
+          dplyr::mutate(heritage = "drug_exposure")
+
         data_to_add <- patient_drug_prevalence_table %>%
           dplyr::group_by(
             .data$cohort_definition_id,
@@ -391,6 +232,49 @@ generateTables <- function(cdm,
           rbind(data_patients, data_to_add %>% as.data.frame())
       } else if (domain == "Measurement") {
         printCustomMessage("Querying measurement data from database ...")
+
+        # Measurement Patient Prevalence
+        cli::cli_alert_info("Collecting measurement table.")
+        patient_measurement_prevalence_table <-
+          cdm$cohortcontrast_cohorts %>%
+          dplyr::inner_join(cdm$measurement, by = c("subject_id" = "person_id")) %>%
+          dplyr::filter(
+            .data$measurement_date >= .data$cohort_start_date &
+              .data$measurement_date <= .data$cohort_end_date
+          ) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            .data$measurement_concept_id,
+            .data$measurement_id,
+            .data$measurement_date,
+            .data$cohort_start_date
+          ) %>%
+          dplyr::collect() %>%
+          dplyr::group_by(.data$cohort_definition_id,
+                          .data$subject_id,
+                          .data$measurement_concept_id) %>%
+          dplyr::summarize(prevalence = dplyr::n_distinct(.data$measurement_id),
+                           time_to_event = list(stats::na.omit(.data$measurement_date - .data$cohort_start_date)),
+                           .groups = "drop") %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            .data$measurement_concept_id,
+            .data$prevalence,
+            .data$time_to_event
+          ) %>%
+          dplyr::left_join(cdmConcepts, by = c("measurement_concept_id" = "concept_id")) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            concept_id = .data$measurement_concept_id,
+            .data$concept_name,
+            .data$prevalence,
+            .data$time_to_event
+          ) %>%
+          dplyr::mutate(heritage = "measurement")
+
         data_to_add <- patient_measurement_prevalence_table %>%
           dplyr::group_by(
             .data$cohort_definition_id,
@@ -407,6 +291,53 @@ generateTables <- function(cdm,
           rbind(data_patients, data_to_add %>% as.data.frame())
       } else if (domain == "Procedure") {
         printCustomMessage("Querying procedure occurrence data from database ...")
+
+
+        # Procedure Occurrence Patient Prevalence
+        cli::cli_alert_info("Collecting procedure table.")
+        patient_procedure_prevalence_table <-
+          cdm$cohortcontrast_cohorts %>%
+          dplyr::inner_join(cdm$procedure_occurrence, by = c("subject_id" = "person_id")) %>%
+          dplyr::filter(
+            .data$procedure_date >= .data$cohort_start_date &
+              .data$procedure_date <= .data$cohort_end_date
+          ) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            .data$procedure_concept_id,
+            .data$procedure_occurrence_id,
+            .data$procedure_date,
+            .data$cohort_start_date
+          ) %>%
+          dplyr::collect() %>%
+          dplyr::group_by(.data$cohort_definition_id,
+                          .data$subject_id,
+                          .data$procedure_concept_id) %>%
+          dplyr::summarize(
+            prevalence = dplyr::n_distinct(.data$procedure_occurrence_id),
+            time_to_event = list(stats::na.omit(.data$procedure_date - .data$cohort_start_date)),
+            .groups = "drop"
+          ) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            .data$procedure_concept_id,
+            .data$prevalence,
+            .data$time_to_event
+          ) %>%
+          dplyr::left_join(cdmConcepts, by = c("procedure_concept_id" = "concept_id")) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            concept_id = .data$procedure_concept_id,
+            .data$concept_name,
+            .data$prevalence,
+            .data$time_to_event
+          ) %>%
+          dplyr::mutate(heritage = "procedure_occurrence")
+
+
         data_to_add <- patient_procedure_prevalence_table %>%
           dplyr::group_by(
             .data$cohort_definition_id,
@@ -423,6 +354,49 @@ generateTables <- function(cdm,
           rbind(data_patients, data_to_add %>% as.data.frame())
       } else if (domain == "Observation") {
         printCustomMessage("Querying observation data from database ...")
+
+        # Observation Patient Prevalence
+        cli::cli_alert_info("Collecting observation table.")
+        patient_observation_prevalence_table <-
+          cdm$cohortcontrast_cohorts %>%
+          dplyr::inner_join(cdm$observation, by = c("subject_id" = "person_id")) %>%
+          dplyr::filter(
+            .data$observation_date >= .data$cohort_start_date &
+              .data$observation_date <= .data$cohort_end_date
+          ) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            .data$observation_concept_id,
+            .data$observation_id,
+            .data$observation_date,
+            .data$cohort_start_date
+          ) %>%
+          dplyr::collect() %>%
+          dplyr::group_by(.data$cohort_definition_id,
+                          .data$subject_id,
+                          .data$observation_concept_id) %>%
+          dplyr::summarize(prevalence = dplyr::n_distinct(.data$observation_id),
+                           time_to_event = list(stats::na.omit(.data$observation_date - .data$cohort_start_date)),
+                           .groups = "drop") %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            .data$observation_concept_id,
+            .data$prevalence,
+            .data$time_to_event
+          ) %>%
+          dplyr::left_join(cdmConcepts, by = c("observation_concept_id" = "concept_id")) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            concept_id = .data$observation_concept_id,
+            .data$concept_name,
+            .data$prevalence,
+            .data$time_to_event
+          ) %>%
+          dplyr::mutate(heritage = "observation")
+
         data_to_add <- patient_observation_prevalence_table %>%
           dplyr::group_by(
             .data$cohort_definition_id,
@@ -439,6 +413,51 @@ generateTables <- function(cdm,
           rbind(data_patients, data_to_add %>% as.data.frame())
       } else if (domain == "Condition") {
         printCustomMessage("Querying condition occurrence data from database ...")
+
+        cli::cli_alert_info("Collecting condition occurrence table.")
+        patient_condition_prevalence_table <-
+          cdm$cohortcontrast_cohorts %>%
+          dplyr::inner_join(cdm$condition_occurrence, by = c("subject_id" = "person_id")) %>%
+          dplyr::filter(
+            .data$condition_start_date >= .data$cohort_start_date &
+              .data$condition_start_date <= .data$cohort_end_date
+          ) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            .data$condition_concept_id,
+            .data$condition_occurrence_id,
+            .data$condition_start_date,
+            .data$cohort_start_date
+          ) %>%
+          dplyr::collect() %>%
+          dplyr::group_by(.data$cohort_definition_id,
+                          .data$subject_id,
+                          .data$condition_concept_id) %>%
+          dplyr::summarize(
+            prevalence = dplyr::n_distinct(.data$condition_occurrence_id),
+            time_to_event = list(stats::na.omit(.data$condition_start_date - .data$cohort_start_date)),
+            .groups = "drop"
+          ) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            .data$condition_concept_id,
+            .data$prevalence,
+            .data$time_to_event
+          ) %>%
+          dplyr::left_join(cdmConcepts, by = c("condition_concept_id" = "concept_id")) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            concept_id = .data$condition_concept_id,
+            .data$concept_name,
+            .data$prevalence,
+            .data$time_to_event
+          ) %>%
+          dplyr::mutate(heritage = "condition_occurrence")
+
+
         data_to_add <- patient_condition_prevalence_table %>%
           dplyr::group_by(
             .data$cohort_definition_id,
@@ -469,6 +488,7 @@ generateTables <- function(cdm,
       "TIME_TO_EVENT"
     )
 
+  cli::cli_alert_success("Collecting and joining tables finished.")
   # aggregate rows in case of multiple observation periods in same cohort + remove void concepts
 
   printCustomMessage("Querying initial data from database ...")
