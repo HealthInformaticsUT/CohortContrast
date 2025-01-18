@@ -39,7 +39,9 @@ Imports:
     scales,
     Cohort2Trajectory,
     TrajectoryViz,
-    cli
+    cli,
+    shinyWidgets,
+    visNetwork
 Suggests: 
     testthat (>= 3.0.0),
     PatientProfiles (>= 1.1.0),

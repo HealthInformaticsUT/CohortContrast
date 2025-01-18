@@ -288,7 +288,7 @@ cohortFromJSON <- function(pathToJSON, cdm, cohortId = NULL) {
 createCohortContrastCdm <- function(cdm,
                                     targetTable = NULL,
                                     controlTable = NULL) {
-  # TODO: assert tbl for  targetTable and controlTable
+  cli::cli_alert_info("Inserting target and control tables to CDM object")
   targetTable <-
     targetTable %>% as.data.frame() %>% dplyr::mutate(cohort_definition_id = 2)
   controlTable <-

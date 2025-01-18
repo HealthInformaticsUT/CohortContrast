@@ -113,15 +113,19 @@ CohortContrast <- function(cdm,
                            numCores = parallel::detectCores() - 1,
                            safeRun = FALSE) {
   # Setup
+  cli::cli_alert_info("Making sure target and cohort tables are correct")
   assertRequiredCohortTable(targetTable)
   assertRequiredCohortTable(controlTable)
   pathToResults = convertToAbsolutePath(pathToResults)
   if(!isFALSE(lookbackDays)){
+    cli::cli_alert_info("Implementing lookback days")
+
     targetTable = targetTable %>% dplyr::mutate(cohort_start_date - lookbackDays)
     targetTable = resolveCohortTableOverlaps(targetTable, cdm = cdm)
     controlTable = controlTable %>% dplyr::mutate(cohort_start_date - lookbackDays)
     controlTable = resolveCohortTableOverlaps(controlTable, cdm = cdm)
   }
+
   cdm <- createCohortContrastCdm(cdm = cdm, targetTable = targetTable, controlTable = controlTable)
   targetCohortId = 2
 
