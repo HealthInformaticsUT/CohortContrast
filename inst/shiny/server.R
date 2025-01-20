@@ -697,7 +697,7 @@ server <- function(input, output, session) {
     target_mod(original_data()$data_features)
 
     data_features(data_features())
-    complementaryMappingTable(if (!(is.null(original_data()$complementaryMappingTable) | isFALSE(original_data()$complementaryMappingTable))) complementaryMappingTable(original_data()$complementaryMappingTable) else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character(), ABSTRACTION_LEVE = integer(), stringsAsFactors = FALSE))
+    complementaryMappingTable(if (!(is.null(original_data()$complementaryMappingTable) | isFALSE(original_data()$complementaryMappingTable))) complementaryMappingTable(original_data()$complementaryMappingTable) else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character(), ABSTRACTION_LEVEL = integer(), stringsAsFactors = FALSE))
     })
 
   # Save data to file on button press

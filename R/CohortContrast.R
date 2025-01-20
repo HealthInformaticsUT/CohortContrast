@@ -215,7 +215,7 @@ if (is.data.frame(complementaryMappingTable) | getAllAbstractions) {
   data$data_patients = dplyr::mutate(data$data_patients, COHORT_DEFINITION_ID = dplyr::if_else(.data$COHORT_DEFINITION_ID == 2, "target", "control"))
   data$data_initial = dplyr::mutate(data$data_initial, COHORT_DEFINITION_ID = dplyr::if_else(.data$COHORT_DEFINITION_ID == 2, "target", "control"))
 
-  data$complementaryMappingTable = if (!(is.null(complementaryMappingTable) | isFALSE(complementaryMappingTable))) complementaryMappingTable else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character(), ABSTRACTION_LEVE = integer(), stringsAsFactors = FALSE)
+  data$complementaryMappingTable = if (!(is.null(complementaryMappingTable) | isFALSE(complementaryMappingTable))) complementaryMappingTable else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character(), ABSTRACTION_LEVEL = integer(), stringsAsFactors = FALSE)
 
   data = create_CohortContrast_object(data)
 
