@@ -229,7 +229,7 @@ server <- function(input, output, session) {
         lookback_days(loaded_data()$config$lookbackDays)
       })
       fullScreenWaiter$hide()
-      if (!is.null(object$complementaryMappingTable)) complementaryMappingTable(object$complementaryMappingTable)
+      if (!(is.null(object$complementaryMappingTable) | isFALSE(object$complementaryMappingTable))) complementaryMappingTable(object$complementaryMappingTable)
       CohortContrast:::printCustomMessage(paste("COMPLETED: Loading study", correct_study_name, "from working directory", sep = " "))
     } else {
       print("File not found")
@@ -259,6 +259,7 @@ server <- function(input, output, session) {
   })
 
   target_filtered <- shiny::reactive({
+    shiny::req(target())
     # fullScreenWaiter$show()
     correlation_cutoff <- if (!is.null(input$correlation_threshold)) input$correlation_threshold else 0.95
     result <- filter_target(
@@ -696,7 +697,7 @@ server <- function(input, output, session) {
     target_mod(original_data()$data_features)
 
     data_features(data_features())
-    complementaryMappingTable(if (!is.null(original_data()$complementaryMappingTable)) complementaryMappingTable(original_data()$complementaryMappingTable) else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character(), ABSTRACTION_LEVE = integer(), stringsAsFactors = FALSE))
+    complementaryMappingTable(if (!(is.null(original_data()$complementaryMappingTable) | isFALSE(original_data()$complementaryMappingTable))) complementaryMappingTable(original_data()$complementaryMappingTable) else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character(), ABSTRACTION_LEVE = integer(), stringsAsFactors = FALSE))
     })
 
   # Save data to file on button press
@@ -950,9 +951,9 @@ server <- function(input, output, session) {
 
   # Manage observers for removal buttons
   shiny::observe({
+    shiny::req(selected_filters())
     filters <- selected_filters()
     current_ids <- names(removeButtonCounterMap)
-
     # Loop through the counter map to create or update observers for each remove button
     lapply(current_ids, function(counter) {
       if (!is.null(removeButtonCounterMap[[counter]])) {
@@ -979,7 +980,6 @@ server <- function(input, output, session) {
             # Update the reactive values with the restored data
             data_patients(data_patients)
             data_features(data_features)
-
             # Update the loaded_data reactive with the restored data
             loaded_data(list(
               data_initial = data_initial(),
@@ -1007,8 +1007,12 @@ server <- function(input, output, session) {
   })
 
   shiny::observe({
-    filters <- selected_filters()
+    shiny::req(selected_filters())
+    shiny::validate(
+      shiny::need(length(selected_filters()) > 0, "No filters selected.")
+    )
 
+    filters <- selected_filters()
     # Retrieve the current values of data_features and data_patients
     data_filtering <- data_features()
     data_patients <- data_patients()
