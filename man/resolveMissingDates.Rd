@@ -7,11 +7,11 @@
 resolveMissingDates(data, afterStart = 1, beforeEnd = 1)
 }
 \arguments{
-\item{data}{Cohort data with columns COHORT_DEFINITION_ID, SUBJECT_ID, COHORT_START_DATE, COHORT_END_DATE}
+\item{data}{Cohort data with columns cohort_definition_id, subject_id, cohort_start_date, cohort_end_date}
 
-\item{afterStart}{integer to add to COHORT_START_DATE if COHORT_END_DATE is missing}
+\item{afterStart}{integer to add to cohort_start_date if cohort_end_date is missing}
 
-\item{beforeEnd}{integer to subtract from COHORT_END_DATE if COHORT_START_DATE is missing}
+\item{beforeEnd}{integer to subtract from cohort_end_date if cohort_start_date is missing}
 }
 \description{
 Function for creating dataset which can be used as input for Cohort2Trajectory package

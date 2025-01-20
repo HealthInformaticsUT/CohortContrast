@@ -2,9 +2,9 @@
 #' This function acts as a Cohort2Trajectory wrapper
 #' @param data CohortContrast object
 #' @param pathToResults Path where data should be saved to
-#' @param trajectoryType Type of trajectories to generate (Discrete - 0, continuous - 1 )
+#' @param trajectoryType Type of trajectories to generate ("Discrete", "Continuous")
 #' @param lengthOfStay If discrete trajectory is generated we have to indicate the state length in days (integer)
-#' @param stateSelectionType State selection type (First occurring - 1, Largest overlap - 2, Priority - 3)
+#' @param stateSelectionType State selection type (First occurring - "First", Largest overlap - "Overlap", Priority - "Priority")
 #' @param mergeStates Boolean for merging overlapping states
 #' @param mergeThreshold A value 0 to 1 indicating the threshold of overlap for merging - percentage
 #' @param outOfCohortAllowed Boolean for allowing to include state occurrences outside the cohort period
@@ -47,9 +47,10 @@
 #'
 #'   trajectories = CohortContrast::C2TCaller <- function(data, pathToResults = getwd())
 #' }
-C2TCaller <- function(data, pathToResults,
-                      trajectoryType = 1,
-                      stateSelectionType = 1,
+C2TCaller <- function(data,
+                      pathToResults,
+                      trajectoryType = "Continuous",
+                      stateSelectionType = "Priority",
                       lengthOfStay = 30,
                       mergeStates = FALSE,
                       mergeThreshold = 0.5,
@@ -62,26 +63,33 @@ C2TCaller <- function(data, pathToResults,
   } else {
 
     trajectoryDataObject <- rbind(data$trajectoryDataList$trajectoryData)
-    trajectoryDataObject$COHORT_DEFINITION_ID = sanitize(trajectoryDataObject$COHORT_DEFINITION_ID)
-    trajectoryDataObject$SUBJECT_ID = as.integer(trajectoryDataObject$SUBJECT_ID)
-    stateCohortLabels <- sanitize(dplyr::setdiff(unique(trajectoryDataObject$COHORT_DEFINITION_ID), c("0")))
-    allowedStatesList = Cohort2Trajectory::createStateList(stateCohortLabels)
-    trajectoriesDataframe <- Cohort2Trajectory::Cohort2Trajectory(useCDM = FALSE,
-                                         studyName = data$config$complName,
-                                         stateCohortLabels = stateCohortLabels,
-                                         trajectoryDataObject = trajectoryDataObject,
-                                         stateCohortPriorityOrder = stateCohortLabels,
-                                         stateSelectionType = stateSelectionType,
-                                         trajectoryType = trajectoryType,
-                                         lengthOfStay = lengthOfStay,
-                                         outOfCohortAllowed = outOfCohortAllowed,
-                                         pathToResults = pathToResults,
-                                         allowedStatesList = allowedStatesList,
-                                         mergeStates = mergeStates,
-                                         mergeThreshold = mergeThreshold,
-                                         runSavedStudy = FALSE,
-                                         saveSettings = FALSE
-                                         )
+    trajectoryDataObject$cohort_definition_id = sanitize(trajectoryDataObject$cohort_definition_id)
+    trajectoryDataObject$subject_id = as.integer(trajectoryDataObject$subject_id)
+    stateCohortLabels <- sanitize(dplyr::setdiff(unique(trajectoryDataObject$cohort_definition_id), c("0")))
+    allowedStatesList = Cohort2Trajectory:::createStateList(stateCohortLabels)
+
+    studyEnv <- Cohort2Trajectory::cohort2TrajectoryConfiguration(
+      baseUrl = NULL,
+      useCDM = FALSE,
+      trajectoryDataObject = trajectoryDataObject,
+      studyName = data$config$complName,
+      pathToStudy = pathToResults,
+      outOfCohortAllowed = outOfCohortAllowed,
+      trajectoryType = trajectoryType,
+      lengthOfStay = lengthOfStay,
+      stateSelectionType = stateSelectionType,
+      stateCohortPriorityOrder = stateCohortLabels,
+      allowedStatesList = allowedStatesList,
+      runSavedStudy = FALSE,
+      batchSize = 10,
+      mergeStates = mergeStates,
+      mergeThreshold = mergeThreshold
+    )
+
+    Cohort2Trajectory::getDataForStudy(studyEnv = studyEnv, trajectoryDataObject = trajectoryDataObject)
+
+    trajectoriesDataframe <- Cohort2Trajectory::createTrajectories(studyEnv = studyEnv)
+
     return(trajectoriesDataframe)
   }
 }
@@ -247,16 +255,18 @@ createC2TInput <-
       data_states <- do.call(rbind, results_list)
 
       colnames(data_states) <-
-        c("COHORT_DEFINITION_ID",
-          "SUBJECT_ID",
-          "COHORT_START_DATE",
-          "COHORT_END_DATE")
+        c("cohort_definition_id",
+          "subject_id",
+          "cohort_start_date",
+          "cohort_end_date")
 
       data_states <- resolveMissingDates(data_states)
 
+      colnames(data_target) = tolower(colnames(data_target))
+
       data$trajectoryDataList$trajectoryData = rbind(as.data.frame(data_target), data_states)
       # Convert from int64 to integer
-      data$trajectoryDataList$trajectoryData$SUBJECT_ID = as.integer(data$trajectoryDataList$trajectoryData$SUBJECT_ID)
+      data$trajectoryDataList$trajectoryData$subject_id = as.integer(data$trajectoryDataList$trajectoryData$subject_id)
       printCustomMessage("Cohort2Trajectory input can be now found under data$trajectoryDataList$trajectoryData")
     return(data)
   }
@@ -264,30 +274,30 @@ createC2TInput <-
 
 #' Function for creating dataset which can be used as input for Cohort2Trajectory package
 #'
-#' @param data Cohort data with columns COHORT_DEFINITION_ID, SUBJECT_ID, COHORT_START_DATE, COHORT_END_DATE
-#' @param afterStart integer to add to COHORT_START_DATE if COHORT_END_DATE is missing
-#' @param beforeEnd integer to subtract from COHORT_END_DATE if COHORT_START_DATE is missing
+#' @param data Cohort data with columns cohort_definition_id, subject_id, cohort_start_date, cohort_end_date
+#' @param afterStart integer to add to cohort_start_date if cohort_end_date is missing
+#' @param beforeEnd integer to subtract from cohort_end_date if cohort_start_date is missing
 #' @keywords internal
 resolveMissingDates <- function(data,
                                 afterStart = 1,
                                 beforeEnd = 1){
-  if (!"COHORT_DEFINITION_ID" %in% names(data) ||
-      !"SUBJECT_ID" %in% names(data) ||
-      !"COHORT_START_DATE" %in% names(data) ||
-      !"COHORT_END_DATE" %in% names(data)) {
-    stop("The input data must contain the columns COHORT_DEFINITION_ID, SUBJECT_ID, COHORT_START_DATE, COHORT_END_DATE.")
+  if (!"cohort_definition_id" %in% names(data) ||
+      !"subject_id" %in% names(data) ||
+      !"cohort_start_date" %in% names(data) ||
+      !"cohort_end_date" %in% names(data)) {
+    stop("The input data must contain the columns cohort_definition_id, subject_id, cohort_start_date, cohort_end_date")
   }
 
   data_updated <- data %>% dplyr::mutate(
-    COHORT_END_DATE = dplyr::if_else(is.na(COHORT_END_DATE) & !is.na(COHORT_START_DATE),
-                              COHORT_START_DATE + afterStart, COHORT_END_DATE),
-    COHORT_START_DATE = dplyr::if_else(is.na(COHORT_START_DATE) & !is.na(COHORT_END_DATE),
-                                 COHORT_END_DATE - beforeEnd, COHORT_START_DATE)
-  ) %>% dplyr::filter(!is.na(COHORT_START_DATE) & !is.na(COHORT_END_DATE))
+    cohort_end_date = dplyr::if_else(is.na(cohort_end_date) & !is.na(cohort_start_date),
+                                     cohort_start_date + afterStart, cohort_end_date),
+    cohort_start_date = dplyr::if_else(is.na(cohort_start_date) & !is.na(cohort_end_date),
+                                       cohort_end_date - beforeEnd, cohort_start_date)
+  ) %>% dplyr::filter(!is.na(cohort_start_date) & !is.na(cohort_end_date))
 
 
   # Notify the user about changes only if they are made
-  if (any(is.na(data %>% dplyr::select(COHORT_START_DATE,COHORT_END_DATE)))) {
+  if (any(is.na(data %>% dplyr::select(cohort_start_date,cohort_end_date)))) {
     cli::cli_alert_success("Resolved missing dates in the dataset for generating trajectories.")
   }
 
