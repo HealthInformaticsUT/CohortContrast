@@ -7,8 +7,8 @@
 C2TCaller(
   data,
   pathToResults,
-  trajectoryType = 1,
-  stateSelectionType = 1,
+  trajectoryType = "Continuous",
+  stateSelectionType = "Priority",
   lengthOfStay = 30,
   mergeStates = FALSE,
   mergeThreshold = 0.5,
@@ -20,9 +20,9 @@ C2TCaller(
 
 \item{pathToResults}{Path where data should be saved to}
 
-\item{trajectoryType}{Type of trajectories to generate (Discrete - 0, continuous - 1 )}
+\item{trajectoryType}{Type of trajectories to generate ("Discrete", "Continuous")}
 
-\item{stateSelectionType}{State selection type (First occurring - 1, Largest overlap - 2, Priority - 3)}
+\item{stateSelectionType}{State selection type (First occurring - "First", Largest overlap - "Overlap", Priority - "Priority")}
 
 \item{lengthOfStay}{If discrete trajectory is generated we have to indicate the state length in days (integer)}
 

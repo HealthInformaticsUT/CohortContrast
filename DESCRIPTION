@@ -47,6 +47,7 @@ Suggests:
     PatientProfiles (>= 1.1.0),
     duckdb,
     DBI (>= 1.2.0),
+    RPostgres,
     readr,
     knitr,
     rmarkdown
