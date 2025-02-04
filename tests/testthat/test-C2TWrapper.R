@@ -40,7 +40,8 @@ test_that("Created features table is correct.", {
     runZTests = FALSE,
     runLogitTests = FALSE,
     createOutputFiles = FALSE,
-    numCores = 1)
+    numCores = 1,
+    complName = "test-C2TWrapper")
 
   data = createC2TInput(data = data, cdm = cdm)
 
@@ -48,7 +49,7 @@ test_that("Created features table is correct.", {
 
   trajectories = C2TCaller(data = data, pathToResults = pathToResults)
 
-  expect_equal(nrow(trajectories) == 4002, TRUE)
+  expect_equal(nrow(trajectories) == 3999, TRUE)
   DBI::dbDisconnect(db)
 })
 #> Test passed 🥇

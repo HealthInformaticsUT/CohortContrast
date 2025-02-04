@@ -2,7 +2,7 @@
 % Please edit documentation in R/mappingTableCreation.R
 \name{generateMappingTable}
 \alias{generateMappingTable}
-\title{Create a mapping table with predefined mmaximum abstraction level}
+\title{Create a mapping table with predefined maximum abstraction level}
 \usage{
 generateMappingTable(
   cdm,
@@ -27,5 +27,5 @@ generateMappingTable(
 \item{maxMinDataFrame}{A dataframe with columns descendant_concept_id and max_levels_of_separation}
 }
 \description{
-Create a mapping table with predefined mmaximum abstraction level
+Create a mapping table with predefined maximum abstraction level
 }

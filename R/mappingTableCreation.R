@@ -1,4 +1,4 @@
-#' Create a mapping table with predefined mmaximum abstraction level
+#' Create a mapping table with predefined maximum abstraction level
 #' @param cdm Connection to database
 #' @param abstractionLevel Maximum abstraction level allowed
 #' @param data CohortContrastObject returned by CohortContrast function
