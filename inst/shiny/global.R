@@ -956,7 +956,7 @@ plot_time <- function(filtered_target, isCorrelationView = FALSE) {
     ggplot2::ggplot(
       plot_data3,
       ggplot2::aes(
-        y = .data$CONCEPT_NAME,
+        y = stringr::str_sub(.data$CONCEPT_NAME, 1, 60),
         x = .data$TIME_TO_EVENT,
         group = .data$CONCEPT_NAME
       )
@@ -1015,7 +1015,7 @@ plot_time <- function(filtered_target, isCorrelationView = FALSE) {
     p2 <- ggplot2::ggplot(
       plot_data3,
       ggplot2::aes(
-        y = .data$CONCEPT_NAME,
+        y = stringr::str_sub(.data$CONCEPT_NAME, 1, 60),
         x = .data$TIME_TO_EVENT,
         group = .data$CONCEPT_NAME,
         fill = factor(.data$Group)  # Map Group to fill
