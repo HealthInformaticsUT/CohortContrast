@@ -289,15 +289,15 @@ resolveMissingDates <- function(data,
   }
 
   data_updated <- data %>% dplyr::mutate(
-    cohort_end_date = dplyr::if_else(is.na(cohort_end_date) & !is.na(cohort_start_date),
-                                     cohort_start_date + afterStart, cohort_end_date),
-    cohort_start_date = dplyr::if_else(is.na(cohort_start_date) & !is.na(cohort_end_date),
-                                       cohort_end_date - beforeEnd, cohort_start_date)
-  ) %>% dplyr::filter(!is.na(cohort_start_date) & !is.na(cohort_end_date))
+    cohort_end_date = dplyr::if_else(is.na(.data$cohort_end_date) & !is.na(.data$cohort_start_date),
+                                     .data$cohort_start_date + afterStart, .data$cohort_end_date),
+    cohort_start_date = dplyr::if_else(is.na(.data$cohort_start_date) & !is.na(.data$cohort_end_date),
+                                       .data$cohort_end_date - beforeEnd, .data$cohort_start_date)
+  ) %>% dplyr::filter(!is.na(.data$cohort_start_date) & !is.na(.data$cohort_end_date))
 
 
   # Notify the user about changes only if they are made
-  if (any(is.na(data %>% dplyr::select(cohort_start_date,cohort_end_date)))) {
+  if (any(is.na(data %>% dplyr::select(.data$cohort_start_date,.data$cohort_end_date)))) {
     cli::cli_alert_success("Resolved missing dates in the dataset for generating trajectories.")
   }
 

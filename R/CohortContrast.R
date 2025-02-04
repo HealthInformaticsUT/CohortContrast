@@ -1136,7 +1136,7 @@ resolveConceptNameOverlap <- function(data) {
 
     for (i in 1:nrow(cmt)) {
       row = cmt[i,]
-      cli::cli_alert_warning(paste0("Mapped '", row$CONCEPT_NAME, "' to '", row$NEW_CONCEPT_NAME, "' because of duplicate concept names for differing ids!"))
+      cli::cli_alert_warning(paste0("Mapped '", gsub("\\{", "{{", gsub("\\}", "}}", row$CONCEPT_NAME)), "' to '",  gsub("\\{", "{{", gsub("\\}", "}}", row$NEW_CONCEPT_NAME)), "' because of duplicate concept names for differing ids!"))
     }
 
     data$complementaryMappingTable = rbind(cmt,  data$complementaryMappingTable)
@@ -1174,7 +1174,7 @@ resolveConceptNameOverlap <- function(data) {
 
     for (i in 1:nrow(cmt)) {
       row = cmt[i,]
-      cli::cli_alert_warning(paste0("Mapped '", row$CONCEPT_NAME, "' to '", row$NEW_CONCEPT_NAME, "' because of concept non-uniqueness w domains!"))
+      cli::cli_alert_warning(paste0("Mapped '", gsub("\\{", "{{", gsub("\\}", "}}", row$CONCEPT_NAME)), "' to '", gsub("\\{", "{{", gsub("\\}", "}}", row$NEW_CONCEPT_NAME)), "' because of concept non-uniqueness over domains!"))
     }
 
     data$complementaryMappingTable = rbind(cmt,  data$complementaryMappingTable)
