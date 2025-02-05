@@ -26,7 +26,7 @@ save_object <- function(object, path) {
 #' @param path Path to the file saved
 #' @keywords internal
 
-save_object_metadata <- function(object, path) {
+save_object_metadata <- function(object, path, studyName = NULL) {
   # Check if the data .rds exists
   if (file.exists(path)) {
     cli::cli_alert_success("Object with analysis data exists!")
@@ -53,7 +53,7 @@ save_object_metadata <- function(object, path) {
 
   # Prepare the metadata summary data frame
   temp <- data.frame(
-    study = object$config$complName,
+    study = if(is.null(studyName)) object$config$complName else studyName,
     target_patients = rows_target,
     control_patients = rows_control,
     z_count = ztest_significant_count,

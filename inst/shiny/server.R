@@ -500,13 +500,23 @@ server <- function(input, output, session) {
 
   output$concept_table <- DT::renderDT({
     shiny::req(input$studyName)
+
+    col_order <- c(
+      "CONCEPT_ID", "CONCEPT_NAME", "ABSTRACTION_LEVEL", "HERITAGE",
+      "TARGET_SUBJECT_COUNT", "CONTROL_SUBJECT_COUNT", "TIME_TO_EVENT",
+      "TARGET_SUBJECT_PREVALENCE", "CONTROL_SUBJECT_PREVALENCE",
+      "PREVALENCE_DIFFERENCE_RATIO", "ZTEST", "ZTEST_P_VALUE",
+      "LOGITTEST", "LOGITTEST_P_VALUE", "KSTEST", "KSTEST_P_VALUE"
+    )
+    filtered_data_reordered <- filtered_data()[, ..col_order, drop = FALSE]
+
     DT::datatable(
-      filtered_data(),
+      filtered_data_reordered,
       selection = 'multiple',
       filter = 'top',
       options = list(
         columnDefs = list(
-          list(targets = which(names(filtered_data()) %in% c("TIME_TO_EVENT", "ABSTRACTION_LEVEL")), visible = FALSE)
+          list(targets = which(names(filtered_data_reordered) %in% c("TIME_TO_EVENT", "ABSTRACTION_LEVEL")), visible = FALSE)
         )
       )
     )
@@ -704,13 +714,15 @@ server <- function(input, output, session) {
   shiny::observeEvent(input$save_btn, {
     # Create the base file path
     CohortContrast:::createPathToResults(paste0(pathToResults, "/snapshots"))
-    file_base <- stringr::str_c(pathToResults, "/snapshots/", studyName(), "_Snapshot")
-    file_path <- stringr::str_c(file_base, ".rds")
+    file_base <- stringr::str_c(pathToResults, "/snapshots/")
+    file_study_name <- stringr::str_c(studyName(), "_Snapshot")
+    file_path <- stringr::str_c(file_base, file_study_name,".rds")
     counter <- 1
 
     # Check if file exists and append increasing numbers if necessary
     while (file.exists(file_path)) {
-      file_path <- stringr::str_c(file_base, "_", counter, ".rds")
+      file_study_name <- stringr::str_c(file_study_name, "_", counter)
+      file_path <- stringr::str_c(file_base, file_study_name,".rds")
       counter <- counter + 1
     }
 
@@ -747,11 +759,11 @@ server <- function(input, output, session) {
     ccObject$trajectoryDataList = trajectoryDataList
     # Save the actual data to the file
     saveRDS(ccObject, file = file_path)
+    CohortContrast:::save_object_metadata(object = ccObject, path = file_path, studyName = file_study_name)
     snapshotWaiter$hide()
     # Notify the user
     shiny::showNotification(paste("Data saved to", file_path))
   })
-
   #################################################################### FILTERING (REMOVE CONCEPTS)
   # # Reactive expression to prepare choices with both CONCEPT_ID and CONCEPT_NAME for display
 

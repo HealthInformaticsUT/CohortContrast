@@ -4,7 +4,7 @@
 \alias{save_object_metadata}
 \title{Function for saving metadata table to path}
 \usage{
-save_object_metadata(object, path)
+save_object_metadata(object, path, studyName = NULL)
 }
 \arguments{
 \item{object}{Object to save}
