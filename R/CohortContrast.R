@@ -158,37 +158,51 @@ CohortContrast <- function(cdm,
   cl <- parallel::makeCluster(numCores)
   doParallel::registerDoParallel(cl)
 
-if (is.data.frame(complementaryMappingTable) | getAllAbstractions) {
-  # Get stable tables
-  # TODO Foward the datasets as cdm, fetch data later when they are smaller datasets
-  if (is.data.frame(complementaryMappingTable) && !getAllAbstractions) {
-    data$data_patients = rbind(data$data_patients, handleMapping(data, complementaryMappingTable))
-  } else if (getAllAbstractions) {
-    concept_ancestor = cdm$concept_ancestor %>% as.data.frame()
-    concept = cdm$concept %>% as.data.frame()
+  if (is.data.frame(complementaryMappingTable) | getAllAbstractions) {
+    # Get stable tables
+    # TODO Foward the datasets as cdm, fetch data later when they are smaller datasets
+    if (getAllAbstractions) {
+      concept_ancestor = cdm$concept_ancestor %>% as.data.frame()
+      concept = cdm$concept %>% as.data.frame()
 
-    data$data_patients$PERSON_ID = as.integer(data$data_patients$PERSON_ID)
-   #assertAncestryCompleteness(cdm)
-    printCustomMessage("Get data for all concept abstraction levels ...")
-    max_min_levels <- concept_ancestor %>%
-      dplyr::group_by(.data$descendant_concept_id) %>%
-      dplyr::summarise(maximum_minimal_separation = max(.data$max_levels_of_separation))
-    updateMapping <- updateMapping
-    generateMappingTable <- generateMappingTable
-    handleMapping <- handleMapping
-    maxAbstraction <- NULL
-    new_data_patients <- foreach::foreach(maxAbstraction = maximumAbstractionLevel:0, .combine = rbind, .packages = c("CohortContrast", "dplyr"),
-                                          .export = c("maxAbstraction")) %dopar% {
-      # Load necessary libraries in each worker
-      complementaryMappingTable = generateMappingTable(cdm = cdm, abstractionLevel = maxAbstraction, data = data, concept_ancestor = concept_ancestor, concept = concept, maxMinDataFrame =max_min_levels)
-      complementaryMappingTable1 <- updateMapping(complementaryMappingTable)
-      newData <- handleMapping(data = data, complementaryMappingTable = complementaryMappingTable, abstractionLevel = maxAbstraction)
-      newData$PERSON_ID = as.integer(newData$PERSON_ID)
-      return(newData)
+      data$data_patients$PERSON_ID = as.integer(data$data_patients$PERSON_ID)
+      #assertAncestryCompleteness(cdm)
+      printCustomMessage("Get data for all concept abstraction levels ...")
+      max_min_levels <- concept_ancestor %>%
+        dplyr::group_by(.data$descendant_concept_id) %>%
+        dplyr::summarise(maximum_minimal_separation = max(.data$max_levels_of_separation))
+      updateMapping <- updateMapping
+      generateMappingTable <- generateMappingTable
+      handleMapping <- handleMapping
+      maxAbstraction <- NULL
+      new_data_patients <- foreach::foreach(maxAbstraction = maximumAbstractionLevel:0, .combine = rbind, .packages = c("CohortContrast", "dplyr"),
+                                            .export = c("maxAbstraction")) %dopar% {
+                                              # Load necessary libraries in each worker
+                                              complementaryMappingTable = generateMappingTable(cdm = cdm, abstractionLevel = maxAbstraction, data = data, concept_ancestor = concept_ancestor, concept = concept, maxMinDataFrame =max_min_levels)
+                                              complementaryMappingTable1 <- updateMapping(complementaryMappingTable)
+                                              newData <- handleMapping(data = data, complementaryMappingTable = complementaryMappingTable, abstractionLevel = maxAbstraction)
+                                              newData$PERSON_ID = as.integer(newData$PERSON_ID)
+                                              return(newData)
+                                            }
+      data$data_patients <- rbind(data$data_patients, new_data_patients)
     }
-    data$data_patients <- rbind(data$data_patients, new_data_patients)
+    if (is.data.frame(complementaryMappingTable)) {
+      # Create empty dataframe
+      complementaryMappingTable = updateMapping(complementaryMappingTable)
+      data_mapped = data$data_patients[0, ]
+      # Add mappings and remove old
+      for (abstraction_level in unique(complementaryMappingTable$ABSTRACTION_LEVEL)) {
+        # Add mappings
+        data_mapped_abstarction_level = handleMapping(data, complementaryMappingTable, abstraction_level)
+        data_mapped = rbind(data_mapped, data_mapped_abstarction_level)
+        # Remove old
+        concept_ids_to_remove = complementaryMappingTable %>% dplyr::filter(.data$ABSTRACTION_LEVEL == abstraction_level) %>% dplyr::pull(.data$CONCEPT_ID)
+        data$data_patients = data$data_patients %>% dplyr::filter(!(.data$CONCEPT_ID %in% concept_ids_to_remove & .data$ABSTRACTION_LEVEL == abstraction_level))
+      }
+      # Add new mappings
+      data$data_patients <- rbind(data$data_patients, data_mapped)
+    }
   }
-}
   parallel::stopCluster(cl)
 
   #?

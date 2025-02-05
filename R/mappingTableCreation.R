@@ -72,8 +72,8 @@ updateMapping <- function(mappingTable) {
   required_columns <- c("CONCEPT_ID", "CONCEPT_NAME", "NEW_CONCEPT_ID", "NEW_CONCEPT_NAME", "ABSTRACTION_LEVEL")
   # Check if all required columns are present
   if (!all(required_columns %in% colnames(mappingTable))) {
-  return(mappingTable)
-    }
+    return(mappingTable)
+  }
   mappingChanged <- TRUE
 
   while (mappingChanged) {
@@ -88,15 +88,30 @@ updateMapping <- function(mappingTable) {
         CONCEPT_ID.new = dplyr::if_else(!is.na(.data$NEW_CONCEPT_ID.copy), .data$NEW_CONCEPT_ID.copy, .data$NEW_CONCEPT_ID),
         CONCEPT_NAME.new = dplyr::if_else(!is.na(.data$NEW_CONCEPT_NAME.copy), .data$NEW_CONCEPT_NAME.copy, .data$NEW_CONCEPT_NAME)
       ) %>%
-      dplyr::select(.data$CONCEPT_ID, .data$CONCEPT_NAME, .data$NEW_CONCEPT_ID, .data$NEW_CONCEPT_NAME, .data$ABSTRACTION_LEVEL)
+      dplyr::select(.data$CONCEPT_ID, .data$CONCEPT_NAME, NEW_CONCEPT_ID = .data$CONCEPT_ID.new, NEW_CONCEPT_NAME = .data$CONCEPT_NAME.new, .data$ABSTRACTION_LEVEL) %>%
+      dplyr::distinct()
+    # dplyr::select(.data$CONCEPT_ID, .data$CONCEPT_NAME, .data$NEW_CONCEPT_ID, .data$NEW_CONCEPT_NAME, .data$ABSTRACTION_LEVEL)
 
     # Check if any mappings were updated
     if (length(originalMapping) == length(mappingTable$NEW_CONCEPT_ID)){
       if (!all(originalMapping == mappingTable$NEW_CONCEPT_ID)) {
         mappingChanged <- TRUE
       }
+    } else {
+      mappingChanged <- TRUE
     }
   }
+  # Determine the most popular NEW_CONCEPT_ID globally
+  global_popularity <- mappingTable %>%
+    dplyr::count(.data$NEW_CONCEPT_ID, .data$NEW_CONCEPT_NAME, .data$ABSTRACTION_LEVEL, name = "global_count")
+
+  # Keep only the most globally popular NEW_CONCEPT_ID per CONCEPT_ID
+  mappingTable <- mappingTable %>%
+    dplyr::left_join(global_popularity, by = c("NEW_CONCEPT_ID", "NEW_CONCEPT_NAME", "ABSTRACTION_LEVEL")) %>%
+    dplyr::group_by(.data$CONCEPT_ID) %>%
+    dplyr::slice_max(order_by = .data$global_count, n = 1, with_ties = FALSE) %>%
+    dplyr::ungroup() %>%
+    dplyr::select(-.data$global_count)
 
   return(mappingTable)
 }
