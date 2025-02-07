@@ -41,7 +41,8 @@ Imports:
     TrajectoryViz,
     cli,
     shinyWidgets,
-    visNetwork
+    visNetwork,
+    bit64
 Suggests: 
     testthat (>= 3.0.0),
     PatientProfiles (>= 1.1.0),
