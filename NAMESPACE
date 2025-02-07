@@ -3,6 +3,7 @@
 S3method(print,CohortContrastObject)
 export(C2TCaller)
 export(CohortContrast)
+export(CohortContrastSafe)
 export(cohortFromCSV)
 export(cohortFromCohortTable)
 export(cohortFromDataTable)

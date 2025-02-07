@@ -24,8 +24,7 @@ CohortContrast(
   maximumAbstractionLevel = 5,
   createOutputFiles = TRUE,
   complName = NULL,
-  numCores = parallel::detectCores() - 1,
-  safeRun = FALSE
+  numCores = parallel::detectCores() - 1
 )
 }
 \arguments{
@@ -66,8 +65,6 @@ CohortContrast(
 \item{complName}{Name of the output file}
 
 \item{numCores}{Number of cores to allocate to parallel processing}
-
-\item{safeRun}{boolean for only returning summarized data}
 }
 \description{
 Run CohortContrast Analysis

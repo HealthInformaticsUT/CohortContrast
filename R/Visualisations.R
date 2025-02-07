@@ -5,15 +5,15 @@
 #' @keywords internal
 format_results <-
   function(data,
-           autoScaleRate,
-           applyInverseTarget,
-           applyZTest,
-           applyLogitTest,
-           abstractionLevel) {
-    if (data$config$safeRun)
-    {
-      return(data$formattedResults)
-    }
+           autoScaleRate = FALSE,
+           applyInverseTarget = FALSE,
+           applyZTest = FALSE,
+           applyLogitTest = FALSE,
+           abstractionLevel = FALSE) {
+    # if (data$config$safeRun)
+    # {
+    #   return(data$formattedResults)
+    # }
     # Convert data frames to data.table
     data$data_initial <-
       data.table::as.data.table(data$data_initial)
