@@ -19,7 +19,6 @@
 #' @param lookbackDays FALSE or an integer stating the lookback period for cohort index date
 #' @param complName Name of the output file
 #' @param numCores Number of cores to allocate to parallel processing
-#' @param safeRun boolean for only returning summarized data
 #' @importFrom dplyr %>%
 #' @importFrom foreach %dopar%
 #' @export
@@ -110,8 +109,8 @@ CohortContrast <- function(cdm,
                            maximumAbstractionLevel = 5,
                            createOutputFiles = TRUE,
                            complName = NULL,
-                           numCores = parallel::detectCores() - 1,
-                           safeRun = FALSE) {
+                           numCores = parallel::detectCores() - 1
+                           ) {
   # Setup
   cli::cli_alert_info("Making sure target and cohort tables are correct")
   assertRequiredCohortTable(targetTable)
@@ -144,8 +143,7 @@ CohortContrast <- function(cdm,
     runKSTests = runKSTests,
     getAllAbstractions = getAllAbstractions,
     getSourceData = getSourceData,
-    lookbackDays = lookbackDays,
-    safeRun = safeRun
+    lookbackDays = lookbackDays
   )
 
   data = generateTables(
@@ -1104,14 +1102,6 @@ saveResult <- function(data, pathToResults) {
   }
   else{data$config$complName = paste0("CohortContrast_", timestamp)}
 
-if(data$config$safeRun)
-  {
-    formated_output = format_results(data = data, applyZTest = data$config$runZTests, applyLogitTest =  data$config$runLogitTests, abstractionLevel = -1)
-    data$formattedResults = formated_output
-    data$data_patients = NULL
-    data$data_person = NULL
-    # TODO export plots?
-  }
   save_object(data, path = filePath)
   save_object_metadata(data, path = filePath)
   printCustomMessage(paste("Saved the result to ", filePath, sep = ""))
