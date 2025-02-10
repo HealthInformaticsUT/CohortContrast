@@ -112,10 +112,10 @@ format_results <-
           -1,
           data.table::fifelse(
             is.na(CONTROL_SUBJECT_PREVALENCE) | CONTROL_SUBJECT_PREVALENCE == 0,
-            TARGET_SUBJECT_PREVALENCE / (1 / count_control),
+            100,#TARGET_SUBJECT_PREVALENCE / (1 / count_control),
             data.table::fifelse(
               is.na(TARGET_SUBJECT_PREVALENCE) | TARGET_SUBJECT_PREVALENCE == 0,
-              (1 / count_target) / CONTROL_SUBJECT_PREVALENCE,
+              0,#(1 / count_target) / CONTROL_SUBJECT_PREVALENCE,
               TARGET_SUBJECT_PREVALENCE / CONTROL_SUBJECT_PREVALENCE
             )
           )
