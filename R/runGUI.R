@@ -43,6 +43,10 @@ runCohortContrastGUI <- function(pathToResults = NULL) {
     stop("Could not find Shiny app directory. Try re-installing the package.", call. = FALSE)
   }
 
+  # Dev off
+  safe_dev_off()
+
+  # Launch
   shiny::runApp(appDir)
 
 }

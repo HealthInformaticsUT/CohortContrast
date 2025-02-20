@@ -27,30 +27,20 @@ save_object <- function(object, path) {
 #' @keywords internal
 
 save_object_metadata <- function(object, path, studyName = NULL) {
-  # Check if the data .rds exists
-  if (file.exists(path)) {
-    cli::cli_alert_success("Object with analysis data exists!")
-  } else {
-    cli::cli_alert_danger("No data object! Check execution function completion.")
-    return(NULL)
-  }
 
   # Calculate the number of unique patients in target and control cohorts
   rows_target <- object$data_initial %>%
-    dplyr::filter(COHORT_DEFINITION_ID == "target") %>%
-    dplyr::summarise(unique_patients = dplyr::n_distinct(SUBJECT_ID)) %>%
+    dplyr::filter(.data$COHORT_DEFINITION_ID == "target") %>%
+    dplyr::summarise(unique_patients = dplyr::n_distinct(.data$SUBJECT_ID)) %>%
     dplyr::pull(.data$unique_patients)
-
   rows_control <- object$data_initial %>%
-    dplyr::filter(COHORT_DEFINITION_ID == "control") %>%
-    dplyr::summarise(unique_patients = dplyr::n_distinct(SUBJECT_ID)) %>%
+    dplyr::filter(.data$COHORT_DEFINITION_ID == "control") %>%
+    dplyr::summarise(unique_patients = dplyr::n_distinct(.data$SUBJECT_ID)) %>%
     dplyr::pull(.data$unique_patients)
-
   # Calculate the number of significant differences in Z-Test
   ztest_significant <- object$data_features %>%
-    dplyr::filter(ZTEST == TRUE & ABSTRACTION_LEVEL == -1)
+    dplyr::filter(.data$ZTEST == TRUE & .data$ABSTRACTION_LEVEL == -1)
   ztest_significant_count <- nrow(ztest_significant)
-
   # Prepare the metadata summary data frame
   temp <- data.frame(
     study = if(is.null(studyName)) object$config$complName else studyName,
@@ -452,3 +442,14 @@ convertToAbsolutePath <- function(path) {
   absolute_path <- normalizePath(path, winslash = "/", mustWork = TRUE)
   return(absolute_path)
 }
+
+#' Convert int64 to integer
+#' @keywords internal
+  convert_int64 <- function(x) {
+    if (inherits(x, "integer64")) {
+      return(as.integer(bit64::as.integer64(x)))
+    } else if (inherits(x, "integer") || inherits(x, "numeric")) {
+      return(as.integer(x))
+    }
+    return(x)  # If not an integer/numeric, return as is
+  }

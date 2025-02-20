@@ -42,7 +42,10 @@ Imports:
     cli,
     shinyWidgets,
     visNetwork,
-    bit64
+    bit64,
+    RColorBrewer,
+    igraph,
+    waiter
 Suggests: 
     testthat (>= 3.0.0),
     PatientProfiles (>= 1.1.0),
