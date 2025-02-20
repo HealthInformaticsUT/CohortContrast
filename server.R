@@ -1,11 +1,3 @@
-if (!requireNamespace("ggplot2", quietly = TRUE)) {
-  stop("ggplot2 is required for this app but is not installed. Please install it.")
-}
-
-if (!requireNamespace("patchwork", quietly = TRUE)) {
-  stop("patchwork is required for this app but is not installed. Please install it.")
-}
-
 files <- list.files(path = "R", pattern = "\\.R$", full.names = TRUE)
 sapply(files, source)
 
@@ -19,7 +11,7 @@ library(dplyr)
 server <- function(input, output, session) {
   # Reactive values
   ## Information regarding the study
-  pathToResults <- './studies'
+  pathToResults <- normalizePath("./studies", mustWork = FALSE)
   study_info <- shiny::reactiveVal(NULL)
   studyName <- shiny::reactiveVal()
 
