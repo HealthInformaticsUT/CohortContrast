@@ -92,27 +92,7 @@ body <- shinydashboard::dashboardBody(
   ")),
         column(
           width = 4,
-          shinyWidgets::sliderTextInput(
-            inputId = "abstraction_lvl",
-            label = h3("Abstraction level"),
-            choices = c(
-              "original",
-              "0",
-              "1",
-              "2",
-              "3",
-              "4",
-              "5",
-              "6",
-              "7",
-              "8",
-              "9",
-              "10",
-              "source"
-            ),
-            selected = "original",
-            grid = TRUE
-          )
+          shiny::uiOutput("reactive_abstraction_lvl")
         ),
         column(
           width = 4,
@@ -122,11 +102,12 @@ body <- shinydashboard::dashboardBody(
       shiny::hr(),
       # Add Fluent UI toggles here
       shiny::fluidRow(
+        shinyjs::useShinyjs(),
         shiny::column(
           width = 4,
           shiny::div(
             shiny.fluent::Toggle.shinyInput(
-              "scaleRate",
+              "autoScaleRate",
               label = "Scale for rate",
               value = FALSE,
               onText = "On",
@@ -223,7 +204,6 @@ body <- shinydashboard::dashboardBody(
             style = "width: 100%; padding: 0 20px;",  # Full width with some padding
             uiOutput("dynamic_concepts_removal"),
             uiOutput("selected_filters_list")
-            # actionButton("reset_btn_filter", "Reset Filters")
           )
         ),
         column(
@@ -232,7 +212,6 @@ body <- shinydashboard::dashboardBody(
             style = "width: 100%; padding: 0 20px;",  # Full width with some padding
             uiOutput("dynamic_concepts_selection"),
             uiOutput("selected_patient_filters_list")
-            # actionButton("reset_btn_filter", "Reset Filters")
           )
         )
       ),
