@@ -232,7 +232,7 @@ getPrevalencePlotRegular <- function(plot_data) {
     ggplot2::ggtitle("AGE in group") +
     ggplot2::theme_bw() +
     ggplot2::theme(
-      plot.title = element_text(hjust = 1),
+      plot.title = ggplot2::element_text(hjust = 1),
       axis.title = ggplot2::element_blank(),
       axis.text.y = ggplot2::element_blank(),
       axis.ticks.y = ggplot2::element_blank(),
@@ -258,7 +258,7 @@ getPrevalencePlotRegular <- function(plot_data) {
         color = .data$MALE_PROP_DIFF_SIGNIFICANT
       )
     ) +
-    ggplot2::geom_text(aes(label = .data$HERITAGE), x = 1, hjust = 1, size = 6, fontface = "bold", color = "navy", alpha = 0.5, data = heritage_annot) +
+    ggplot2::geom_text(ggplot2::aes(label = .data$HERITAGE), x = 1, hjust = 1, size = 6, fontface = "bold", color = "navy", alpha = 0.5, data = heritage_annot) +
     ggplot2::geom_point(ggplot2::aes(x = .data$MALE_PROP_DIFF_ESTIMATE)) +
     ggplot2::geom_errorbar(
       ggplot2::aes(
