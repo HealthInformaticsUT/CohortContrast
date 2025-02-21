@@ -292,7 +292,7 @@ getPrevalencePlotRegular <- function(plot_data) {
       strip.text.y = ggplot2::element_blank(),
       axis.ticks.y = ggplot2::element_blank()
     )
-
+  # Combine plots
   p <- patchwork::wrap_plots(p1, p2, p3, nrow = 1)
   return(p)
 }

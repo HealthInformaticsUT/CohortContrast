@@ -14,7 +14,6 @@ server <- function(input, output, session) {
   pathToResults <- "./studies/"
   study_info <- shiny::reactiveVal(NULL)
   studyName <- shiny::reactiveVal()
-  cat(getwd())
 
   ### Data from the study
   originalData <- shiny::reactiveVal(NULL)
