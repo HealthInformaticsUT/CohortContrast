@@ -293,10 +293,7 @@ getPrevalencePlotRegular <- function(plot_data) {
       axis.ticks.y = ggplot2::element_blank()
     )
 
-
-  p <-
-    p1 + p2 + p3 + patchwork::plot_layout(nrow = 1, heights = c(1, 1, 1))
-
+  p <- patchwork::wrap_plots(p1, p2, p3, nrow = 1)
   return(p)
 }
 
@@ -419,8 +416,6 @@ getPrevalencePlotCorrelation <- function(plot_data) {
     ggplot2::ggtitle("Male percentage in group")
 
   # Combine plots
-  p <-
-    p1 + p2 + p3 + patchwork::plot_layout(nrow = 1, heights = c(1, 1, 1))
-
+  p <- patchwork::wrap_plots(p1, p2, p3, nrow = 1)
   return(p)
 }

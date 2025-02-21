@@ -11,9 +11,10 @@ library(dplyr)
 server <- function(input, output, session) {
   # Reactive values
   ## Information regarding the study
-  pathToResults <- normalizePath("./studies", mustWork = FALSE)
+  pathToResults <- "./studies/"
   study_info <- shiny::reactiveVal(NULL)
   studyName <- shiny::reactiveVal()
+  cat(getwd())
 
   ### Data from the study
   originalData <- shiny::reactiveVal(NULL)
@@ -70,7 +71,6 @@ server <- function(input, output, session) {
   heatmap_plot_data_correlation = shiny::reactiveVal(NULL)
 
   # Proxies
-  dt_proxy <- DT::dataTableProxy("concept_table")
   target <- shiny::reactiveVal(NULL)
   target_filtered <- shiny::reactiveVal(NULL)
 
@@ -494,7 +494,12 @@ server <- function(input, output, session) {
       }
     }, error = function(e) {
       print(e)
-      createPrevalencePlot(filtered_target = NULL, isCorrelationView = FALSE)
+	print(prevalence_plot_data())
+
+     if(!is.null(studyName())){ getPrevalencePlotRegular(prevalence_plot_data())
+} else {      
+createPrevalencePlot(filtered_target = NULL, isCorrelationView = FALSE)
+}
     })
 
     prevalencePlotWaiter$hide()
@@ -688,6 +693,8 @@ server <- function(input, output, session) {
       )
     )
   }, server = TRUE)
+
+  dt_proxy <- DT::dataTableProxy("concept_table")
 
   output$mapping_history_table <- DT::renderDT({
     shiny::validate(
