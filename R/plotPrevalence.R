@@ -25,21 +25,21 @@ getPrevalencePlot <- function(ccObject) {
 
 #' @keywords internal
 createPrevalencePlot <- function(filtered_target, isCorrelationView = FALSE) {
-
+  
   plot_data = getPrevalencePlotData(filtered_target, isCorrelationView = isCorrelationView)
-
+  
   # Check if any concepts left
   if (is.null(plot_data)) {
     return(getErrorPlot())
   }
-
+  
   # Heritage colors
   heritage_colors <- getHeritageColors()
-
+  
   # Merge the colors into the main dataset
   plot_data <-
     merge(plot_data, heritage_colors, by = "HERITAGE", all.x = TRUE)
-
+  
   if (isCorrelationView) {
     return(getPrevalencePlotCorrelation(plot_data))
   } else {
@@ -49,12 +49,12 @@ createPrevalencePlot <- function(filtered_target, isCorrelationView = FALSE) {
 
 #' @keywords internal
 getPrevalencePlotData <- function(filtered_target, patientDataAllowed = TRUE, isCorrelationView = FALSE) {
-
+  
   if (is.null(filtered_target) ||
       nrow(filtered_target$target_row_annotation) == 0) {
     return(NULL)
   }
-
+  
   plotData <-
     as.data.frame(filtered_target$target_row_annotation) %>%
     tibble::rownames_to_column("CONCEPT_ID") %>%
@@ -144,22 +144,22 @@ getPrevalencePlotData <- function(filtered_target, patientDataAllowed = TRUE, is
         )
       )
     )
-
+  
   if (isCorrelationView) {
     # Extract ordered data
     ordered_matrix <- filtered_target$correlation_analysis$ordered_matrix
     gaps_row <- filtered_target$correlation_analysis$gaps_row
-
+    
     # Reorder plotData based on ordered_matrix row order
     ordered_indices <- match(rownames(ordered_matrix), plotData$CONCEPT_NAME)
     plotData <- plotData[ordered_indices, ]
-
+    
     # Add gaps as a grouping variable
     plotData$Group <- cut(seq_len(nrow(plotData)), breaks = c(0, gaps_row, nrow(plotData)), labels = FALSE)
   } else {
     plotData$Group = 1
   }
-
+  
   if (!patientDataAllowed){
     plotData <- plotData %>% dplyr::select(.data$CONCEPT_ID, .data$CONCEPT_NAME, .data$HERITAGE, .data$PREVALENCE_DIFFERENCE_RATIO, .data$PREVALENCE, .data$PRESENCE, .data$ZTEST, .data$LOGITTEST, .data$AVERAGE_AGE,
                                            .data$AVERAGE_AGE_OVERALL, .data$AGE_DIFF, .data$AGE_DIFF_ESTIMATE, .data$AGE_DIFF_LOW, .data$AGE_DIFF_HIGH, .data$AGE_DIFF_SIGNIFICANT,
@@ -210,7 +210,7 @@ getPrevalencePlotRegular <- function(plot_data) {
       panel.spacing = ggplot2::unit(0.5, "lines"),
       axis.text.y = ggplot2::element_text(size = 10) # Adjust the size as needed
     )
-
+  
   p2 <-
     ggplot2::ggplot(plot_data,
                     ggplot2::aes(
@@ -232,7 +232,7 @@ getPrevalencePlotRegular <- function(plot_data) {
     ggplot2::ggtitle("AGE in group") +
     ggplot2::theme_bw() +
     ggplot2::theme(
-      plot.title = element_text(hjust = 1),
+      plot.title = ggplot2::element_text(hjust = 1),
       axis.title = ggplot2::element_blank(),
       axis.text.y = ggplot2::element_blank(),
       axis.ticks.y = ggplot2::element_blank(),
@@ -241,14 +241,14 @@ getPrevalencePlotRegular <- function(plot_data) {
       legend.position = "none",
       panel.spacing = ggplot2::unit(0.5, "lines")
     )
-
+  
   # Heritage text dataset
   heritage_annot = plot_data %>%
     dplyr::mutate(CONCEPT_NAME = stringr::str_sub(.data$CONCEPT_NAME, 1, 60)) %>%
     dplyr::group_by(.data$HERITAGE) %>%
     dplyr::summarise(CONCEPT_NAME = max(.data$CONCEPT_NAME)) %>%
     dplyr::ungroup()
-
+  
   # Create the plot with backgrounds
   p3 <-
     ggplot2::ggplot(
@@ -258,7 +258,7 @@ getPrevalencePlotRegular <- function(plot_data) {
         color = .data$MALE_PROP_DIFF_SIGNIFICANT
       )
     ) +
-    ggplot2::geom_text(aes(label = .data$HERITAGE), x = 1, hjust = 1, size = 6, fontface = "bold", color = "navy", alpha = 0.5, data = heritage_annot) +
+    ggplot2::geom_text(ggplot2::aes(label = .data$HERITAGE), x = 1, hjust = 1, size = 6, fontface = "bold", color = "navy", alpha = 0.5, data = heritage_annot) +
     ggplot2::geom_point(ggplot2::aes(x = .data$MALE_PROP_DIFF_ESTIMATE)) +
     ggplot2::geom_errorbar(
       ggplot2::aes(
@@ -292,11 +292,8 @@ getPrevalencePlotRegular <- function(plot_data) {
       strip.text.y = ggplot2::element_blank(),
       axis.ticks.y = ggplot2::element_blank()
     )
-
-
-  p <-
-    p1 + p2 + p3 + patchwork::plot_layout(nrow = 1, heights = c(1, 1, 1))
-
+  # Combine plots
+  p <- patchwork::wrap_plots(p1, p2, p3, nrow = 1)
   return(p)
 }
 
@@ -341,7 +338,7 @@ getPrevalencePlotCorrelation <- function(plot_data) {
       panel.spacing = ggplot2::unit(0.5, "lines"),
       axis.text.y = ggplot2::element_text(size = 10)
     )
-
+  
   p2 <- ggplot2::ggplot(
     plot_data,
     ggplot2::aes(
@@ -377,8 +374,8 @@ getPrevalencePlotCorrelation <- function(plot_data) {
       panel.spacing = ggplot2::unit(0.5, "lines")
     ) +
     ggplot2::ggtitle("Age in group")
-
-
+  
+  
   # Plot male proportion differences with gaps_row handling
   p3 <- ggplot2::ggplot(
     plot_data,
@@ -417,10 +414,8 @@ getPrevalencePlotCorrelation <- function(plot_data) {
       panel.spacing = ggplot2::unit(0.5, "lines")
     ) +
     ggplot2::ggtitle("Male percentage in group")
-
+  
   # Combine plots
-  p <-
-    p1 + p2 + p3 + patchwork::plot_layout(nrow = 1, heights = c(1, 1, 1))
-
+  p <- patchwork::wrap_plots(p1, p2, p3, nrow = 1)
   return(p)
 }
