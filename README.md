@@ -126,7 +126,6 @@ and input data:
       runZTests = TRUE,
       runLogitTests = FALSE,
       createOutputFiles = TRUE,
-      safeRun = FALSE,
       complName = "CohortContrastStudy")
 
 ## Outputs
