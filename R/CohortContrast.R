@@ -463,15 +463,28 @@ performPrevalenceAnalysis <- function(data_patients,
           (prevalence_cohort_2 / sample_2_n < presenceFilter) ||
           (prevalence_cohort_2 > sample_2_n || prevalence_cohort_1 > sample_1_n) ||
           (prevalence_cohort_2 == prevalence_cohort_1)) {
-        level_results <- rbind(
-          level_results,
-          data.frame(
-            CONCEPT_ID = concept_id,
-            ZTEST = FALSE,
-            ZTEST_P_VALUE = 1,
-            ABSTRACTION_LEVEL = abstraction_level
+
+        if (length(prevalence_cohort_2) == 0 || length(prevalence_cohort_1) == 0 ) {
+          level_results <- rbind(
+            level_results,
+            data.frame(
+              CONCEPT_ID = concept_id,
+              ZTEST = TRUE,
+              ZTEST_P_VALUE = NA,
+              ABSTRACTION_LEVEL = abstraction_level
+            )
           )
-        )
+        } else {
+          level_results <- rbind(
+            level_results,
+            data.frame(
+              CONCEPT_ID = concept_id,
+              ZTEST = FALSE,
+              ZTEST_P_VALUE = 1,
+              ABSTRACTION_LEVEL = abstraction_level
+            )
+          )
+        }
       } else {
         test_result <- stats::prop.test(
           c(prevalence_cohort_1, prevalence_cohort_2),
@@ -826,13 +839,14 @@ calculate_data_features <-
 
 handleMapping <- function(data, complementaryMappingTable, abstractionLevel = -1) {
   printCustomMessage("Mapping according to predefined complementaryMappingTable...")
-
+  # TODO: remove data not affiliated with mappings
   data_patients <- data$data_patients %>% dplyr::filter(.data$ABSTRACTION_LEVEL == abstractionLevel)
 
   # If new abstraction level get default abstraction level data
   if(nrow(data_patients) == 0){
     data_patients <- data$data_patients %>% dplyr::filter(.data$ABSTRACTION_LEVEL == -1) %>% dplyr::mutate(ABSTRACTION_LEVEL = abstractionLevel)
   }
+  data_patients = data_patients %>% dplyr::filter(.data$CONCEPT_ID %in% complementaryMappingTable$CONCEPT_ID)
   # Step 2: Replace CONCEPT_ID in data_patients with the mapped CONCEPT_ID for each CONCEPT_NAME
   data_patients <- data_patients %>%
     dplyr::left_join(complementaryMappingTable,
