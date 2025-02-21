@@ -65,12 +65,12 @@
 #'   numCores = 1
 #' )
 #'
-#' CohortContrastSafe(data)
+#' CohortContrastSynthetic(data)
 #'
 #' DBI::dbDisconnect(con)
 #' }
 #'
-CohortContrastSafe <- function(data,
+CohortContrastSynthetic <- function(data,
                                smallCellSuppression = 5,
                                complName = NULL,
                                activeConceptKNN = FALSE,
@@ -82,18 +82,8 @@ CohortContrastSafe <- function(data,
   data_safe$config$complName <- if (!is.null(complName)) {
     complName
   } else {
-    paste0(data_safe$config$complName, "_Safe")
+    paste0(data_safe$config$complName, "_Synthetic")
   }
-
-  convert_int64 <- function(x) {
-    if (inherits(x, "integer64")) {
-      return(as.integer(bit64::as.integer64(x)))
-    } else if (inherits(x, "integer") || inherits(x, "numeric")) {
-      return(as.integer(x))
-    }
-    return(x)  # If not an integer/numeric, return as is
-  }
-
   # Ensure PERSON_ID and SUBJECT_ID are integers
   data_safe$data_person$PERSON_ID <- convert_int64(data_safe$data_person$PERSON_ID)
   data_safe$data_initial$SUBJECT_ID <- convert_int64(data_safe$data_initial$SUBJECT_ID)
@@ -126,13 +116,129 @@ CohortContrastSafe <- function(data,
 }
 
 
+
+#' Filter CohortContrast Analysis with safety measures, will guarantee small cell supression smallCellSuppression, removes any patient level data
+#' @param data Returned list from CohortContrast call
+#' @param smallCellSuppression The rule of five integer, results under the threshold will be removed
+#' @param complName Name of the output file
+#' @param pathToResults Path to the results folder, can be project's working directory
+#' @importFrom dplyr %>%
+#' @export
+#' @examples
+#' \dontrun{
+#' control <- data.frame(
+#'   cohort_definition_id = c(1, 1, 1, 1, 1),
+#'   subject_id = c(5325, 3743, 2980, 1512, 2168),
+#'   cohort_start_date = as.Date(c("1982-06-02", "1997-03-23",
+#'    "2004-09-29", "2006-08-11", "1977-06-25")),
+#'   cohort_end_date = as.Date(c("2019-03-17", "2018-10-07",
+#'    "2018-04-01", "2017-11-29", "2018-11-22"))
+#' )
+#'
+#' target <- data.frame(
+#'   cohort_definition_id = c(1, 1, 1, 1, 1),
+#'   subject_id = c(4804, 4861, 1563, 2830, 1655),
+#'   cohort_start_date = as.Date(c("1997-03-23", "1982-06-02",
+#'    "1977-06-25", "2006-08-11", "2004-09-29")),
+#'   cohort_end_date = as.Date(c("2018-10-29", "2019-05-23",
+#'    "2019-04-20", "2019-01-14", "2019-05-24"))
+#' )
+#'
+#' control$cohort_definition_id = 100
+#' target$cohort_definition_id = 500
+#'
+#' cohort = rbind(control, target)
+#'
+#' con <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+#' DBI::dbExecute(con, "CREATE SCHEMA IF NOT EXISTS example")
+#' DBI::dbWriteTable(con,   DBI::SQL('"example"."cohort"'), cohort)
+#'
+#' cdm <- CDMConnector::cdm_from_con(con, cdm_name = "eunomia",
+#'  cdm_schema = "main", write_schema = "main")
+#'
+#'  targetTable <- cohortFromCohortTable(cdm = cdm, db = con,
+#'   tableName = "cohort", schemaName = 'example', cohortId = 500)
+#' controlTable <- cohortFromCohortTable(cdm = cdm, db = con,
+#'  tableName = "cohort", schemaName = 'example', cohortId = 100)
+#'
+#'
+#' pathToResults = getwd()
+#'
+#' data = CohortContrast(
+#'   cdm,
+#'   targetTable = targetTable,
+#'   controlTable = controlTable,
+#'   pathToResults,
+#'   domainsIncluded = c(
+#'     "Drug"
+#'   ),
+#'   prevalenceCutOff = 0.1,
+#'   topK = FALSE,
+#'   presenceFilter = 0.005,
+#'   complementaryMappingTable = NULL,
+#'   runZTests = FALSE,
+#'   runLogitTests = FALSE,
+#'   createOutputFiles = FALSE,
+#'   numCores = 1
+#' )
+#'
+#' CohortContrastSafe(data)
+#'
+#' DBI::dbDisconnect(con)
+#' }
+#'
+CohortContrastSafe <- function(data,
+                              smallCellSuppression = 5,
+                              complName = NULL,
+                              pathToResults = getwd()) {
+  # Copy data
+  data_safe <- data
+
+  # Set completion name
+  data_safe$config$complName <- if (!is.null(complName)) {
+    complName
+  } else {
+    paste0(data_safe$config$complName, "_SmallCellSuppression")
+  }
+
+  # Ensure PERSON_ID and SUBJECT_ID are integers
+  data_safe$data_person$PERSON_ID <- convert_int64(data_safe$data_person$PERSON_ID)
+  data_safe$data_initial$SUBJECT_ID <- convert_int64(data_safe$data_initial$SUBJECT_ID)
+  data_safe$data_patients$PERSON_ID <- convert_int64(data_safe$data_patients$PERSON_ID)
+
+
+  # Apply small cell suppression
+  data_safe <- filterDataFeatures(data_safe, smallCellSuppression)
+  data_safe <- filterDataPatients(data_safe)
+  # TODO: precalculate data for plots so that it is possible to filter later
+   for (abstractionLevel in unique(data_safe$data_features$ABSTRACTION_LEVEL)) {
+     data_safe <- calculatePlotData(data_safe, abstractionLevel = abstractionLevel)
+   }
+  # Store smallCellSuppression in config
+  data_safe$config$smallCellSuppression <- smallCellSuppression
+  # Store boolean for no patient level data in config
+  data_safe$config$patientLevelData <- FALSE
+
+  # Save results
+  saveResult(data = data_safe, pathToResults = pathToResults)
+
+  # Remove patient level data
+  data_safe$data_patients = NULL
+  data_safe$data_initial = NULL
+  data_safe$data_person = NULL
+  # Return modified data
+  return(data_safe)
+}
+
 #' @keywords internal
 filterDataFeatures <- function(data, smallCellSuppression = 5) {
   if ("data_features" %in% names(data)) {
     # Filter rows where the sum of target and control counts is >= smallCellSuppression
     data$data_features <- dplyr::filter(
       data$data_features,
-      .data$TARGET_SUBJECT_COUNT + .data$CONTROL_SUBJECT_COUNT >= smallCellSuppression
+      (.data$TARGET_SUBJECT_COUNT >= smallCellSuppression & .data$CONTROL_SUBJECT_COUNT >= smallCellSuppression) |
+      (.data$TARGET_SUBJECT_COUNT >= smallCellSuppression & .data$CONTROL_SUBJECT_COUNT == 0) |
+      (.data$TARGET_SUBJECT_COUNT == 0 & .data$CONTROL_SUBJECT_COUNT >= smallCellSuppression)
     )
   }
 
@@ -140,7 +246,9 @@ filterDataFeatures <- function(data, smallCellSuppression = 5) {
     # Filter rows in selectedFeatures based on the same condition
     data$trajectoryDataList$selectedFeatures <- dplyr::filter(
       data$trajectoryDataList$selectedFeatures,
-      .data$TARGET_SUBJECT_COUNT + .data$CONTROL_SUBJECT_COUNT >= smallCellSuppression
+      (.data$TARGET_SUBJECT_COUNT >= smallCellSuppression & .data$CONTROL_SUBJECT_COUNT >= smallCellSuppression) |
+      (.data$TARGET_SUBJECT_COUNT >= smallCellSuppression & .data$CONTROL_SUBJECT_COUNT == 0) |
+      (.data$TARGET_SUBJECT_COUNT == 0 & .data$CONTROL_SUBJECT_COUNT >= smallCellSuppression)
     )
 
     # Update selectedFeatureNames
@@ -524,4 +632,49 @@ updateDataWithClusters <- function(data, patient_cluster_mapping) {
   )
 
   return(data)
+}
+
+#' Function to calculate plot data for CCObject
+#' @keywords internal
+calculatePlotData <- function(data, abstractionLevel = -1){
+  data_copy = data
+  # Initialize filtering
+  autoScaleRate = if(is.null(data_copy$config$autoScaleRate)) FALSE else data_copy$config$autoScaleRate
+  applyInverseTarget = if(is.null(data_copy$config$applyInverseTarget)) FALSE else data_copy$config$applyInverseTarget
+  applyZTest = if(is.null(data_copy$config$applyZTest)) FALSE else data_copy$config$applyZTest
+  applyLogitTest = if(is.null(data_copy$config$applyLogitTest)) FALSE else data_copy$config$applyLogitTest
+  #abstractionLevel = if(is.null(data$config$abstractionLevel)) -1 else data$config$abstractionLevel
+
+  presenceFilter = if(is.null(data_copy$config$presenceFilter)) 0 else data_copy$config$presenceFilter
+  prevalenceCutOff = if(is.null(data_copy$config$prevalenceCutOff)) 0 else data_copy$config$prevalenceCutOff
+  # domainsIncluded = if(is.null(data$config$domainsIncluded)) NULL else data$config$domainsIncluded
+  # removeUntreated = if(is.null(data$config$removeUntreated)) FALSE else data$config$removeUntreated
+
+  correlationThreshold = if(is.null(data_copy$config$correlationThreshold)) 0.7 else data_copy$config$correlationThreshold
+
+  formattedData <- format_results(data = data_copy,
+                                  autoScaleRate = FALSE,
+                                  applyInverseTarget = FALSE,
+                                  applyZTest = FALSE,
+                                  applyLogitTest = FALSE,
+                                  abstractionLevel = abstractionLevel)
+
+  filteredTarget <- filter_target(target = formattedData,
+                                  prevalence_threshold = 0, # TODO: Change to 0
+                                  prevalence_ratio_threshold = 0) # TODO: Change to 0
+
+  filteredTarget <- prepare_filtered_target(filtered_target = filteredTarget,
+                                            correlation_threshold = 0)
+
+
+
+  prevalencePlotData <- getPrevalencePlotData(filtered_target = filteredTarget, patientDataAllowed = FALSE, isCorrelationView = FALSE)
+  timePlotData <- getTimePlotData(filtered_target = filteredTarget, patientDataAllowed = FALSE, isCorrelationView = FALSE)
+  heatmapPlotData <- getHeatmapPlotDataNoPatientDataAllowed(dataPatients = data_copy$data_patients, isCorrelationView = FALSE, abstractionLevel = abstractionLevel)
+  heatmapPlotData <- prepare_heatmap_correlation_groups(heatmapData = heatmapPlotData, correlation_threshold = 0.95)
+
+  data_copy$compressedDatas[[as.character(abstractionLevel)]]$prevalencePlotData = prevalencePlotData
+  data_copy$compressedDatas[[as.character(abstractionLevel)]]$timePlotData = timePlotData
+  data_copy$compressedDatas[[as.character(abstractionLevel)]]$heatmapPlotData = heatmapPlotData
+  return(data_copy)
 }
