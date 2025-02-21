@@ -162,10 +162,10 @@ getHeatmapPlotData <- function(filtered_target, isCorrelationView = FALSE) {
     # Apply the same order to the matrix
     ordered_matrix <- ordered_matrix[rownames(annotation_row), ]
 
-   if(is.null(rownames(ordered_matrix))){
-     return(NULL)
-   }
-   rownames(ordered_matrix) <- unique_names(rownames(ordered_matrix))
+    if(is.null(rownames(ordered_matrix))){
+      return(NULL)
+    }
+    rownames(ordered_matrix) <- unique_names(rownames(ordered_matrix))
 
     #Returns
     heatmapData$ordered_matrix = ordered_matrix
@@ -174,7 +174,7 @@ getHeatmapPlotData <- function(filtered_target, isCorrelationView = FALSE) {
     heatmapData$annotation_colors = annotation_colors
     heatmapData$col_clustering = col_clustering
     heatmapData$tm_gaps = tm_gaps
-    }
+  }
 
   return(heatmapData)
 }
@@ -400,4 +400,3 @@ unique_names <- function(names) {
 
   return(short_names)
 }
-

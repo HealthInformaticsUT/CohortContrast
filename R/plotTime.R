@@ -95,7 +95,7 @@ getTimePlotData <- function(filtered_target, patientDataAllowed = TRUE, isCorrel
                                           .data$CONCEPT_NAME,
                                           .data$TIME_TO_EVENT,
                                           .data$HERITAGE,
-                                             #.data$KSTEST,
+                                          #.data$KSTEST,
     ) %>% tidyr::unnest(.data$TIME_TO_EVENT)  # Make sure TIME_MEDIAN is no longer a list
 
     plotData$Group = 1
@@ -131,7 +131,7 @@ getTimePlotRegular <- function(plot_data) {
     ) +
     # Add horizontal violin plot
     ggplot2::geom_violin(ggplot2::aes(fill = .data$HERITAGE), width = 1.2, color = NA, alpha = 0.5, trim = FALSE) +
-    ggplot2::geom_text(aes(label = .data$HERITAGE), x = time_max, hjust = 1, size = 6, fontface = "bold", color = "navy", alpha = 0.5, data = heritage_annot) +
+    ggplot2::geom_text(ggplot2::aes(label = .data$HERITAGE), x = time_max, hjust = 1, size = 6, fontface = "bold", color = "navy", alpha = 0.5, data = heritage_annot) +
     ggplot2::geom_boxplot(fill = NA, outliers = FALSE, width = 0.3) +
     ggplot2::scale_fill_manual(values = heritage_colors) +
     # Faceting by HERITAGE
