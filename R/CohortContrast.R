@@ -1101,9 +1101,16 @@ saveResult <- function(data, pathToResults) {
     filePath <- file.path(pathToResults, paste0(data$config$complName, ".rds"))
   }
   else{data$config$complName = paste0("CohortContrast_", timestamp)}
+  save_object_metadata(data, path = filePath)
 
   save_object(data, path = filePath)
-  save_object_metadata(data, path = filePath)
+  if (isFALSE(data$config$patientLevelData)) {
+    # Remove patient level data
+    data$data_patients = NULL
+    data$data_initial = NULL
+    data$data_person = NULL
+  }
+  save_object(data, path = filePath)
   printCustomMessage(paste("Saved the result to ", filePath, sep = ""))
 }
 
