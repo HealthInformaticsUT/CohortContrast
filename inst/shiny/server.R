@@ -850,7 +850,6 @@ server <- function(input, output, session) {
       groups <- correlationGroups()
       # Create a named list for the pickerInput choices
       data_groups <- list()
-
       # Iterate through the groups to create group-level choices with formatted names
       for (i in seq_along(groups)) {
         group <- groups[[i]]
@@ -895,7 +894,6 @@ server <- function(input, output, session) {
       }
       # Update the reactive value with the selected IDs
       selectedCorrelationGroup(selected_ids)
-
       selectedCorrelationGroupLabels(getTrimmedConceptIDLabels(ids = selected_ids, data = data_features(), absLvl = as.numeric(abstractionLevelReactive())))
     })
 

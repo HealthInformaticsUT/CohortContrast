@@ -71,21 +71,11 @@ getHeatmapPlotData <- function(filtered_target, isCorrelationView = FALSE) {
 
   if (isCorrelationView) {
 
-    ordered_matrix <- filtered_target$correlation_analysis$ordered_matrix
-    gaps_row <- filtered_target$correlation_analysis$gaps_row
-
-    # Compute row-wise clustering
-    dist_matrix <- stats::as.dist(1 - stats::cor(t(ordered_matrix), method = "pearson", use = "pairwise.complete.obs"))
-    hc_rows <- stats::hclust(dist_matrix)
-
-    # Cut the dendrogram into clusters
-    num_clusters <- length(gaps_row) + 1 # Define number of clusters based on gaps
-    cluster_labels <- stats::cutree(hc_rows, k = num_clusters)
-
     #Returns
-    heatmapData$ordered_matrix = ordered_matrix
-    heatmapData$hc_rows = hc_rows
-    heatmapData$num_clusters = num_clusters
+    heatmapData$ordered_matrix = filtered_target$correlation_analysis$ordered_matrix
+    heatmapData$hc_rows = filtered_target$correlation_analysis$hc_rows
+    heatmapData$num_clusters = length(filtered_target$correlation_analysis$gaps_row) + 1
+    heatmapData$ordered_groups = filtered_target$correlation_analysis$groups
 
   } else {
 
@@ -217,16 +207,26 @@ getHeatmapPlotRegular <- function(plot_data) {
 
 #' @keywords internal
 getHeatmapPlotCorrelation <- function(plot_data) {
+  # Convert list into a named vector for clusters
+  row_cluster_assignment <- unlist(lapply(seq_along(plot_data$ordered_groups), function(i) {
+    stats::setNames(rep(i, length(plot_data$ordered_groups[[i]])), plot_data$ordered_groups[[i]])
+  }))
 
+  # Ensure the matrix rows follow the order in row_groups
+  ordered_row_names <- unlist(plot_data$ordered_groups)
+  plot_data$ordered_matrix <- plot_data$ordered_matrix[ordered_row_names, , drop=FALSE]
+
+  # Generate the heatmap with row clustering
   heatmap <- pheatmap::pheatmap(
     plot_data$ordered_matrix,
-    cluster_rows = plot_data$hc_rows,            # Pass the row dendrogram
-    cluster_cols = TRUE,               # Cluster columns
-    cutree_rows = plot_data$num_clusters,        # Number of row clusters (defines gaps)
-    show_colnames = FALSE,             # Hide column names
-    color = c("#e5f5f9", "#2ca25f"),   # Custom colors
-    treeheight_row = 50                # Height of the row dendrogram
+    cluster_rows = FALSE,   # Use computed row clustering
+    cluster_cols = TRUE,      # Cluster columns
+    gaps_row = cumsum(table(row_cluster_assignment)),  # Add row gaps
+    show_colnames = FALSE,
+    color = c("#e5f5f9", "#2ca25f"),
+    treeheight_row = 50  # Show row dendrogram
   )
+
   return(heatmap)
 }
 
