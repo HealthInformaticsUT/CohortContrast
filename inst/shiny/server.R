@@ -101,7 +101,7 @@ server <- function(input, output, session) {
   heatmapPlotWaiter <- createFullScreenWaiter("Creating the heatmap plot, please wait ...")
   timepanelPlotWaiter <- createFullScreenWaiter("Creating the time panel plot, please wait ...")
   trajectoryPlotWaiter <- createFullScreenWaiter("Creating the trajectory plot, please wait ...")
-  combineConceptsWaiter <- createFullScreenWaiter("Combining concepts, please wait ...")
+  combineConceptsWaiter <- createFullScreenWaiter("Mapping concepts, please wait ...")
   createSnapshotWaiter <- createFullScreenWaiter("Creating a snapshot, please wait ...")
   createVisualSnapshotWaiter <- createFullScreenWaiter("Creating a visual snapshot, please wait ...")
 
@@ -349,7 +349,27 @@ server <- function(input, output, session) {
     applyZTest(if (!is.null(input$applyZTest) && input$applyZTest) TRUE else FALSE)
     applyLogitTest(if (!is.null(input$applyLogitTest) && input$applyLogitTest) TRUE else FALSE)
 
+    # Reset data
     cachedData(originalData())
+    # Implement active complementary mapping table if PDV
+    if (isPatientLevelDataPresent() && is.data.frame(complementaryMappingTable()) && !is.null(cachedData())){
+    combineConceptsWaiter$show()
+    tempCachedData <- implementComplementaryMappingTable(data = cachedData(),
+                                                         complementaryMappingTable = complementaryMappingTable(),
+                                                         abstractionLevel = abstractionLevelReactive())
+    tempCachedData$data_patients$ABSTRACTION_LEVEL = as.numeric(tempCachedData$data_patients$ABSTRACTION_LEVEL)
+    cachedData(list(
+      data_initial = tempCachedData$data_initial,
+      data_patients = tempCachedData$data_patients,
+      data_features = tempCachedData$data_features,
+      data_person = tempCachedData$data_person,
+      target_matrix = tempCachedData$target_matrix,
+      target_row_annotation = tempCachedData$target_row_annotation,
+      target_col_annotation = tempCachedData$target_col_annotation,
+      config = tempCachedData$config
+    ))
+    combineConceptsWaiter$hide()
+    }
     target()
   })
 

@@ -839,7 +839,11 @@ calculate_data_features <-
 
 handleMapping <- function(data, complementaryMappingTable, abstractionLevel = -1) {
   printCustomMessage("Mapping according to predefined complementaryMappingTable...")
-  # TODO: remove data not affiliated with mappings
+  if(nrow(complementaryMappingTable %>% dplyr::filter(.data$ABSTRACTION_LEVEL == abstractionLevel)) == 0){
+    # Return if mapping table is empty
+    return(data$data_patients)
+  }
+  # Remove data not affiliated with mappings
   data_patients <- data$data_patients %>% dplyr::filter(.data$ABSTRACTION_LEVEL == abstractionLevel)
 
   # If new abstraction level get default abstraction level data
