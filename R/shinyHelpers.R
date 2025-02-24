@@ -469,6 +469,7 @@ prepare_filtered_target <- function(filtered_target = NULL, correlation_threshol
   filtered_target$correlation_analysis$ordered_matrix <- ordered_matrix
   filtered_target$correlation_analysis$groups <- ordered_groups
   filtered_target$correlation_analysis$gaps_row <- gaps_row
+  filtered_target$correlation_analysis$hc_rows <- hc_groups
 
   return(filtered_target)
 }
