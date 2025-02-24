@@ -634,3 +634,23 @@ convert_abstraction_levels <- function(levels) {
   return(final_levels)
 }
 
+
+#' @keywords internal
+implementComplementaryMappingTable <- function(data, complementaryMappingTable, abstractionLevel = -1) {
+if (is.data.frame(complementaryMappingTable)) {
+  # Create empty dataframe
+  complementaryMappingTable = updateMapping(complementaryMappingTable)
+  data_mapped = data$data_patients[0, ]
+  # Add mappings and remove old
+    # Add mappings
+  data_mapped_abstarction_level = handleMapping(data, complementaryMappingTable, abstractionLevel)
+  data_mapped = rbind(data_mapped, data_mapped_abstarction_level)
+    # Remove old
+  concept_ids_to_remove = complementaryMappingTable %>% dplyr::filter(.data$ABSTRACTION_LEVEL == abstractionLevel) %>% dplyr::pull(.data$CONCEPT_ID)
+  data$data_patients = data$data_patients %>% dplyr::filter(!(.data$CONCEPT_ID %in% concept_ids_to_remove & .data$ABSTRACTION_LEVEL == abstractionLevel))
+  # Add new mappings
+  data_mapped$ABSTRACTION_LEVEL = as.character(data_mapped$ABSTRACTION_LEVEL)
+  data$data_patients <- rbind(data$data_patients, data_mapped)
+}
+ return(data)
+}
