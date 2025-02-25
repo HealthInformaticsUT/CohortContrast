@@ -754,7 +754,7 @@ server <- function(input, output, session) {
       showNoPatientDataAllowedWarning()
     } else {
       # Restore original state
-      cachedData(originalData)
+      cachedData(originalData())
       data_features(originalData()$data_features)
       data_patients(originalData()$data_patients)
       data_initial(originalData()$data_initial)
