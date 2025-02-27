@@ -664,7 +664,7 @@ calculatePlotData <- function(data, abstractionLevel = -1){
                                   prevalence_ratio_threshold = 0) # TODO: Change to 0
 
   filteredTarget <- prepare_filtered_target(filtered_target = filteredTarget,
-                                            correlation_threshold = 0)
+                                            correlation_threshold = 1)
 
 
 

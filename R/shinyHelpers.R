@@ -433,7 +433,6 @@ prepare_filtered_target <- function(filtered_target = NULL, correlation_threshol
     ordered_ids <- group_ids[hc$order]
     stats::setNames(group[ordered_ids], ordered_ids)
   })
-
   # Calculate inter-group correlations
   group_correlations <- matrix(0, nrow = length(ordered_groups), ncol = length(ordered_groups))
   for (i in seq_along(ordered_groups)) {
@@ -445,7 +444,6 @@ prepare_filtered_target <- function(filtered_target = NULL, correlation_threshol
       }
     }
   }
-
   # Perform clustering on the group correlation matrix
   group_distance <- stats::as.dist(1 - group_correlations)
   hc_groups <- stats::hclust(group_distance)
