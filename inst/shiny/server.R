@@ -235,17 +235,17 @@ server <- function(input, output, session) {
         ))
 
         # Set cached data as originalData at start
-        cachedData(originalData())
+        cachedData(deepCopyList(originalData()))
 
         # Update reactive values with the converted data.tables
-        data_features(object$data_features)
-        data_patients(object$data_patients)
-        data_initial(object$data_initial)
-        target_mod(object$data_features)
+        data_features(data.table::copy(object$data_features))
+        data_patients(data.table::copy(object$data_patients))
+        data_initial(data.table::copy(object$data_initial))
+        target_mod(data.table::copy(object$data_features))
 
-        prevalence_plot_data(object$compressedDatas[[abstractionLevelReactive()]]$prevalencePlotData)
-        time_plot_data(object$compressedDatas[[abstractionLevelReactive()]]$timePlotData)
-        heatmap_plot_data(object$compressedDatas[[abstractionLevelReactive()]]$heatmapPlotData)
+        prevalence_plot_data(data.table::copy(object$compressedDatas[[abstractionLevelReactive()]]$prevalencePlotData))
+        time_plot_data(data.table::copy(object$compressedDatas[[abstractionLevelReactive()]]$timePlotData))
+        heatmap_plot_data(data.table::copy(object$compressedDatas[[abstractionLevelReactive()]]$heatmapPlotData))
 
 
         prevalence_plot_data_correlation(NULL)
@@ -262,7 +262,7 @@ server <- function(input, output, session) {
         lastAddFilterValue(0)
         lastDisregardFilterValue(0)
       })
-      if (!(is.null(object$complementaryMappingTable) | isFALSE(object$complementaryMappingTable))) complementaryMappingTable(object$complementaryMappingTable)
+      if (!(is.null(object$complementaryMappingTable) | isFALSE(object$complementaryMappingTable))) complementaryMappingTable(data.table::copy(object$complementaryMappingTable))
       CohortContrast:::printCustomMessage(paste("COMPLETED: Loading study", correct_study_name, "from working directory", sep = " "))
     } else {
       print("File not found")
@@ -320,7 +320,7 @@ server <- function(input, output, session) {
       # Use isolate to prevent unnecessary reactivity
       threshold <- abs(isolate(input$lookback_slider))
       # Filter data based on the slider value
-      updated_data <- originalData()$data_patients %>%
+      updated_data <- data.table::copy(originalData()$data_patients) %>%
         dplyr::rowwise() %>%
         dplyr::mutate(
           TIME_TO_EVENT = list(TIME_TO_EVENT[TIME_TO_EVENT >= lookbackDays() - threshold])
@@ -343,6 +343,7 @@ server <- function(input, output, session) {
                     input$applyInverseTarget,
                     input$applyZTest,
                     input$applyLogitTest), {
+    shiny::req(cachedData())
     abstractionLevelReactive(as.character(ifelse(input$abstraction_lvl == "original" || is.null(input$abstraction_lvl), -1, ifelse(input$abstraction_lvl == "source", -2, as.numeric(input$abstraction_lvl)))))
     autoScaleRate(if (!is.null(input$autoScaleRate) && input$autoScaleRate) TRUE else FALSE)
     applyInverseTarget(if (!is.null(input$applyInverseTarget) && input$applyInverseTarget) TRUE else FALSE)
@@ -350,7 +351,7 @@ server <- function(input, output, session) {
     applyLogitTest(if (!is.null(input$applyLogitTest) && input$applyLogitTest) TRUE else FALSE)
 
     # Reset data
-    cachedData(originalData())
+    cachedData(deepCopyList(originalData()))
     # Implement active complementary mapping table if PDV
     if (isPatientLevelDataPresent() && is.data.frame(complementaryMappingTable()) && !is.null(cachedData())){
     combineConceptsWaiter$show()
@@ -754,13 +755,17 @@ server <- function(input, output, session) {
       showNoPatientDataAllowedWarning()
     } else {
       # Restore original state
-      cachedData(originalData())
-      data_features(originalData()$data_features)
-      data_patients(originalData()$data_patients)
-      data_initial(originalData()$data_initial)
-      target_mod(originalData()$data_features)
-      complementaryMappingTable(if (!(is.null(originalData()$complementaryMappingTable) | isFALSE(originalData()$complementaryMappingTable))) complementaryMappingTable(originalData()$complementaryMappingTable) else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character(), ABSTRACTION_LEVEL = integer(), stringsAsFactors = FALSE))
-    }
+      cachedData(deepCopyList(originalData()))
+      data_features(data.table::copy(originalData()$data_features))
+      data_patients(data.table::copy(originalData()$data_patients))
+      data_initial(data.table::copy(originalData()$data_initial))
+      target_mod(data.table::copy(originalData()$data_features))
+      target_row_annotation(data.table::copy(originalData()$target_row_annotation))
+      target_col_annotation(data.table::copy(originalData()$target_col_annotation))
+      target_time_annotation(data.table::copy(originalData()$target_time_annotation))
+      target_matrix(data.table::copy(originalData()$target_matrix))
+      complementaryMappingTable(if (!(is.null(originalData()$complementaryMappingTable) | isFALSE(originalData()$complementaryMappingTable))) data.table::copy(originalData()$complementaryMappingTable) else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character(), ABSTRACTION_LEVEL = integer(), stringsAsFactors = FALSE))
+      }
   })
 
   ############################################################# CORRELATION VIEW
@@ -1167,8 +1172,8 @@ server <- function(input, output, session) {
                               data_features <- data_features()
                               data_patients <- data_patients()
 
-                              data_features_original <- originalData()$data_features
-                              data_patients_original <- originalData()$data_patients
+                              data_features_original <- data.table::copy(originalData()$data_features)
+                              data_patients_original <- data.table::copy(originalData()$data_patients)
 
                               data_features_restore <- data_features_original[data_features_original$CONCEPT_ID == removeButtonCounterMap[[counter]], ]
                               data_patients_restore <- data_patients_original[data_patients_original$CONCEPT_ID == removeButtonCounterMap[[counter]], ]
@@ -1466,9 +1471,9 @@ server <- function(input, output, session) {
                               selectedPatientFilters(updated_filters)
 
                               # Update the reactive values with the restored data
-                              data_patients(originalData()$data_patients)
-                              data_features(originalData()$data_features)
-                              data_initial(originalData()$data_initial)
+                              data_patients(data.table::copy(originalData()$data_patients))
+                              data_features(data.table::copy(originalData()$data_features))
+                              data_initial(data.table::copy(originalData()$data_initial))
 
                               # Update the loaded_data reactive with the restored data
                               keepUsersWithConcepts(updated_filters)
@@ -1577,7 +1582,6 @@ server <- function(input, output, session) {
         HERITAGE = representingHeritage
       )
     ]
-
     rows_to_update <- data_patients[
       , CONCEPT_ID %in% selected_concept_ids & ABSTRACTION_LEVEL == abstraction_level
     ]
@@ -1591,7 +1595,6 @@ server <- function(input, output, session) {
         HERITAGE = representingHeritage
       )
     ]
-
     # Step 5: Summarize by grouping and calculating prevalence
     data_patients <- data_patients[
       , .(PREVALENCE = sum(PREVALENCE),
@@ -1642,7 +1645,6 @@ server <- function(input, output, session) {
     ]
 
     data_features <- data_features[!is.na(CONCEPT_NAME)]
-
 
     # Step 5: Determining ZTEST, KSTEST and LOGITTEST values
     total_concepts = data_features %>% dplyr::filter(.data$ABSTRACTION_LEVEL == abstraction_level) %>% nrow()
@@ -1723,7 +1725,6 @@ server <- function(input, output, session) {
     concept_date_array_max = max(concept_date_array)
     ks_result <- stats::ks.test(jitter(concept_date_array, amount=0.1), "punif", min=concept_date_array_min, max=concept_date_array_max)
 
-
     representingKSTest = ks_result$p.value < 0.05/total_concepts
     representingKSTestPValue = ks_result$p.value
 
@@ -1737,7 +1738,6 @@ server <- function(input, output, session) {
       KSTEST_P_VALUE = representingKSTestPValue,
       HERITAGE = representingHeritage
     )]
-
     # Tests end
 
     data_features(data_features)
@@ -1761,7 +1761,6 @@ server <- function(input, output, session) {
     complementary_mapping <- unique(complementary_mapping)
 
     complementaryMappingTable(complementary_mapping)
-
     cachedData(list(
       data_initial = data_initial,
       data_patients = data_patients,
@@ -1947,5 +1946,20 @@ server <- function(input, output, session) {
       return(list(labels = character(0), labelsTrimmed = character(0)))
     }
   }
- }
+
+  deepCopyList <- function(lst) {
+    lapply(lst, function(x) {
+      if (data.table::is.data.table(x)) {
+        return(data.table::copy(x))  # Deep copy data.table objects
+      } else if (is.data.frame(x)) {
+        return(as.data.frame(x))  # Deep copy data.frame objects
+      } else if (is.list(x)) {
+        return(deepCopyList(x))  # Recursively copy nested lists
+      } else {
+        return(x)  # Copy primitives (numeric, character, logical, NULL)
+      }
+    })
+  }
+
+  }
 
