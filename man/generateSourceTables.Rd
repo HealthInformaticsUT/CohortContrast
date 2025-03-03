@@ -7,7 +7,7 @@
 generateSourceTables(
   data,
   domainsIncluded = c("Drug", "Condition", "Measurement", "Observation", "Procedure",
-    "Visit", "Visit detail")
+    "Visit", "Visit detail", "Death")
 )
 }
 \arguments{

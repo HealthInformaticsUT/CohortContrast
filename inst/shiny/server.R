@@ -1,10 +1,3 @@
-if (!requireNamespace("ggplot2", quietly = TRUE)) {
-  stop("ggplot2 is required for this app but is not installed. Please install it.")
-}
-
-if (!requireNamespace("patchwork", quietly = TRUE)) {
-  stop("patchwork is required for this app but is not installed. Please install it.")
-}
 
 ################################################################################
 #
@@ -13,6 +6,7 @@ if (!requireNamespace("patchwork", quietly = TRUE)) {
 ################################################################################
 
 server <- function(input, output, session) {
+  library(dplyr)
   # Reactive values
   ## Information regarding the study
   study_info <- shiny::reactiveVal(NULL)
@@ -108,19 +102,19 @@ server <- function(input, output, session) {
   # Toggles not available if no patient data present
   shiny::observeEvent(input$autoScaleRate, {
     if (!isPatientLevelDataPresent()) {
-      showNoPatientDataAllowedWarning()
+      CohortContrast:::showNoPatientDataAllowedWarning()
       shiny.fluent::updateToggle.shinyInput(session, "autoScaleRate", value = FALSE)  # Force toggle back
     }
   })
   shiny::observeEvent(input$applyInverseTarget, {
     if (!isPatientLevelDataPresent()) {
-      showNoPatientDataAllowedWarning()
+      CohortContrast:::showNoPatientDataAllowedWarning()
       shiny.fluent::updateToggle.shinyInput(session, "applyInverseTarget", value = FALSE)  # Force toggle back
     }
   })
   shiny::observeEvent(input$removeUntreated, {
     if (!isPatientLevelDataPresent()) {
-      showNoPatientDataAllowedWarning()
+      CohortContrast:::showNoPatientDataAllowedWarning()
       shiny.fluent::updateToggle.shinyInput(session, "removeUntreated", value = FALSE)  # Force toggle back
     }
   })
@@ -200,7 +194,7 @@ server <- function(input, output, session) {
   shiny::observeEvent(input$studyName, {
     shiny::req(input$studyName)
     readingStudyWaiter$show()
-    correct_study_name <- input$studyName# split_name[1]
+    correct_study_name <- input$studyName
     CohortContrast:::printCustomMessage(paste("EXECUTION: Loading study", correct_study_name, "from working directory ...", sep = " "))
     file_path <- stringr::str_c(pathToResults, "/", correct_study_name, ".rds")
     studyName(correct_study_name)
@@ -292,7 +286,7 @@ server <- function(input, output, session) {
     } else {
       levels = names(isolate(cachedData()$compressedDatas))
     }
-    result <- convert_abstraction_levels(levels)
+    result <- CohortContrast:::convert_abstraction_levels(levels)
     return(result)
   })
 
@@ -355,7 +349,7 @@ server <- function(input, output, session) {
     # Implement active complementary mapping table if PDV
     if (isPatientLevelDataPresent() && is.data.frame(complementaryMappingTable()) && !is.null(cachedData())){
     combineConceptsWaiter$show()
-    tempCachedData <- implementComplementaryMappingTable(data = cachedData(),
+    tempCachedData <- CohortContrast:::implementComplementaryMappingTable(data = cachedData(),
                                                          complementaryMappingTable = complementaryMappingTable(),
                                                          abstractionLevel = abstractionLevelReactive())
     tempCachedData$data_patients$ABSTRACTION_LEVEL = as.numeric(tempCachedData$data_patients$ABSTRACTION_LEVEL)
@@ -510,9 +504,9 @@ server <- function(input, output, session) {
           )
         } else {
           if (isCorrelationView()) {
-            getPrevalencePlotCorrelation(prevalence_plot_data_correlation())
+            CohortContrast:::getPrevalencePlotCorrelation(prevalence_plot_data_correlation())
           } else {
-            getPrevalencePlotRegular(prevalence_plot_data())
+            CohortContrast:::getPrevalencePlotRegular(prevalence_plot_data())
           }
         }
       }
@@ -539,9 +533,9 @@ server <- function(input, output, session) {
           )
         } else {
           if (isCorrelationView()) {
-            getHeatmapPlotCorrelationNoPatientDataAllowed(heatmap_plot_data_correlation())
+            CohortContrast:::getHeatmapPlotCorrelationNoPatientDataAllowed(heatmap_plot_data_correlation())
           } else {
-            getHeatmapPlotRegularNoPatientDataAllowed(heatmap_plot_data())
+            CohortContrast:::getHeatmapPlotRegularNoPatientDataAllowed(heatmap_plot_data())
           }
         }
       }
@@ -568,9 +562,9 @@ server <- function(input, output, session) {
           )
         } else {
           if (isCorrelationView()) {
-            getTimePlotCorrelation(time_plot_data_correlation())
+            CohortContrast:::getTimePlotCorrelation(time_plot_data_correlation())
           } else {
-            getTimePlotRegular(time_plot_data())
+            CohortContrast:::getTimePlotRegular(time_plot_data())
           }
         }
       }
@@ -642,7 +636,7 @@ server <- function(input, output, session) {
         )
       ))
     } else {
-      showNoPatientDataAllowedWarning()
+      CohortContrast:::showNoPatientDataAllowedWarning()
     }
   })
 
@@ -752,7 +746,7 @@ server <- function(input, output, session) {
   # Reset data to original
   shiny::observeEvent(input$reset_btn_mappings, {
     if(!isPatientLevelDataPresent()){
-      showNoPatientDataAllowedWarning()
+      CohortContrast:::showNoPatientDataAllowedWarning()
     } else {
       # Restore original state
       cachedData(deepCopyList(originalData()))
@@ -904,7 +898,7 @@ server <- function(input, output, session) {
 
   shiny::observeEvent(input$combine_btn, {
    if(!isPatientLevelDataPresent()){
-      showNoPatientDataAllowedWarning()
+      CohortContrast:::showNoPatientDataAllowedWarning()
     } else if (length(input$concept_table_rows_selected) > 1) {
       shiny::showModal(shiny::modalDialog(
         title = "Combine Concepts",
@@ -921,7 +915,7 @@ server <- function(input, output, session) {
 
   shiny::observeEvent(input$combine_corr_btn, {
     if(!isPatientLevelDataPresent()){
-      showNoPatientDataAllowedWarning()
+      CohortContrast:::showNoPatientDataAllowedWarning()
     } else if (!is.null(selectedCorrelationGroup())) {
       shiny::showModal(shiny::modalDialog(
         title = "Combine Concepts",
@@ -1052,7 +1046,7 @@ server <- function(input, output, session) {
       # Notify the user
       shiny::showNotification(paste("Data saved to", file_path))
     } else {
-      showNoPatientDataAllowedWarning()
+      CohortContrast:::showNoPatientDataAllowedWarning()
     }
     createSnapshotWaiter$hide()
   })
@@ -1369,7 +1363,7 @@ server <- function(input, output, session) {
   # Observe when the "Add Filter" button is clicked
   shiny::observeEvent(input$add_patients_filter, {
     if(!isPatientLevelDataPresent()){
-      showNoPatientDataAllowedWarning()
+      CohortContrast:::showNoPatientDataAllowedWarning()
     } else {
       # If the value has changed since the last observation
       if (input$add_patients_filter > lastAddFilterValue()) {
@@ -1385,7 +1379,7 @@ server <- function(input, output, session) {
   # Observe when the "Disregard Filter" button is clicked
   shiny::observeEvent(input$disregard_patients_filter, {
     if(!isPatientLevelDataPresent()){
-      showNoPatientDataAllowedWarning()
+      CohortContrast:::showNoPatientDataAllowedWarning()
     } else {
       # If the value has changed since the last observation
       if (input$disregard_patients_filter > lastDisregardFilterValue()) {

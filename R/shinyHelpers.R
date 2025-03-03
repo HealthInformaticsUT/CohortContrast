@@ -275,7 +275,8 @@ filter_target <-
              "measurement",
              "observation",
              "visit_occurrence",
-             "visit_detail"
+             "visit_detail",
+             "death"
            ),
            removeUntreated = FALSE) {
     res <- target
@@ -553,7 +554,8 @@ getHeritageColors <- function(asList = FALSE) {
         "measurement",
         "observation",
         "visit_occurrence",
-        "visit_detail"
+        "visit_detail",
+        "death"
       ),
       color = c(
         "#4B99C9",
@@ -562,7 +564,8 @@ getHeritageColors <- function(asList = FALSE) {
         "#FFB3AB",
         "#77DD77",
         "#FDFD96",
-        "#AEC6CF"
+        "#AEC6CF",
+        "#3A3B3C"
       )
     )
   if(asList){
@@ -573,7 +576,8 @@ getHeritageColors <- function(asList = FALSE) {
       measurement = "#FFB3AB",
       observation = "#77DD77",
       visit_occurrence = "#FDFD96",
-      visit_detail = "#AEC6CF"
+      visit_detail = "#AEC6CF",
+      death = "#3A3B3C"
     )
   }
   return(heritage_colors)

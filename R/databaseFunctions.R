@@ -16,7 +16,8 @@ generateTables <- function(cdm,
                                "Observation",
                                "Procedure",
                                "Visit",
-                               "Visit detail"
+                               "Visit detail",
+                               "Death"
                              )) {
   cli::cli_alert_info("Collecting and joining tables. This process might take a lot of time.")
   cli::cli_alert_info("Collecting concept table.")
@@ -46,7 +47,8 @@ generateTables <- function(cdm,
       "Observation",
       "Visit",
       "Visit detail",
-      "Procedure"
+      "Procedure",
+      "Death"
     )
   for (domain in domains) {
     if (domain %in% domainsIncluded) {
@@ -472,6 +474,66 @@ generateTables <- function(cdm,
           dplyr::filter(.data$concept_id != 0)
         data_patients <-
           rbind(data_patients, data_to_add %>% as.data.frame())
+      } else if (domain == "Death") {
+        printCustomMessage("Querying death data from database ...")
+
+        cli::cli_alert_info("Collecting death table.")
+        patient_death_table <-
+          cdm$cohortcontrast_cohorts %>%
+          dplyr::inner_join(cdm$death, by = c("subject_id" = "person_id")) %>%
+          dplyr::filter(
+            .data$death_date >= .data$cohort_start_date &
+              .data$death_date <= .data$cohort_end_date
+          ) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            .data$death_type_concept_id,
+            .data$death_date,
+            .data$cohort_start_date
+          ) %>%
+          dplyr::collect() %>%
+          dplyr::group_by(.data$cohort_definition_id,
+                          .data$subject_id,
+                          .data$death_type_concept_id) %>%
+          dplyr::summarize(
+            prevalence = dplyr::n_distinct(.data$death_type_concept_id),
+            time_to_event = list(stats::na.omit(.data$death_date - .data$cohort_start_date)),
+            .groups = "drop"
+          ) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            .data$death_type_concept_id,
+            .data$prevalence,
+            .data$time_to_event
+          ) %>%
+          dplyr::left_join(cdmConcepts, by = c("death_type_concept_id" = "concept_id")) %>%
+          dplyr::select(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            concept_id = .data$death_type_concept_id,
+            .data$concept_name,
+            .data$prevalence,
+            .data$time_to_event
+          ) %>%
+          dplyr::mutate(heritage = "death")
+
+
+        data_to_add <- patient_death_table %>%
+          dplyr::group_by(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            .data$concept_id,
+            .data$concept_name,
+            .data$heritage
+          ) %>%
+          dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE),
+                           time_to_event = list(unlist(.data$time_to_event)),
+                           .groups = "drop") %>%
+          dplyr::filter(.data$concept_id != 0)
+        data_patients <-
+          rbind(data_patients, data_to_add %>% as.data.frame())
       }
     }
   }
@@ -583,7 +645,8 @@ generateSourceTables <- function(data,
                                "Observation",
                                "Procedure",
                                "Visit",
-                               "Visit detail"
+                               "Visit detail",
+                               "Death"
                              )) {
   # Drug Exposure Patient Prevalence
   cdm = data$cdm
@@ -881,6 +944,45 @@ generateSourceTables <- function(data,
     ) %>%
     dplyr::mutate(heritage = "visit_detail")
 
+
+  patient_death_prevalence_table <-
+    cdm$cohortcontrast_cohorts %>%
+    dplyr::inner_join(cdm$death, by = c("subject_id" = "person_id")) %>%
+    dplyr::filter(
+      .data$death_date >= .data$cohort_start_date &
+        .data$death_date <= .data$cohort_end_date
+    ) %>%
+    dplyr::select(
+      .data$cohort_definition_id,
+      .data$subject_id,
+      .data$cause_source_value,
+      .data$death_date,
+      .data$cohort_start_date
+    ) %>%
+    dplyr::collect() %>%
+    dplyr::group_by(.data$cohort_definition_id,
+                    .data$subject_id,
+                    .data$cause_source_value) %>%
+    dplyr::summarize(prevalence = dplyr::n_distinct(.data$cause_source_value),
+                     time_to_event = list(stats::na.omit(.data$death_date - .data$cohort_start_date)),
+                     .groups = "drop") %>%
+    dplyr::select(
+      .data$cohort_definition_id,
+      .data$subject_id,
+      .data$cause_source_value,
+      .data$prevalence,
+      .data$time_to_event
+    ) %>%
+    dplyr::left_join(cdmSourceConcepts, by = c("cause_source_value" = "source_code")) %>%
+    dplyr::select(
+      .data$cohort_definition_id,
+      .data$subject_id,
+      concept_id = .data$cause_source_value,
+      concept_name =.data$source_code_description,
+      .data$prevalence,
+      .data$time_to_event
+    ) %>%
+    dplyr::mutate(heritage = "death")
   ############################################################################
   #
   # Query data from database
@@ -905,7 +1007,8 @@ generateSourceTables <- function(data,
       "Observation",
       "Visit",
       "Visit detail",
-      "Procedure"
+      "Procedure",
+      "Death"
     )
   for (domain in domains) {
     if (domain %in% domainsIncluded) {
@@ -1008,6 +1111,22 @@ generateSourceTables <- function(data,
       } else if (domain == "Condition") {
         printCustomMessage("Querying source condition occurrence data from database ...")
         data_to_add <- patient_condition_prevalence_table %>%
+          dplyr::group_by(
+            .data$cohort_definition_id,
+            .data$subject_id,
+            .data$concept_id,
+            .data$concept_name,
+            .data$heritage
+          ) %>%
+          dplyr::summarize(prevalence = sum(.data$prevalence, na.rm = TRUE),
+                           time_to_event = list(unlist(.data$time_to_event)),
+                           .groups = "drop") %>%
+          dplyr::filter(.data$concept_id != 0)
+        data_patients <-
+          rbind(data_patients, data_to_add %>% as.data.frame())
+      } else if (domain == "Death") {
+        printCustomMessage("Querying source death data from database ...")
+        data_to_add <- patient_death_prevalence_table %>%
           dplyr::group_by(
             .data$cohort_definition_id,
             .data$subject_id,
