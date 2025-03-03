@@ -52,7 +52,8 @@ body <- shinydashboard::dashboardBody(
               "Observation" = "observation",
               "Procedure" = "procedure_occurrence",
               "Visit" = "visit_occurrence",
-              "Visit detail" = "visit_detail"
+              "Visit detail" = "visit_detail",
+              "Death" = "death"
             ),
             selected = c(
               "drug_exposure",

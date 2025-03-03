@@ -94,7 +94,8 @@ CohortContrast <- function(cdm,
                              "Observation",
                              "Procedure",
                              "Visit",
-                             "Visit detail"
+                             "Visit detail",
+                             "Death"
                            ),
                            prevalenceCutOff = 10,
                            topK = FALSE,
@@ -300,6 +301,11 @@ queryHeritageData <-
         query_result <-
           cdm$visit_detail %>% dplyr::inner_join(cdm$cohortcontrast_cohorts,
                                                  by = c("person_id" = "subject_id")) %>% dplyr::filter(.data$visit_detail_concept_id %in% unique_concept_ids) %>% as.data.frame()
+      }
+      else if (heritage == 'death') {
+        query_result <-
+          cdm$death %>% dplyr::inner_join(cdm$cohortcontrast_cohorts,
+                                                 by = c("person_id" = "subject_id")) %>% dplyr::filter(.data$death_type_concept_id %in% unique_concept_ids) %>% as.data.frame()
       }
       # Further processing...
       colnames(query_result) = toupper(colnames(query_result))

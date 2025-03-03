@@ -10,7 +10,7 @@ CohortContrast(
   controlTable = NULL,
   pathToResults = getwd(),
   domainsIncluded = c("Drug", "Condition", "Measurement", "Observation", "Procedure",
-    "Visit", "Visit detail"),
+    "Visit", "Visit detail", "Death"),
   prevalenceCutOff = 10,
   topK = FALSE,
   presenceFilter = 0.005,
