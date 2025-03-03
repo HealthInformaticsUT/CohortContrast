@@ -93,17 +93,17 @@ server <- function(input, output, session) {
   })
 
   # Waiters
-  readingStudiesWaiter <- createFullScreenWaiter("Loading studies from path, please wait ...")
-  readingStudyWaiter <- createFullScreenWaiter("Reading in the selected study data, please wait ...")
-  loadingStudyWaiter <- createFullScreenWaiter("Loading the selected study data, please wait ...")
-  filteringStudyWaiter <- createFullScreenWaiter("Filtering the data, please wait ...")
-  prevalencePlotWaiter <- createFullScreenWaiter("Creating the prevalence plot, please wait ...")
-  heatmapPlotWaiter <- createFullScreenWaiter("Creating the heatmap plot, please wait ...")
-  timepanelPlotWaiter <- createFullScreenWaiter("Creating the time panel plot, please wait ...")
-  trajectoryPlotWaiter <- createFullScreenWaiter("Creating the trajectory plot, please wait ...")
-  combineConceptsWaiter <- createFullScreenWaiter("Mapping concepts, please wait ...")
-  createSnapshotWaiter <- createFullScreenWaiter("Creating a snapshot, please wait ...")
-  createVisualSnapshotWaiter <- createFullScreenWaiter("Creating a visual snapshot, please wait ...")
+  readingStudiesWaiter <- CohortContrast:::createFullScreenWaiter("Loading studies from path, please wait ...")
+  readingStudyWaiter <- CohortContrast:::createFullScreenWaiter("Reading in the selected study data, please wait ...")
+  loadingStudyWaiter <- CohortContrast:::createFullScreenWaiter("Loading the selected study data, please wait ...")
+  filteringStudyWaiter <- CohortContrast:::createFullScreenWaiter("Filtering the data, please wait ...")
+  prevalencePlotWaiter <- CohortContrast:::createFullScreenWaiter("Creating the prevalence plot, please wait ...")
+  heatmapPlotWaiter <- CohortContrast:::createFullScreenWaiter("Creating the heatmap plot, please wait ...")
+  timepanelPlotWaiter <- CohortContrast:::createFullScreenWaiter("Creating the time panel plot, please wait ...")
+  trajectoryPlotWaiter <- CohortContrast:::createFullScreenWaiter("Creating the trajectory plot, please wait ...")
+  combineConceptsWaiter <- CohortContrast:::createFullScreenWaiter("Mapping concepts, please wait ...")
+  createSnapshotWaiter <- CohortContrast:::createFullScreenWaiter("Creating a snapshot, please wait ...")
+  createVisualSnapshotWaiter <- CohortContrast:::createFullScreenWaiter("Creating a visual snapshot, please wait ...")
 
   # Toggles not available if no patient data present
   shiny::observeEvent(input$autoScaleRate, {
