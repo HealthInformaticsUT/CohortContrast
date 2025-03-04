@@ -107,28 +107,36 @@ getTimePlotData <- function(filtered_target, patientDataAllowed = TRUE, isCorrel
 
 #' @keywords internal
 getTimePlotRegular <- function(plot_data) {
-
-
   heritage_colors <- getHeritageColors(asList = TRUE)
 
   time_min <- min(plot_data$TIME_TO_EVENT, na.rm = TRUE)
   time_max <- max(plot_data$TIME_TO_EVENT, na.rm = TRUE)
+
+  # Compute median time for each concept within each heritage group
+  concept_order <- plot_data %>%
+    dplyr::group_by(HERITAGE, CONCEPT_NAME) %>%
+    dplyr::summarise(median_time = median(TIME_TO_EVENT, na.rm = TRUE), .groups = "drop") %>%
+    dplyr::arrange(HERITAGE, median_time)  # Ensure ascending order
+
+  # Convert CONCEPT_NAME into a factor, ordered in ascending median time within each HERITAGE
+  plot_data <- plot_data %>%
+    dplyr::mutate(CONCEPT_NAME = factor(CONCEPT_NAME,
+                                        levels = rev(concept_order$CONCEPT_NAME)))  # Reverse levels for ascending order
+
   # Heritage text dataset
-  heritage_annot = plot_data %>%
+  heritage_annot <- plot_data %>%
     dplyr::mutate(CONCEPT_NAME = stringr::str_sub(.data$CONCEPT_NAME, 1, 60)) %>%
     dplyr::group_by(.data$HERITAGE) %>%
-    dplyr::summarise(CONCEPT_NAME = max(.data$CONCEPT_NAME)) %>%
-    dplyr::ungroup()
+    dplyr::summarise(CONCEPT_NAME = max(.data$CONCEPT_NAME), .groups = "drop")
 
-  p <-
-    ggplot2::ggplot(
-      plot_data,
-      ggplot2::aes(
-        y = stringr::str_sub(.data$CONCEPT_NAME, 1, 60),
-        x = .data$TIME_TO_EVENT,
-        group = .data$CONCEPT_NAME
-      )
-    ) +
+  p <- ggplot2::ggplot(
+    plot_data,
+    ggplot2::aes(
+      y = CONCEPT_NAME,  # Now using the properly ordered factor
+      x = .data$TIME_TO_EVENT,
+      group = .data$CONCEPT_NAME
+    )
+  ) +
     # Add horizontal violin plot
     ggplot2::geom_violin(ggplot2::aes(fill = .data$HERITAGE), width = 1.2, color = NA, alpha = 0.5, trim = FALSE) +
     ggplot2::geom_text(ggplot2::aes(label = .data$HERITAGE), x = time_max, hjust = 1, size = 6, fontface = "bold", color = "navy", alpha = 0.5, data = heritage_annot) +
@@ -156,6 +164,7 @@ getTimePlotRegular <- function(plot_data) {
       # Hide strip text
       panel.spacing = ggplot2::unit(0.5, "lines")  # Reduce spacing between panels
     )
+
   return(p)
 }
 
