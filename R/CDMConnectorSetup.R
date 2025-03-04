@@ -135,7 +135,7 @@ cohortFromCohortTable <- function(cdm,
                                   cohortId = NULL) {
   cohortTable <-
     dplyr::tbl(db,
-               CDMConnector::in_schema(schemaName, tableName))
+               CDMConnector::inSchema(schemaName, tableName))
   if (!is.null(cohortId)) {
     cohortTable <-
       dplyr::filter(cohortTable, .data$cohort_definition_id == cohortId)
