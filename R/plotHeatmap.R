@@ -278,20 +278,40 @@ getHeatmapPlotRegularNoPatientDataAllowed <- function(plot_data) {
     HERITAGE = active_heritage_colors
   )
 
+  # Function to insert empty rows
+  insert_empty_rows <- function(matrix, gap_indices) {
+    for (gap in rev(gap_indices)) {
+      matrix <- rbind(matrix[1:gap, ], NA, matrix[(gap + 1):nrow(matrix), ])
+    }
+    return(matrix)
+  }
+
+  # Apply to your matrix
+  ordered_matrix_with_gaps <- insert_empty_rows(ordered_matrix, tm_gaps)
+
+  heatmap_colors[is.na(heatmap_colors)] <- "white"  # Explicitly set NA to white
+  # Round numerical values to 2 decimal places
+  rounded_matrix <- round(ordered_matrix_with_gaps, 2)
+
+  # Create numbers matrix: Keep rounded numbers but replace NA with ""
+  numbers_matrix <- rounded_matrix
+  numbers_matrix[is.na(numbers_matrix)] <- ""  # Ensure NA cells show as blank
+
   heatmap <- pheatmap::pheatmap(
-    ordered_matrix,
+    ordered_matrix_with_gaps,
     cluster_rows = FALSE,         # No clustering of rows
     cluster_cols = FALSE,         # No clustering of columns
     show_colnames = FALSE,        # Hide column names
     annotation_row = annotation_row, # HERITAGE-based annotation
     annotation_colors = annotation_colors,
-    gaps_row = tm_gaps,           # Insert gaps between HERITAGE groups
+   # gaps_row = tm_gaps,           # Insert gaps between HERITAGE groups
     color = heatmap_colors,       # Use continuous gradient
     breaks = breaks,              # Ensure proper scaling from -1 to 1
     legend = TRUE,                # Keep numerical correlation values in legend
     cellheight = 18,
-    display_numbers = TRUE,
-    number_color = "black"
+    display_numbers = numbers_matrix,
+    number_color = "black",
+   na_col = "white"
   )
   return(heatmap)
 }
