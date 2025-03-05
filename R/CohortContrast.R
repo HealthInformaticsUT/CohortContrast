@@ -318,24 +318,24 @@ queryHeritageData <-
 
       if (is.data.frame(complementaryMappingTable)) {
         # Join the dataframes on CONCEPT_ID
+        concept_map_joined = dplyr::full_join(
+          concept_map,
+          complementaryMappingTable,
+          by = "CONCEPT_ID"
+        )
         concept_map <-
           dplyr::select(
             dplyr::mutate(
-              dplyr::full_join(
-                concept_map,
-                complementaryMappingTable,
-                by = "CONCEPT_NAME",
-                suffix = c("", ".old")
-              ),
+              concept_map_joined,
               # Choose the complementaryMappingTable CONCEPT_NAME if it's not NA; otherwise, use the original
-              CONCEPT_ID.old = dplyr::if_else(
-                is.na(.data$CONCEPT_ID.old),
-                .data$CONCEPT_ID,
-                .data$CONCEPT_ID.old
+              CONCEPT_NAME = dplyr::if_else(
+                is.na(.data$NEW_CONCEPT_NAME),
+                .data$CONCEPT_NAME.x,
+                .data$NEW_CONCEPT_NAME
               )
             ),
             # Select and rename the columns to match the original concept_map structure
-            CONCEPT_ID = .data$CONCEPT_ID.old,
+            .data$CONCEPT_ID,
             .data$CONCEPT_NAME
           )
 

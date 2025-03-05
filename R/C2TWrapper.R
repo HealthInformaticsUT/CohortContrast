@@ -259,7 +259,8 @@ createC2TInput <-
           "subject_id",
           "cohort_start_date",
           "cohort_end_date")
-
+      # Ensure only highlighted concepts are used
+      data_states <- data_states %>% dplyr::filter(.data$cohort_definition_id %in% data$trajectoryDataList$selectedFeatureNames)
       data_states <- resolveMissingDates(data_states)
 
       colnames(data_target) = tolower(colnames(data_target))
