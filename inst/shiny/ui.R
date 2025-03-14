@@ -188,9 +188,17 @@ body <- shinydashboard::dashboardBody(
         tabPanel("Heatmap",
                  plotOutput("heatmapPlot")),
         tabPanel("Trajectories",
-                 uiOutput("dynamicGraphUI"),
+           #      tags$iframe(src = "public/index.html", width = "100%", height = "650px"),
+                 uiOutput("dynamicTrajectoryGraphUI"),
                  uiOutput("dynamic_selectize_trajectory_inputs")
+                 ),
+        tabPanel("Demographics",
+                 tabsetPanel(
+                   tabPanel("Age", uiOutput("dynamicDemographicAgeGraphUI")),
+                   tabPanel("Year of Birth", uiOutput("dynamicDemographicYearOfBirthGraphUI")),
+                   tabPanel("Comparison", uiOutput("dynamicDemographicCompareGraphUI"), uiOutput("dynamic_demographic_widgets"))
                  )
+                 ),
       ))
     ),
     shinydashboard::tabItem(
@@ -291,10 +299,36 @@ body <- shinydashboard::dashboardBody(
   )
 )
 
+# JavaScript to update Shiny input when a radio button is selected
+js_code <- "
+  function updateRadioValue(state, value) {
+    Shiny.setInputValue('radio_selection', {state: state, value: value}, {priority: 'event'});
+  }
+
+  // Function to update all radios when 'Select All' is clicked
+  function updateAllRadios(value) {
+    document.querySelectorAll('[name^=\"radio_\"]').forEach(function(el) {
+      if (el.value === value) {
+        el.checked = true;
+        el.click();  // Trigger click event to update Shiny
+      }
+    });
+  }
+
+  // Listen for a 'updateAllRadios' message from Shiny
+  Shiny.addCustomMessageHandler('updateAllRadios', function(value) {
+    updateAllRadios(value);
+  });
+"
 # Combine them into the dashboardPage function call
 ui <- shinydashboard::dashboardPage(
   skin = "black",
   header = header,
   sidebar = sidebar,
   body = body
+)
+
+ui = tagList(
+  singleton(tags$head(tags$script(HTML(js_code)))),  # Add JS function to Shiny app
+  ui
 )

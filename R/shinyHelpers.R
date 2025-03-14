@@ -445,12 +445,15 @@ prepare_filtered_target <- function(filtered_target = NULL, correlation_threshol
       }
     }
   }
+
+  hc_groups = NULL
+  if(nrow(group_correlations) > 1){
   # Perform clustering on the group correlation matrix
   group_distance <- stats::as.dist(1 - group_correlations)
   hc_groups <- stats::hclust(group_distance)
   ordered_group_indices <- hc_groups$order
   ordered_groups <- ordered_groups[ordered_group_indices]
-
+}
   ordered_concept_ids <- unlist(ordered_groups, use.names = TRUE)
   ordered_concept_names <- unname(ordered_concept_ids)
 
