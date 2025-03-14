@@ -41,12 +41,13 @@ Imports:
     TrajectoryViz,
     cli,
     shinyWidgets,
-    visNetwork,
     bit64,
     RColorBrewer,
     igraph,
     waiter,
-    shiny.fluent
+    shiny.fluent,
+    jsonlite,
+    htmltools
 Suggests: 
     testthat (>= 3.0.0),
     PatientProfiles (>= 1.1.0),

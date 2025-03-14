@@ -1,0 +1,4 @@
+/* ✅ Make all BPMN edge labels bold */
+.djs-label text {
+    font-weight: bold !important;
+}

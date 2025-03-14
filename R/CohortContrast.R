@@ -212,7 +212,6 @@ CohortContrast <- function(cdm,
     )
   }
 
-
   data = createDataFeatures(data, topK)
   data = handleTests(data,
                      targetCohortId,

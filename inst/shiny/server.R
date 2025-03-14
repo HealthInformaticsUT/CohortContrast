@@ -29,8 +29,13 @@ server <- function(input, output, session) {
   activeDomains <- shiny::reactiveVal(NULL)
   patientPrevalence <- shiny::reactiveVal(0.2)
   conceptPrevalenceRatio <- shiny::reactiveVal(1.25)
+  correlationGroupChoices <- shiny::reactiveVal(NULL)
+  correlationGroupChoicesLabels <- shiny::reactiveVal(NULL)
   selectedCorrelationGroup <- shiny::reactiveVal(NULL)
+  selectedFirstDemographicGroup <- shiny::reactiveVal(NULL)
+  selectedSecondDemographicGroup <- shiny::reactiveVal(NULL)
   selectedCorrelationGroupLabels <- shiny::reactiveVal(list(labels = character(0), labelsTrimmed = character(0)))
+  selectedTrajectoryFilters <- shiny::reactiveValues(data = list())
   selectedFilters <- shiny::reactiveVal(list())
   selectedPatientFilters <- shiny::reactiveVal(list())
 
@@ -53,6 +58,7 @@ server <- function(input, output, session) {
   data_features <- shiny::reactiveVal(NULL)
   data_patients <- shiny::reactiveVal(NULL)
   data_initial <- shiny::reactiveVal(NULL)
+  data_person <- shiny::reactiveVal(NULL)
   target_row_annotation <- shiny::reactiveVal(NULL)
   target_col_annotation <- shiny::reactiveVal(NULL)
   target_time_annotation <- shiny::reactiveVal(NULL)
@@ -95,6 +101,7 @@ server <- function(input, output, session) {
   heatmapPlotWaiter <- CohortContrast:::createFullScreenWaiter("Creating the heatmap plot, please wait ...")
   timepanelPlotWaiter <- CohortContrast:::createFullScreenWaiter("Creating the time panel plot, please wait ...")
   trajectoryPlotWaiter <- CohortContrast:::createFullScreenWaiter("Creating the trajectory plot, please wait ...")
+  demographicPlotWaiter <- CohortContrast:::createFullScreenWaiter("Creating the demographic plot, please wait ...")
   combineConceptsWaiter <- CohortContrast:::createFullScreenWaiter("Mapping concepts, please wait ...")
   createSnapshotWaiter <- CohortContrast:::createFullScreenWaiter("Creating a snapshot, please wait ...")
   createVisualSnapshotWaiter <- CohortContrast:::createFullScreenWaiter("Creating a visual snapshot, please wait ...")
@@ -208,6 +215,8 @@ server <- function(input, output, session) {
       object$target_matrix <- data.table::as.data.table(object$target_matrix)
       object$target_row_annotation <- data.table::as.data.table(object$target_row_annotation)
       object$target_col_annotation <- data.table::as.data.table(object$target_col_annotation)
+      # Fix problems related to column classes
+      object$data_patients$PERSON_ID = as.integer(object$data_patients$PERSON_ID)
       # Forward the converted data.tables
       shiny::isolate({
         originalData(list(
@@ -235,6 +244,7 @@ server <- function(input, output, session) {
         data_features(data.table::copy(object$data_features))
         data_patients(data.table::copy(object$data_patients))
         data_initial(data.table::copy(object$data_initial))
+        data_person(data.table::copy(object$data_person))
         target_mod(data.table::copy(object$data_features))
 
         prevalence_plot_data(data.table::copy(object$compressedDatas[[abstractionLevelReactive()]]$prevalencePlotData))
@@ -380,6 +390,7 @@ server <- function(input, output, session) {
     activeDomains(input$domain)
     isRemoveUntreated(input$removeUntreated)
     isCorrelationView(input$correlationView)
+    selectedCorrelationGroup(NULL)
     correlationCutoff(if (!is.null(input$correlation_threshold)) input$correlation_threshold else 0.95)
                     })
 
@@ -494,7 +505,7 @@ server <- function(input, output, session) {
   output$prevalencePlot <- shiny::renderPlot({
     prevalencePlotWaiter$show()
     result <- tryCatch({
-      if (is.null(studyName()) | is.null(target_filtered())) {
+      if (is.null(studyName()) || is.null(target_filtered())) {
         CohortContrast:::getErrorPlot("Please select a study from the dashboard")
       } else {
         if (isPatientLevelDataPresent()) {
@@ -577,51 +588,221 @@ server <- function(input, output, session) {
     result
   }, height = function() min(160 + nrOfConcepts() * 24, 10000))
 
-  output$trajectoryGraph <- visNetwork::renderVisNetwork({
-    # Ensure required inputs are available
-    if (is.null(target_filtered()) ||
-        is.null(selectedCorrelationGroup()) ||
-        is.null(input$edge_prevalence_threshold)) {
-      CohortContrast:::getErrorPlot("Required inputs are missing for the trajectory graph")
+
+  output$dynamicTrajectoryGraphUI <- shiny::renderUI({
+    result <- NULL
+
+    if (is.null(studyName()) || is.null(target_filtered())) {
+      output$errorPlotTrajectory <- shiny::renderPlot({ CohortContrast:::getErrorPlot("Please select a study from the dashboard") })
+      result <- shiny::plotOutput("errorPlotTrajectory")
+    } else if (!isPatientLevelDataPresent()) {
+      output$errorPlotTrajectory <- shiny::renderPlot({ CohortContrast:::getErrorPlot("This feature is not supported without patient level data") })
+      result <- shiny::plotOutput("errorPlotTrajectory")
+    } else if ((is.null(selectedCorrelationGroup()) || identical(selectedCorrelationGroup(), character(0))) && isCorrelationView()) {
+      output$errorPlotTrajectory <- shiny::renderPlot({ CohortContrast:::getErrorPlot("A correlation group must be selected") })
+      result <- shiny::plotOutput("errorPlotTrajectory")
     } else {
-      trajectoryPlotWaiter$show()
-      result <- CohortContrast:::createCorrelationTrajectoryGraph(
-        target_filtered(),
-        selectedCorrelationGroup(),
-        input$edge_prevalence_threshold,
-        selected_trajectory_filtering_values(),
-        isCorrelationView()
+      result <- generateBPMNTrajectoryViewer(
+        filtered_target = target_filtered(),
+        edge_prevalence_threshold = input$edge_prevalence_threshold,
+        selection_list = selectedTrajectoryFilters$data,
+        selected_ids = selectedCorrelationGroup(),
+        is_patient_level_data_present = isPatientLevelDataPresent(),
+        is_corr_initiated = isCorrelationView()
       )
-      trajectoryPlotWaiter$hide()
-      result
+    }
+
+    result
+  })
+
+
+  ################################################################# DEMOGRPAHICS
+
+  output$dynamicDemographicAgeGraphUI <- shiny::renderUI({
+    demographicPlotWaiter$show()
+    result <- NULL
+
+    if (is.null(studyName()) || is.null(target_filtered())) {
+      output$dynamicDemographicAgePlots <- shiny::renderPlot({ CohortContrast:::getErrorPlot("Please select a study from the dashboard") })
+      result <- shiny::plotOutput("dynamicDemographicAgePlots")
+    } else if (!isPatientLevelDataPresent()) {
+      output$dynamicDemographicAgePlots <- shiny::renderPlot({ CohortContrast:::getErrorPlot("This feature is not supported without patient level data") })
+      result <- shiny::plotOutput("dynamicDemographicAgePlots")
+    } else {
+
+      plot_data <- CohortContrast:::getDemographyPlotData(data_patients = data_patients(), data_person = data_person(), data_initial = data_initial())
+      plot <- CohortContrast:::getDemographyAgeAtIndexPlot(plot_data = plot_data)
+
+      #combined_plot <- plot_target + plot_control + patchwork::plot_layout(ncol = 1)
+      output$dynamicDemographicAgePlots <- shiny::renderPlot({ plot })
+
+      result <- shiny::plotOutput("dynamicDemographicAgePlots", height = "700px", width = "100%")
+    }
+    demographicPlotWaiter$hide()
+    result
+  })
+
+  output$dynamicDemographicYearOfBirthGraphUI <- shiny::renderUI({
+    demographicPlotWaiter$show()
+    result <- NULL
+    if (is.null(studyName()) || is.null(target_filtered())) {
+      output$demographicYearOfBirthPlots <- shiny::renderPlot({ CohortContrast:::getErrorPlot("Please select a study from the dashboard") })
+      result <- shiny::plotOutput("demographicYearOfBirthPlots")
+    } else if (!isPatientLevelDataPresent()) {
+      output$demographicYearOfBirthPlots <- shiny::renderPlot({ CohortContrast:::getErrorPlot("This feature is not supported without patient level data") })
+      result <- shiny::plotOutput("demographicYearOfBirthPlots")
+    } else {
+
+    plot_data <- CohortContrast:::getDemographyPlotData(data_patients = data_patients(), data_person = data_person(), data_initial = data_initial())
+    plot <- CohortContrast:::getDemographyYearOfBirthPlot(plot_data = plot_data)
+
+   # combined_plot <- plot_target + plot_control + patchwork::plot_layout(ncol = 1)
+      output$demographicYearOfBirthPlots <- shiny::renderPlot({ plot })
+
+      result <- shiny::plotOutput("demographicYearOfBirthPlots", height = "700px", width = "100%")
+    }
+    demographicPlotWaiter$hide()
+    result
+  })
+
+  output$dynamicDemographicCompareGraphUI <- shiny::renderUI({
+    demographicPlotWaiter$show()
+    result <- NULL
+
+    if (is.null(studyName()) || is.null(target_filtered())) {
+      output$demographicComparePlots <- shiny::renderPlot({
+        CohortContrast:::getErrorPlot("Please select a study from the dashboard")
+      })
+      result <- shiny::plotOutput("demographicComparePlots")
+
+    } else if (!isPatientLevelDataPresent()) {
+      output$demographicComparePlots <- shiny::renderPlot({
+        CohortContrast:::getErrorPlot("This feature is not supported without patient level data")
+      })
+      result <- shiny::plotOutput("demographicComparePlots")
+
+    }
+    else if (isCorrelationView()) {
+
+      firstGroupPersonIds = NULL
+      secondGroupPersonIds = NULL
+      if (is.null(selectedFirstDemographicGroup()) || identical(selectedFirstDemographicGroup(), character(0))){
+        # firstGroupPersonIds = target_col_annotation()$SUBJECT_ID
+      } else {
+        firstGroupPersonIds = data_patients() %>% dplyr::filter(.data$CONCEPT_ID %in% selectedFirstDemographicGroup(),
+                                                                .data$COHORT_DEFINITION_ID == "target") %>% dplyr::pull(.data$PERSON_ID) %>% unique()
+      }
+
+      if (is.null(selectedSecondDemographicGroup()) || identical(selectedFirstDemographicGroup(), character(0))){
+        # secondGroupPersonIds = target_col_annotation()$SUBJECT_ID
+      } else {
+        secondGroupPersonIds = data_patients() %>% dplyr::filter(.data$CONCEPT_ID %in% selectedSecondDemographicGroup(),
+                                                                .data$COHORT_DEFINITION_ID == "target") %>% dplyr::pull(.data$PERSON_ID) %>% unique()
+      }
+      plot_data <- CohortContrast:::getDemographyPlotData(
+        data_patients = data_patients(),
+        data_person = data_person(),
+        data_initial = data_initial(),
+        groupOneIds = firstGroupPersonIds,
+        groupTwoIds = secondGroupPersonIds
+      )
+
+      plot <- CohortContrast:::getDemographyAgeAtIndexPlot(plot_data = plot_data)
+
+      output$demographicComparePlots <- shiny::renderPlot({ plot })
+
+      result <- shiny::plotOutput("demographicComparePlots", height = "700px", width = "100%")
+
+    } else {
+      firstGroupPersonIds <- data_patients() %>% dplyr::filter(.data$CONCEPT_ID %in% rownames(target_row_annotation()),
+                                                               .data$COHORT_DEFINITION_ID == "target") %>% dplyr::pull(.data$PERSON_ID) %>% unique()
+
+      plot_data <- CohortContrast:::getDemographyPlotData(
+        data_patients = data_patients(),
+        data_person = data_person(),
+        data_initial = data_initial(),
+        groupOneIds = firstGroupPersonIds
+      )
+      plot <- CohortContrast:::getDemographyAgeAtIndexPlot(plot_data = plot_data,
+                                                           title = "Relative Population Distribution by Gender and Age at Index. Active concepts vs Target")
+
+      output$demographicComparePlots <- shiny::renderPlot({ plot })
+
+      result <- shiny::plotOutput("demographicComparePlots", height = "700px", width = "100%")
+    }
+    demographicPlotWaiter$hide()
+    result
+  })
+
+  output$dynamic_demographic_widgets <- renderUI({
+    if (isTRUE(isCorrelationView())) {
+      # Pickers have to me moved out because they will be always reinitialized
+      result <- shiny::tagList(shiny::fluidRow(
+        shiny::column(6,
+                      shinyWidgets::pickerInput(
+                        inputId = "filter_demogrpahic_group_1",
+                        label = "Select first correlation group",
+                        choices = correlationGroupChoices(),  # Dynamically updated
+                        choicesOpt = correlationGroupChoicesLabels(), # Dynamically updated
+                        multiple = FALSE,
+                        options = shinyWidgets::pickerOptions(
+                          liveSearch = TRUE,
+                          title = "Search & select a group",
+                          header = "Select a group",
+                          style = "btn-primary"
+                        )
+                      )
+        ),
+        shiny::column(6,
+                      shinyWidgets::pickerInput(
+                        inputId = "filter_demogrpahic_group_2",
+                        label = "Select second correlation group",
+                        choices = correlationGroupChoices(),  # Dynamically updated
+                        choicesOpt = correlationGroupChoicesLabels(), # Dynamically updated
+                        multiple = FALSE,
+                        options = shinyWidgets::pickerOptions(
+                          liveSearch = TRUE,
+                          title = "Search & select a group",
+                          header = "Select a group",
+                          style = "btn-primary"
+                        )
+                      )
+        )
+      )
+      )
     }
   })
 
-  output$trajectoryGraphPlot <- shiny::renderPlot({
-    if (is.null(studyName()) || is.null(target_filtered())) {
-      CohortContrast:::getErrorPlot("Please select a study from the dashboard")
-    } else {
-      CohortContrast:::createCorrelationTrajectoryGraph(
-        target_filtered(),
-        selectedCorrelationGroup(),
-        input$edge_prevalence_threshold,
-        selected_trajectory_filtering_values(),
-        isCorrelationView(),
-        isPatientLevelDataPresent()
-      )
-    }
-  }, height = 160 + 1 * 24)
+  shiny::observeEvent(input$filter_demogrpahic_group_1, {
+    # Retrieve the selected group
+    if(isCorrelationView()){
+      selected <- input$filter_demogrpahic_group_1
+      # Initialize a variable to store selected IDs
+      selected_ids <- NULL
 
-  output$dynamicGraphUI <- renderUI({
-    result <- NULL
-    if (isFALSE(isCorrelationView()) ||
-        is.null(selectedCorrelationGroup()) ||
-        length(selectedCorrelationGroup()) == 0) {
-      result <- shiny::plotOutput("trajectoryGraphPlot")  # Use ggplot2 output
-    } else {
-      result <- visNetwork::visNetworkOutput("trajectoryGraph")  # Use visNetwork output
+      if (!is.null(selected)) {
+        # Split the selected group value into individual IDs
+        selected_ids <- unlist(strsplit(selected, ";"))
+      }
+      # Update the reactive value with the selected IDs
+      selectedFirstDemographicGroup(selected_ids)
     }
-    result
+  })
+
+  shiny::observeEvent(input$filter_demogrpahic_group_2, {
+    # Retrieve the selected group
+    if(isCorrelationView()){
+      selected <- input$filter_demogrpahic_group_2
+      # Initialize a variable to store selected IDs
+      selected_ids <- NULL
+
+      if (!is.null(selected)) {
+        # Split the selected group value into individual IDs
+        selected_ids <- unlist(strsplit(selected, ";"))
+      }
+      # Update the reactive value with the selected IDs
+      selectedSecondDemographicGroup(selected_ids)
+    }
   })
 
   ############################################################## VISUAL SNAPSHOT
@@ -773,7 +954,7 @@ server <- function(input, output, session) {
         data_initial = data_initial(),
         data_patients = data_patients(),
         data_features = data_features(),
-        data_person = cachedData()$data_person,
+        data_person = data_person(),
         complementaryMappingTable = cachedData()$complementaryMappingTable,
         target_matrix = cachedData()$target_matrix,
         target_row_annotation = cachedData()$target_row_annotation,
@@ -809,17 +990,6 @@ server <- function(input, output, session) {
             width = 4,
             uiOutput("correlation_group_selection"),
             actionButton("combine_corr_btn", "Combine Group Concepts")
-          ),
-          column(
-            width = 4,
-            sliderInput(
-              "edge_prevalence_threshold",
-              label = "Edge prevalence cutoff",
-              min = 0,
-              max = 1,
-              value = 0.5,
-              step = 0.01
-            )
           )
         )
       }
@@ -831,7 +1001,8 @@ server <- function(input, output, session) {
       shinyWidgets::pickerInput(
         inputId = "filter_correlation_group",
         label = "Select correlation group",
-        choices = NULL, # Start with no choices, they will be loaded server-side
+        choices = correlationGroupChoices(),  # Dynamically updated
+        choicesOpt = correlationGroupChoicesLabels(), # Dynamically updated
         multiple = FALSE,
         options = shinyWidgets::pickerOptions(
           liveSearch = TRUE, # Enable live search in the dropdown
@@ -869,20 +1040,16 @@ server <- function(input, output, session) {
         )
       }
 
-      # Update the pickerInput choices with group-level options
-      shinyWidgets::updatePickerInput(
-        session,
-        "filter_correlation_group",
-        choices = unlist(data_groups), # Flatten the list for pickerInput
-        choicesOpt = list(
-          content = unname(unlist(lapply(data_groups, names))) # Add HTML labels
-        )
-      )
+      correlationGroupChoices(unlist(data_groups))
+      correlationGroupChoicesLabels(list(
+        content = unname(unlist(lapply(data_groups, names))) # Add HTML labels
+      ))
     })
 
   # selected ids
   shiny::observeEvent(input$filter_correlation_group, {
       # Retrieve the selected group
+    if(isCorrelationView()){
       selected <- input$filter_correlation_group
       # Initialize a variable to store selected IDs
       selected_ids <- NULL
@@ -894,7 +1061,9 @@ server <- function(input, output, session) {
       # Update the reactive value with the selected IDs
       selectedCorrelationGroup(selected_ids)
       selectedCorrelationGroupLabels(getTrimmedConceptIDLabels(ids = selected_ids, data = data_features(), absLvl = as.numeric(abstractionLevelReactive())))
-    })
+    }
+      })
+
 
   shiny::observeEvent(input$combine_btn, {
    if(!isPatientLevelDataPresent()){
@@ -930,66 +1099,134 @@ server <- function(input, output, session) {
     }
   })
 
-  output$dynamic_selectize_trajectory_inputs <- renderUI({
-    if (length(selectedCorrelationGroupLabels()$labels) == 0 | isFALSE(isCorrelationView())) {
+
+######################################################### TRAJECTORY FILTERING
+  shiny::observe({
+    state_names <- selectedCorrelationGroupLabels()$labelsTrimmed
+    if (length(state_names) > 0 && length(selectedTrajectoryFilters$data) == 0) {
+      for (state in state_names) {
+        selectedTrajectoryFilters$data[[state]] <- "All events"
+      }
+    }
+  })
+
+  # Apply "Select All" when button is clicked
+  shiny::observeEvent(input$apply_select_all, {
+    state_names <- selectedCorrelationGroupLabels()$labelsTrimmed
+    selected_value <- input$select_all
+
+    for (state in state_names) {
+      selectedTrajectoryFilters$data[[state]] <- selected_value
+    }
+  })
+
+  # Handle individual selection updates
+  shiny::observeEvent(input$radio_selection, {
+    state_name <- input$radio_selection$state
+    selected_value <- input$radio_selection$value
+    # Update the specific state without resetting everything
+    selectedTrajectoryFilters$data[[state_name]] <- selected_value
+  })
+
+
+  output$trajectory_view_table <- DT::renderDT({
+    state_names <- selectedCorrelationGroupLabels()$labelsTrimmed
+    if (length(state_names) == 0) return(NULL)
+
+    choices <- c("First occurrence", "All events", "Last occurrence")
+
+    # Function to generate radio button HTML
+    generateRadioButtons <- function(inputId, selected_value) {
+      paste0(
+        '<input type="radio" name="', inputId, '" value="First occurrence" ',
+        ifelse(selected_value == "First occurrence", "checked", ""),
+        ' onclick="updateRadioValue(\'', inputId, '\', \'First occurrence\')"> First occurrence ',
+
+        '<input type="radio" name="', inputId, '" value="All events" ',
+        ifelse(selected_value == "All events", "checked", ""),
+        ' onclick="updateRadioValue(\'', inputId, '\', \'All events\')"> All events ',
+
+        '<input type="radio" name="', inputId, '" value="Last occurrence" ',
+        ifelse(selected_value == "Last occurrence", "checked", ""),
+        ' onclick="updateRadioValue(\'', inputId, '\', \'Last occurrence\')"> Last occurrence '
+      )
+    }
+    df <- data.frame(
+      State = state_names,
+      Selection = sapply(state_names, function(state) {
+        inputId <- state
+
+        # Always prioritize manual selections
+        selected_value <- if (!is.null(selectedTrajectoryFilters$data[[state]])) {
+          selectedTrajectoryFilters$data[[state]]  # Use the manually selected value
+        } else {
+          "All events"  # Default value for newly added states
+        }
+
+        generateRadioButtons(inputId, selected_value)
+      }),
+      stringsAsFactors = FALSE
+    )
+
+    DT::datatable(
+      df,
+      escape = FALSE,
+      rownames = FALSE,
+      selection = "none",
+      options = list(
+        paging = FALSE,
+        ordering = FALSE
+      )
+    )
+  })
+
+
+  output$dynamic_selectize_trajectory_inputs <- shiny::renderUI({
+    if (is.null(studyName()) || is.null(target_filtered()) || isFALSE(isPatientLevelDataPresent())) {
       return(NULL)
     }
-
-    state_names <- selectedCorrelationGroupLabels()
-    state_names <- state_names$labelsTrimmed
-    # Split state names into two roughly equal groups
+    if (!isCorrelationView()) {
+      selected_ids = as.character(rownames(target_row_annotation()))
+      selectedCorrelationGroup(selected_ids)
+      selectedCorrelationGroupLabels(getTrimmedConceptIDLabels(ids = selected_ids, data = data_features(), absLvl = as.numeric(abstractionLevelReactive())))
+    }
+    state_names <- selectedCorrelationGroupLabels()$labelsTrimmed
     n <- length(state_names)
     half <- ceiling(n / 2)
     col1_states <- state_names[1:half]
     col2_states <- state_names[(half + 1):n]
 
-    # Create the UI layout with a separate row for the title
-    tagList(
-      fluidRow(
-        column(12, h4("Filter trajectory states", style = "margin-top: 10px;"))
-      ),
-      fluidRow(
-        column(
-          width = 6, # First column (half width)
-          lapply(col1_states, function(state) {
-            selectizeInput(
-              inputId = paste0("select_", state),
-              label = state,
-              choices = c("First occurrence", "All events", "Last occurrence"),
-              selected = "All events"
-            )
-          })
-        ),
-        column(
-          width = 6, # Second column (half width)
-          lapply(col2_states, function(state) {
-            selectizeInput(
-              inputId = paste0("select_", state),
-              label = state,
-              choices = c("First occurrence", "All events", "Last occurrence"),
-              selected = "All events"
-            )
-          })
+    shiny::tagList(
+      shiny::fluidRow(
+        shiny::column(12, shiny::h4("Filter trajectory states", style = "margin-top: 10px; margin-left: 20px;")),
+        shiny::column(
+          width = 4,
+          style = "margin-left: 20px;",
+          shiny::sliderInput(
+            "edge_prevalence_threshold",
+            label = "Edge prevalence cutoff",
+            min = 0,
+            max = 1,
+            value = 0.5,
+            step = 0.01
+          )
         )
-      )
+      ),
+      shiny::fluidRow(
+        shiny::column(
+          12,
+          style = "margin-left: 20px;",
+          shiny::radioButtons(
+            "select_all", "Apply to all:",
+            choices = c("First occurrence", "All events", "Last occurrence"),
+            selected = "All events",
+            inline = TRUE
+          ),
+          shiny::actionButton("apply_select_all", "Apply Selection to All")
+        )
+      ),
+      DT::DTOutput("trajectory_view_table")
     )
-  })
-
-  ######################################################### TRAJECTORY FILTERING
-  selected_trajectory_filtering_values <- reactive({
-    state_names <- selectedCorrelationGroupLabels()
-
-    state_names_trimmed <- state_names$labelsTrimmed
-    state_names_original <- state_names$labels
-
-    # Get the selected value for each state
-    selections <- lapply(state_names_trimmed, function(state) {
-      input[[paste0("select_", state)]] # Access input value dynamically
-    })
-
-    # Return a named list
-    names(selections) <- state_names_original
-    selections
   })
 
   ################################################################ SAVE SNAPSHOT
@@ -1022,7 +1259,7 @@ server <- function(input, output, session) {
         data_initial = data_initial(),
         data_patients = data_patients(),
         data_features = data_features(),
-        data_person = cachedData()$data_person,
+        data_person = data_person(),
         filtered_target = temp_filtered_target,
         complementaryMappingTable = complementaryMappingTable(),
         config = cachedData()$config
@@ -1491,13 +1728,15 @@ server <- function(input, output, session) {
 
   observeEvent(isCorrelationView(), {
     shiny::req(studyName())
-    # Only trigger when input$correlationView is TRUE
+    # Only trigger when input$correlationView is changed to TRUE
     if (isTRUE(isCorrelationView())) {
       shiny::observe({
         shiny::req(studyName())
         later::later(function() {
           isolate({
             correlationGroups(NULL)
+            correlationGroupChoices(NULL)
+            correlationGroupChoicesLabels(NULL)
           })
         }, delay = 0.5)
       })
@@ -1514,6 +1753,7 @@ server <- function(input, output, session) {
     data_features <- data_features()
     data_patients <- data_patients()
     data_initial <- data_initial()
+    data_person <- data_person()
     complementary_mapping <- complementaryMappingTable()
 
     # Assuming data_initial, data_features, and processed_table are data.tables
@@ -1759,7 +1999,7 @@ server <- function(input, output, session) {
       data_initial = data_initial,
       data_patients = data_patients,
       data_features = data_features,
-      data_person = cachedData()$data_person,
+      data_person = data_person,
       complementaryMappingTable = complementary_mapping,
       # Preserve existing values if needed
       target_matrix = cachedData()$target_matrix,
@@ -1784,10 +2024,12 @@ server <- function(input, output, session) {
     data_features <- data_features()
     data_patients_filtering <- data_patients()
     data_initial_filtering <- data_initial()
+    data_person_filtering <- data_person()
     complementary_mapping <- complementaryMappingTable()
 
     # Convert from int64
     data_initial_filtering$SUBJECT_ID <- as.integer(data_initial_filtering$SUBJECT_ID)
+    data_person_filtering$PERSON_ID <- as.integer(data_person_filtering$PERSON_ID)
     data_patients_filtering$PERSON_ID <- as.integer(data_patients_filtering$PERSON_ID)
     # Step 1: Filter rows where COHORT_DEFINITION_ID is 'control'
     data_patients_control <- data_patients_filtering[
@@ -1845,6 +2087,8 @@ server <- function(input, output, session) {
 
     # Step 3: Combine the filtered data tables
     data_initial_filtering <- data.table::rbindlist(list(target_filter, control_filter))
+
+    data_person_filtering <- data_person_filtering[PERSON_ID %in% c(control_ids, target_ids)]
 
 
     count_target <- data_initial_filtering[
@@ -1904,6 +2148,7 @@ server <- function(input, output, session) {
     data_features(data_features_filtering)
     data_patients(data_patients_filtering)
     data_initial(data_initial_filtering)
+    data_person(data_person_filtering)
 
     cachedData(list(
       data_initial = data_initial_filtering,
@@ -1953,6 +2198,42 @@ server <- function(input, output, session) {
         return(x)  # Copy primitives (numeric, character, logical, NULL)
       }
     })
+  }
+
+  generateBPMNTrajectoryViewer <- function(filtered_target = NULL, edge_prevalence_threshold = 0.5, selection_list = NULL, selected_ids = NULL, is_patient_level_data_present = NULL, is_corr_initiated = FALSE) {
+    # Ensure edgePrevalence has a default value
+    edge_prevalence <- if (is.null(edge_prevalence_threshold)) 0.5 else edge_prevalence_threshold
+
+    # Generate BPMN JSON data
+    bpmn_json <- CohortContrast:::createBPMNTrajectoryData(
+      filtered_target = filtered_target,
+      edgePrevalence = edge_prevalence,
+      selectionList = selection_list,
+      selectedIds = selected_ids,
+      isPatientLevelDataPresent = is_patient_level_data_present
+    )
+
+    # Convert the BPMN data to JSON format
+    json_data <- jsonlite::toJSON(bpmn_json, auto_unbox = TRUE)
+
+    # Generate the BPMN Viewer iframe and send JSON data
+    result = htmltools::tagList(
+      # ✅ Load the BPMN Viewer
+      tags$iframe(
+        id = "bpmnFrame",
+        src = "public/index.html",
+        width = "100%",
+        height = "650px"
+      ),
+
+      # ✅ Send JSON Data to the iFrame after it loads
+      tags$script(HTML(paste0("
+      document.getElementById('bpmnFrame').onload = function() {
+        console.log('✅ Sending BPMN Data to iframe...');
+        document.getElementById('bpmnFrame').contentWindow.postMessage(", json_data, ", '*');
+      };
+    ")))
+    )
   }
 
   }
