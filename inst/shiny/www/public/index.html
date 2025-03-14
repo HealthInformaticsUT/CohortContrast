@@ -6,9 +6,9 @@
     <title>BPMN-js Modeler</title>
 
     <!-- ✅ Required BPMN-js Stylesheets -->
-    <link rel="stylesheet" href="https://unpkg.com/bpmn-js@10.2.0/dist/assets/diagram-js.css" />
-    <link rel="stylesheet" href="https://unpkg.com/bpmn-js@10.2.0/dist/assets/bpmn-font/css/bpmn-embedded.css" />
-    <link rel="stylesheet" href="./css/app.css" /> <!-- If you have additional custom styles -->
+    <link rel="stylesheet" href="./libs/bpmn-js/diagram-js.css" />
+    <link rel="stylesheet" href="./libs/bpmn-js/bpmn-embedded.css" />
+    <link rel="stylesheet" href="./css/app.css" />
 
     <style>
         #bpmn-container {
@@ -21,7 +21,7 @@
 <body>
     <div id="bpmn-container"></div>
     <!-- ✅ Load BPMN-js -->
-    <script src="https://unpkg.com/bpmn-js@10.2.0/dist/bpmn-modeler.production.min.js"></script>
+    <script src="./libs/bpmn-js/bpmn-modeler.production.min.js"></script>
     <!-- ✅ Load Application Scripts as ES Modules -->
     <script type="module" src="../src/bpmnRenderer.js"></script>
     <script type="module" src="../src/index.js"></script>
