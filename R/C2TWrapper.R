@@ -66,7 +66,7 @@ C2TCaller <- function(data,
     trajectoryDataObject$cohort_definition_id = sanitize(trajectoryDataObject$cohort_definition_id)
     trajectoryDataObject$subject_id = as.integer(trajectoryDataObject$subject_id)
     stateCohortLabels <- sanitize(dplyr::setdiff(unique(trajectoryDataObject$cohort_definition_id), c("0")))
-    allowedStatesList = Cohort2Trajectory:::createStateList(stateCohortLabels)
+    allowedStatesList = Cohort2Trajectory::createStateList(stateCohortLabels)
 
     studyEnv <- Cohort2Trajectory::cohort2TrajectoryConfiguration(
       baseUrl = NULL,

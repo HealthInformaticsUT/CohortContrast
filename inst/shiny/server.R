@@ -207,6 +207,8 @@ server <- function(input, output, session) {
     studyName(correct_study_name)
     if (file.exists(file_path)) {
       object <- readRDS(file_path)
+      # Fix problems related to column classes
+      object$data_patients$PERSON_ID = as.integer(object$data_patients$PERSON_ID)
       # Ensure that all relevant components are converted to data.table
       object$data_initial <- data.table::as.data.table(object$data_initial)
       object$data_patients <- data.table::as.data.table(object$data_patients)
@@ -215,8 +217,6 @@ server <- function(input, output, session) {
       object$target_matrix <- data.table::as.data.table(object$target_matrix)
       object$target_row_annotation <- data.table::as.data.table(object$target_row_annotation)
       object$target_col_annotation <- data.table::as.data.table(object$target_col_annotation)
-      # Fix problems related to column classes
-      object$data_patients$PERSON_ID = as.integer(object$data_patients$PERSON_ID)
       # Forward the converted data.tables
       shiny::isolate({
         originalData(list(

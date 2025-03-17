@@ -59,9 +59,9 @@ getDemographyYearOfBirthPlot <- function(plot_data = NULL) {
       y = "Relative Size"
     ) +
     # Annotate Labels for Male & Female
-    ggplot2::annotate("text", x = quantile(demographic_data$YEAR_OF_BIRTH, probs = 0.8), y = 0.012,
+    ggplot2::annotate("text", x = stats::quantile(demographic_data$YEAR_OF_BIRTH, probs = 0.8), y = 0.012,
                       label = "Female", color = "purple", size = 5, fontface = "bold") +
-    ggplot2::annotate("text", x = quantile(demographic_data$YEAR_OF_BIRTH, probs = 0.8), y = -0.012,
+    ggplot2::annotate("text", x = stats::quantile(demographic_data$YEAR_OF_BIRTH, probs = 0.8), y = -0.012,
                       label = "Male", color = "darkgreen", size = 5, fontface = "bold") +
     # Custom Theme for Bigger Axis Labels
     ggplot2::theme_minimal() +
@@ -150,9 +150,9 @@ getDemographyAgeAtIndexPlot <- function(plot_data = NULL,
       y = "Relative Size"
     ) +
     # Annotate Labels for Male & Female
-    ggplot2::annotate("text", x = quantile(demographic_data$AGE_AT_INDEX, probs = 0.2), y = 0.012,
+    ggplot2::annotate("text", x = stats::quantile(demographic_data$AGE_AT_INDEX, probs = 0.2), y = 0.012,
                       label = "Female", color = "purple", size = 5, fontface = "bold") +
-    ggplot2::annotate("text", x = quantile(demographic_data$AGE_AT_INDEX, probs = 0.2), y = -0.012,
+    ggplot2::annotate("text", x = stats::quantile(demographic_data$AGE_AT_INDEX, probs = 0.2), y = -0.012,
                       label = "Male", color = "darkgreen", size = 5, fontface = "bold") +
     # Custom Theme for Bigger Axis Labels
     ggplot2::theme_minimal() +
