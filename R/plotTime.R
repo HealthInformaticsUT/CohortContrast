@@ -115,7 +115,7 @@ getTimePlotRegular <- function(plot_data) {
   # Compute median time for each concept within each heritage group
   concept_order <- plot_data %>%
     dplyr::group_by(HERITAGE, CONCEPT_NAME) %>%
-    dplyr::summarise(median_time = median(TIME_TO_EVENT, na.rm = TRUE), .groups = "drop") %>%
+    dplyr::summarise(median_time = stats::median(TIME_TO_EVENT, na.rm = TRUE), .groups = "drop") %>%
     dplyr::arrange(HERITAGE, median_time)  # Ensure ascending order
 
   # Convert CONCEPT_NAME into a factor, ordered in ascending median time within each HERITAGE

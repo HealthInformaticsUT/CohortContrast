@@ -84,9 +84,9 @@ createBPMNTrajectoryData <- function(filtered_target = NULL, selectedIds = NULL,
   colnames(edges_summary) = tolower(colnames(edges_summary))
   nodes <- edges_summary %>%
     dplyr::group_by(concept_name) %>%
-    dplyr::summarize(median_time_of_occurrence = median(median_time_of_occurrence, na.rm = TRUE)) %>%
+    dplyr::summarize(median_time_of_occurrence = stats::median(median_time_of_occurrence, na.rm = TRUE)) %>%
     dplyr::ungroup() %>%
-    rename(label = concept_name)
+    dplyr::rename(label = concept_name)
 
   nodes_endless <- setdiff(edges_summary$next_concept_name, nodes$label)
   for (endless_node in nodes_endless) {
@@ -98,7 +98,7 @@ createBPMNTrajectoryData <- function(filtered_target = NULL, selectedIds = NULL,
   # Assign unique IDs
   nodes <- nodes %>%
     dplyr::arrange(median_time_of_occurrence) %>%
-    dplyr::mutate(id = paste0("Node_", row_number()))
+    dplyr::mutate(id = paste0("Node_", dplyr::row_number()))
 
   # Assign BPMN Types
   nodes <- nodes %>%
@@ -112,7 +112,7 @@ createBPMNTrajectoryData <- function(filtered_target = NULL, selectedIds = NULL,
 
   # Step 2: Assign X-Coordinates Based on Order (100px apart)
   nodes <- nodes %>%
-    mutate(position_x = row_number() * 250)  # ✅ Every node is spaced 100px apart
+    dplyr::mutate(position_x = dplyr::row_number() * 250)  # ✅ Every node is spaced 100px apart
 
   # Step 3: Improve Spreading of Overlapping Nodes (Stagger Overlapping)
   threshold <- 30  # Time similarity threshold for stacking
