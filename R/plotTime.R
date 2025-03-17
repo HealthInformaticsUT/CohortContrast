@@ -132,7 +132,7 @@ getTimePlotRegular <- function(plot_data) {
   p <- ggplot2::ggplot(
     plot_data,
     ggplot2::aes(
-      y = CONCEPT_NAME,  # Now using the properly ordered factor
+      y = CONCEPT_NAME,
       x = .data$TIME_TO_EVENT,
       group = .data$CONCEPT_NAME
     )
@@ -174,54 +174,44 @@ getTimePlotCorrelation <- function(plot_data) {
   # Get time range
   time_min <- min(plot_data$TIME_TO_EVENT, na.rm = TRUE)
   time_max <- max(plot_data$TIME_TO_EVENT, na.rm = TRUE)
+  # Compute median time for each concept within each group
+  # Compute median time for each concept within each group
+  concept_order <- plot_data %>%
+    dplyr::group_by(Group, CONCEPT_NAME) %>%
+    dplyr::summarise(median_time = stats::median(TIME_TO_EVENT, na.rm = TRUE), .groups = "drop") %>%
+    dplyr::arrange(Group, median_time)  # Ensure ascending order
+
+  # Create a combined ordering column for proper factor sorting
+  concept_order <- concept_order %>%
+    dplyr::mutate(ordering = paste0(Group, "-", CONCEPT_NAME))
+
+  # Ensure factor levels respect the ordering per group
+  plot_data <- plot_data %>%
+    dplyr::left_join(concept_order, by = c("Group", "CONCEPT_NAME")) %>%
+    dplyr::mutate(CONCEPT_NAME = forcats::fct_reorder(CONCEPT_NAME, median_time, .desc = TRUE))
 
   # Create a palette that repeats as needed for the number of groups
   num_groups <- length(unique(plot_data$Group))
   palette_colors <- RColorBrewer::brewer.pal(min(num_groups, 12), "Set3")
   palette_colors <- rep(palette_colors, length.out = num_groups)  # Repeat colors to match groups
 
-  # Create the plot with repeated fill colors for groups
+  # Create the plot
   p <- ggplot2::ggplot(
     plot_data,
     ggplot2::aes(
-      y = stringr::str_sub(.data$CONCEPT_NAME, 1, 60),
-      x = .data$TIME_TO_EVENT,
-      group = .data$CONCEPT_NAME,
-      fill = factor(.data$Group)  # Map Group to fill
+      y = CONCEPT_NAME,
+      x = TIME_TO_EVENT,
+      group = CONCEPT_NAME,
+      fill = factor(Group)
     )
   ) +
-    # Add horizontal violin plot
-    ggplot2::geom_violin(
-      width = 1.2,
-      color = NA,
-      alpha = 0.5,
-      trim = FALSE
-    ) +
-    ggplot2::geom_boxplot(
-      fill = NA,  # Keep boxplot borders
-      outliers = FALSE,
-      width = 0.3
-    ) +
-    # Faceting by Group
-    ggplot2::facet_grid(
-      .data$Group ~ .,
-      scales = "free_y",
-      space = "free"
-    ) +
-    ggplot2::scale_x_continuous(
-      limits = c(time_min, time_max),
-      sec.axis = ggplot2::dup_axis(),
-      expand = ggplot2::expansion(mult = 0.01)
-    ) +
-    # Manually define fill colors for groups
+    ggplot2::geom_violin(width = 1.2, color = NA, alpha = 0.5, trim = FALSE) +
+    ggplot2::geom_boxplot(fill = NA, outliers = FALSE, width = 0.3) +
+    ggplot2::facet_grid(Group ~ ., scales = "free_y", space = "free") +
+    ggplot2::scale_x_continuous(limits = c(time_min, time_max), sec.axis = ggplot2::dup_axis(), expand = ggplot2::expansion(mult = 0.01)) +
     ggplot2::scale_fill_manual(values = palette_colors) +
-    # Enhance the plot appearance with a minimal theme
     ggplot2::theme_bw() +
-    ggplot2::labs(
-      title = "Event occurrences timing (days since index)",
-      x = "",
-      y = ""
-    ) +
+    ggplot2::labs(title = "Event occurrences timing (days since index)", x = "", y = "") +
     ggplot2::theme(
       legend.position = "none",
       strip.background = ggplot2::element_blank(),
