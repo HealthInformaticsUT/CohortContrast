@@ -216,6 +216,8 @@ body <- shinydashboard::dashboardBody(
                    column(2, h3("Hierarchy Panel")),
                    column(10, div(
                      actionButton("combine_hierarchy_suggestion_btn", "Combine",
+                                  style = "margin-top: 15px; padding: 5px;"),
+                     actionButton("combine_hierarchy_suggestion_automatic_btn", "Auto-Combine",
                                   style = "margin-top: 15px; padding: 5px;") # Adjust top spacing
                    ))
                  ),

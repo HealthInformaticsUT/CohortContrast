@@ -1013,6 +1013,30 @@ server <- function(input, output, session) {
     }
   })
 
+  shiny::observeEvent(input$combine_hierarchy_suggestion_automatic_btn, {
+    combineConceptsWaiter$show()
+    if(!isPatientLevelDataPresent()){
+      CohortContrast:::showNoPatientDataAllowedWarning()
+    } else {
+      mappingsToExecute <- filter_priority_mappings(hierarchySuggestionsTable())
+      apply(mappingsToExecute, 1, function(row) {
+
+        selected_concept_ids <- as.numeric(unlist(row['CONCEPT_IDS']))
+        if(!any(is.na(selected_concept_ids))){
+        selected_parent_id <- as.numeric(row['PARENT_ID'])
+        selected_parent_name <- as.character(row['PARENT_NAME'])
+        combineSelectedConcepts(new_concept_name = selected_parent_name,
+                                new_concept_id =  selected_parent_id,
+                                selected_ids = selected_concept_ids)
+        updatedHierarchySuggestionsTable = hierarchySuggestionsTable() %>%
+          dplyr::filter(!sapply(CONCEPT_IDS, function(ids) any(selected_concept_ids %in% ids)))
+        updateHierarchySuggestions(updatedHierarchySuggestionsTable)
+      }
+        })
+      target_mod(data_features())
+    }
+    combineConceptsWaiter$hide()
+  })
 
   output$mapping_correlation_suggestions_concept_table <- DT::renderDT({
     shiny::req(studyName(), correlationSuggestionsTable())
@@ -1859,6 +1883,7 @@ server <- function(input, output, session) {
   # Function to combine selected concepts
   combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, selected_ids = NULL) {
     # selected_rows <- input$concept_table_rows_selected
+
     # selected_ids <- selectedCorrelationGroup()
     abstraction_level <- as.numeric(abstractionLevelReactive())
     data_features <- data_features()
@@ -1867,6 +1892,18 @@ server <- function(input, output, session) {
     data_person <- data_person()
     complementary_mapping <- complementaryMappingTable()
     # Assuming data_initial, data_features, and processed_table are data.tables
+
+    # check if new_concept_name can be used
+    used_concept_names <- unique(data_patients$CONCEPT_NAME)
+    counter = 2
+    maybe_new_concept_name = new_concept_name
+    while(maybe_new_concept_name %in% used_concept_names){
+      maybe_new_concept_name = paste(new_concept_name, counter, sep = " ")
+      counter = counter + 1
+      cli::cli_alert_warning(paste0("Mapped '", gsub("\\{", "{{", gsub("\\}", "}}", new_concept_name)), "' to '",  gsub("\\{", "{{", gsub("\\}", "}}", maybe_new_concept_name)), "' because of duplicate concept names for differing ids!"))
+    }
+    new_concept_name = maybe_new_concept_name
+
     # Step 1: Grouping and summarizing, followed by reshaping
     n_patients_temp <- data_initial[, .N, by = COHORT_DEFINITION_ID]
     n_patients <- reshape2::dcast(n_patients_temp, formula = 1 ~ COHORT_DEFINITION_ID, value.var = "N", fill = 0)
@@ -1884,23 +1921,6 @@ server <- function(input, output, session) {
     representingLogitTest = NA
     representingKSTest = NA
 
-    # if(isManualCombine) {
-    #   # Step 3: Filtering processed_table and selecting concept IDs
-    #   selected_concept_ids <- as.numeric(processed_table$CONCEPT_ID[selected_rows])
-    #   selected_concept_names <- processed_table$CONCEPT_NAME[selected_rows]
-    #
-    #   representingConceptId <- selected_concept_ids[
-    #     which.max(as.numeric(processed_table$PREVALENCE_DIFFERENCE_RATIO[selected_rows]))
-    #   ]
-    #   representingHeritage <- processed_table$HERITAGE[selected_rows][
-    #     which.max(as.numeric(processed_table$PREVALENCE_DIFFERENCE_RATIO[selected_rows]))]
-    #
-    #   # Step 4: Determining ZTEST, KSTEST and LOGITTEST values
-    #   representingZTest <- any(processed_table$ZTEST[selected_rows])
-    #   representingLogitTest <- any(processed_table$LOGITTEST[selected_rows])
-    #   representingKSTest <- any(processed_table$KSTEST[selected_rows])
-    # }
-  #  else {
       # Step 3: Filtering processed_table and selecting concept IDs
       selected_concept_ids <- as.numeric(selected_ids)
       selected_concept_names <- processed_table[CONCEPT_ID %in% selected_concept_ids, CONCEPT_NAME]
@@ -1917,18 +1937,7 @@ server <- function(input, output, session) {
       representingZTest <- any(processed_table[CONCEPT_ID %in% selected_concept_ids, ZTEST])
       representingLogitTest <- any(processed_table[CONCEPT_ID %in% selected_concept_ids, LOGITTEST])
       representingKSTest <- any(processed_table[CONCEPT_ID %in% selected_concept_ids, KSTEST])
-   # }
 
-    # Step 5: Updating data_features with new values
-    # data_features[
-    #   CONCEPT_ID == representingConceptId & ABSTRACTION_LEVEL == abstraction_level,
-    #   `:=`(
-    #     ZTEST = representingZTest,
-    #     LOGITTEST = representingLogitTest,
-    #     KSTEST = representingKSTest,
-    #     HERITAGE = representingHeritage
-    #   )
-    # ]
     new_row <- data.table::data.table(
       CONCEPT_ID = representingConceptId,
       CONCEPT_NAME = new_concept_name,
@@ -2394,5 +2403,42 @@ server <- function(input, output, session) {
     correlationSuggestionsTable(result)
   }
 
+
+  filter_priority_mappings <- function(df) {
+    # Ensure the dataframe is sorted by COUNT in descending order
+    df <- df %>%
+      dplyr::arrange(dplyr::desc(COUNT))
+
+    # Identify rows where PARENT_ID is present in CONCEPT_IDS
+    df <- df %>%
+      dplyr::mutate(PARENT_IN_CONCEPTS = purrr::map2_lgl(PARENT_ID, CONCEPT_IDS,
+                                                         ~ .x %in% .y))
+
+    # Filter to keep only rows where PARENT_ID appears in CONCEPT_IDS
+    sub_df <- df %>% dplyr::filter(PARENT_IN_CONCEPTS)
+
+    # Initialize selected rows and tracking vector for removed concept IDs
+    selected_rows <- list()
+    removed_concepts <- c()
+
+    # Iterate through sorted sub_df, selecting highest-priority rows first
+    for (i in seq_len(nrow(sub_df))) {
+      row <- sub_df[i, ]
+
+      # Extract concept IDs
+      concept_ids <- unlist(row$CONCEPT_IDS)
+
+      # If none of the concept_ids are in removed_concepts, keep this row
+      if (!any(concept_ids %in% removed_concepts)) {
+        selected_rows <- append(selected_rows, list(row))
+        removed_concepts <- c(removed_concepts, concept_ids)  # Track used concept IDs
+      }
+    }
+
+    # Combine selected rows into a dataframe
+    final_df <- dplyr::bind_rows(selected_rows)
+
+    return(final_df)
+  }
   }
 
