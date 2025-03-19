@@ -1894,7 +1894,7 @@ server <- function(input, output, session) {
     # Assuming data_initial, data_features, and processed_table are data.tables
 
     # check if new_concept_name can be used
-    used_concept_names <- unique(data_patients$CONCEPT_NAME)
+    used_concept_names <- unique(data_patients %>% dplyr::filter(!(.data$CONCEPT_ID %in% selected_ids)) %>%  dplyr::pull(CONCEPT_NAME))
     counter = 2
     maybe_new_concept_name = new_concept_name
     while(maybe_new_concept_name %in% used_concept_names){
