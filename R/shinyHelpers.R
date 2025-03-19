@@ -660,3 +660,138 @@ if (is.data.frame(complementaryMappingTable)) {
 }
  return(data)
 }
+
+#' @keywords internal
+mergeCorrelationWithTransitions <- function(correlation_data, transition_data) {
+
+  # Ensure CONCEPT_IDS is a list of exactly two elements
+  correlation_data <- correlation_data %>%
+    dplyr::mutate(
+      CONCEPT_IDS = purrr::map(CONCEPT_IDS, function(x) {
+        if (!is.list(x) && length(x) == 2) return(as.list(x)) # Convert vectors to lists
+        if (is.list(x) && length(x) == 2) return(x)  # Already a list with 2 elements
+        return(list(NA, NA)) # Handle unexpected cases
+      })
+    )
+
+  # Extract concept IDs safely
+  correlation_data <- correlation_data %>%
+    dplyr::mutate(
+      CONCEPT_ID_1 = purrr::map_int(CONCEPT_IDS, ~ as.integer(.x[[1]])),
+      CONCEPT_ID_2 = purrr::map_int(CONCEPT_IDS, ~ as.integer(.x[[2]]))
+    )  # Drop the original list column
+
+  # Ensure integer format for joins
+  correlation_data <- correlation_data %>%
+    dplyr::mutate(
+      CONCEPT_ID_1 = as.integer(CONCEPT_ID_1),
+      CONCEPT_ID_2 = as.integer(CONCEPT_ID_2)
+    )
+
+  # Join with transition data in both possible orders
+  merged_data <- correlation_data %>%
+    dplyr::left_join(transition_data,
+                     by = c("CONCEPT_ID_1" = "CONCEPT_ID", "CONCEPT_ID_2" = "NEXT_CONCEPT_ID")) %>%
+    dplyr::left_join(transition_data,
+                     by = c("CONCEPT_ID_1" = "NEXT_CONCEPT_ID", "CONCEPT_ID_2" = "CONCEPT_ID"),
+                     suffix = c("_direct", "_reverse"))
+
+  # Merge transition times from both joins (pick non-NA)
+  merged_data <- merged_data %>%
+    dplyr::mutate(MEDIAN_TRANSITION_TIME = dplyr::coalesce(MEDIAN_TRANSITION_TIME_direct, MEDIAN_TRANSITION_TIME_reverse)) %>%
+    dplyr::select(-MEDIAN_TRANSITION_TIME_direct, -MEDIAN_TRANSITION_TIME_reverse)
+
+  # Keep only the original columns from correlation_data + MEDIAN_TRANSITION_TIME
+  result <- merged_data %>%
+    dplyr::select(CONCEPT_NAMES, CONCEPT_IDS, CORRELATION,P_VALUE, MEDIAN_DAYS_INBETWEEN = MEDIAN_TRANSITION_TIME)
+  return(result)
+}
+
+#' @keywords internal
+calculateMedianTransitions <- function(data) {
+
+  # Expand TIME_TO_EVENT list column
+  data_long <- data %>%
+    tidyr::unnest(TIME_TO_EVENT) %>%
+    dplyr::arrange(PERSON_ID, TIME_TO_EVENT)
+
+  # Create lead CONCEPT_ID and TIME_TO_EVENT to calculate transitions
+  data_long <- data_long %>%
+    dplyr::group_by(PERSON_ID) %>%
+    dplyr::mutate(
+      NEXT_CONCEPT_ID = dplyr::lead(CONCEPT_ID),
+      NEXT_TIME_TO_EVENT = dplyr::lead(TIME_TO_EVENT)
+    ) %>%
+    dplyr::filter(!is.na(NEXT_CONCEPT_ID)) %>%  # Remove rows without a next event
+    dplyr::ungroup()
+
+  # Compute transition times
+  data_long <- data_long %>%
+    dplyr::mutate(TRANSITION_TIME = NEXT_TIME_TO_EVENT - TIME_TO_EVENT)
+
+  # Calculate median transition time for each concept pair
+  median_transitions <- data_long %>%
+    dplyr::group_by(CONCEPT_ID, NEXT_CONCEPT_ID) %>%
+    dplyr::summarise(MEDIAN_TRANSITION_TIME = stats::median(TRANSITION_TIME, na.rm = TRUE), .groups = "drop") %>%
+    dplyr::filter(CONCEPT_ID != NEXT_CONCEPT_ID)
+
+  return(median_transitions)
+}
+
+#' @keywords internal
+computePairwiseCorrelations <- function(ordered_matrix, target_row_annotation) {
+  # Create mapping table (Concept Name <-> Concept ID)
+  mapping_table <- dplyr::tibble(
+    concept_id = base::rownames(target_row_annotation),
+    concept_name = target_row_annotation$CONCEPT_NAME
+  )
+
+  # Convert to matrix (if not already)
+  matrix_data <- base::as.matrix(ordered_matrix)
+
+  # Get row names (concept names)
+  concept_names <- base::rownames(matrix_data)
+
+  # Compute pairwise correlations from binary patient vectors
+  correlation_matrix <- stats::cor(base::t(matrix_data), method = "pearson") # Transpose to correlate rows
+
+  # Convert correlation matrix to a long format table
+  correlation_table <- data.table::as.data.table(as.table(correlation_matrix))
+
+  # Rename columns
+  data.table::setnames(correlation_table, c("concept_name_1", "concept_name_2", "CORRELATION"))
+
+  # Remove diagonal (self-correlations where concept_name_1 == concept_name_2)
+  correlation_table <- correlation_table[concept_name_1 != concept_name_2]
+
+  # Keep only unique pairs (avoid duplicates by ensuring concept_name_1 < concept_name_2)
+  correlation_table <- correlation_table[concept_name_1 < concept_name_2]
+
+  # Compute Fisher Transformation & P-Value
+  sample_size <- ncol(matrix_data)  # Number of patients (length of the binary vectors)
+
+  correlation_table[, FISHER_Z := 0.5 * log((1 + CORRELATION) / (1 - CORRELATION))] # Fisher's Z
+  correlation_table[, STANDARD_ERROR := 1 / sqrt(sample_size - 3)] # Standard error using correct sample size
+  correlation_table[, Z_SCORE := FISHER_Z / STANDARD_ERROR] # Compute Z-score
+  correlation_table[, P_VALUE := round(2 * (1 - stats::pnorm(abs(Z_SCORE))),8)] # Two-tailed p-value
+
+  # Assign Concept Names as Lists
+  correlation_table[, CONCEPT_NAMES := list(.(list(concept_name_1, concept_name_2))),
+                    by = .(concept_name_1, concept_name_2)]
+
+  # Map Concept Names to Concept IDs
+  correlation_table <- correlation_table %>%
+    dplyr::left_join(mapping_table, by = c("concept_name_1" = "concept_name")) %>%
+    dplyr::rename(concept_id_1 = concept_id) %>%
+    dplyr::left_join(mapping_table, by = c("concept_name_2" = "concept_name")) %>%
+    dplyr::rename(concept_id_2 = concept_id)
+
+  # Create CONCEPT_IDS column as a list
+  correlation_table[, CONCEPT_IDS := list(.(list(concept_id_1, concept_id_2))),
+                    by = .(concept_name_1, concept_name_2)]
+
+  # Select only required columns
+  correlation_table <- correlation_table[, .(CONCEPT_NAMES, CONCEPT_IDS, CORRELATION, P_VALUE)]
+  return(correlation_table)
+}
+

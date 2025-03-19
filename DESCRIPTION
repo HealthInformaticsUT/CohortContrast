@@ -47,7 +47,8 @@ Imports:
     waiter,
     shiny.fluent,
     jsonlite,
-    htmltools
+    htmltools,
+    forcats
 Suggests: 
     testthat (>= 3.0.0),
     PatientProfiles (>= 1.1.0),

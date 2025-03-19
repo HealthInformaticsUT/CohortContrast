@@ -76,6 +76,9 @@ server <- function(input, output, session) {
   dt_proxy <- DT::dataTableProxy("concept_table")
   target <- shiny::reactiveVal(NULL)
   target_filtered <- shiny::reactiveVal(NULL)
+  hierarchySuggestionsTable <- shiny::reactiveVal(NULL)
+  correlationSuggestionsTable <- shiny::reactiveVal(NULL)
+  last_row_annotation <- shiny::reactiveVal(NULL)
 
   # Plots' height coefficient
   nrOfConcepts <- shiny::reactive({
@@ -105,6 +108,7 @@ server <- function(input, output, session) {
   combineConceptsWaiter <- CohortContrast:::createFullScreenWaiter("Mapping concepts, please wait ...")
   createSnapshotWaiter <- CohortContrast:::createFullScreenWaiter("Creating a snapshot, please wait ...")
   createVisualSnapshotWaiter <- CohortContrast:::createFullScreenWaiter("Creating a visual snapshot, please wait ...")
+  createMappingWaiter <- CohortContrast:::createFullScreenWaiter("Creating mapping suggestions, please wait ...")
 
   # Toggles not available if no patient data present
   shiny::observeEvent(input$autoScaleRate, {
@@ -217,6 +221,10 @@ server <- function(input, output, session) {
       object$target_matrix <- data.table::as.data.table(object$target_matrix)
       object$target_row_annotation <- data.table::as.data.table(object$target_row_annotation)
       object$target_col_annotation <- data.table::as.data.table(object$target_col_annotation)
+
+      data.table::setDT(object$conceptsData$concept)
+      data.table::setDT(object$conceptsData$concept_ancestor)
+
       # Forward the converted data.tables
       shiny::isolate({
         originalData(list(
@@ -232,6 +240,7 @@ server <- function(input, output, session) {
           prevalence_plot_data = object$compressedDatas[[abstractionLevelReactive()]]$prevalencePlotData,
           time_plot_data = object$compressedDatas[[abstractionLevelReactive()]]$timePlotData,
           heatmap_plot_data = object$compressedDatas[[abstractionLevelReactive()]]$heatmapPlotData,
+          conceptsData = object$conceptsData,
           prevalence_plot_data_correlation = NULL,
           time_plot_data_correlation = NULL,
           heatmap_plot_data_correlation = NULL
@@ -916,7 +925,10 @@ server <- function(input, output, session) {
     combineConceptsWaiter$show()
     shiny::removeModal()
     new_concept_name <- input$new_concept_name
-    combineSelectedConcepts(new_concept_name, isManualCombine = T)
+
+    processed_table <- target_mod()[ABSTRACTION_LEVEL == as.numeric(abstractionLevelReactive())]
+    selected_concept_ids <- as.numeric(processed_table$CONCEPT_ID[input$concept_table_rows_selected])
+    combineSelectedConcepts(new_concept_name = new_concept_name, selected_ids = selected_concept_ids)
     target_mod(data_features())
 
     shiny::updateCheckboxInput(session, "dt_select_all", "Select all", value = F)
@@ -942,12 +954,112 @@ server <- function(input, output, session) {
       complementaryMappingTable(if (!(is.null(originalData()$complementaryMappingTable) | isFALSE(originalData()$complementaryMappingTable))) data.table::copy(originalData()$complementaryMappingTable) else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character(), ABSTRACTION_LEVEL = integer(), stringsAsFactors = FALSE))
       }
   })
+  ########################################################## MAPPING SUGGESTIONS
 
+  observeEvent(input$mappingControlPanel, {
+    createMappingWaiter$show()
+      # Example: Call a function to update data
+    if (input$mappingControlPanel %in% c("hierarchy_suggestions_tab", "correlation_suggestions_tab") && isPatientLevelDataPresent()) {
+      # Get current row names
+      current_row_names <- rownames(target_row_annotation())
+      # Check if rownames have changed
+      if (!identical(current_row_names, last_row_annotation())) {
+        last_row_annotation(current_row_names)
+        updateHierarchySuggestions()
+        updateCorrelationSuggestions()
+      }
+    }
+    createMappingWaiter$hide()
+  })
+
+  output$mapping_hierarchy_suggestions_concept_table <- DT::renderDT({
+    shiny::req(studyName(), hierarchySuggestionsTable())
+
+    mapping_data = hierarchySuggestionsTable()
+
+    col_order <- c(
+      'PARENT_NAME', 'COUNT', 'CONCEPT_NAMES'
+    )
+    mapping_data_reordered <- mapping_data[, ..col_order, drop = FALSE]
+
+    DT::datatable(
+      mapping_data_reordered,
+      selection = 'multiple',
+      filter = 'top',
+    )
+  }, server = TRUE)
+
+
+  shiny::observeEvent(input$combine_hierarchy_suggestion_btn, {
+    if(!isPatientLevelDataPresent()){
+      CohortContrast:::showNoPatientDataAllowedWarning()
+    } else if (length(input$mapping_hierarchy_suggestions_concept_table_rows_selected) > 0) {
+      combineConceptsWaiter$show()
+      for (rowId in input$mapping_hierarchy_suggestions_concept_table_rows_selected) {
+        selected_concept_ids <- as.numeric(unlist(hierarchySuggestionsTable()$CONCEPT_IDS[rowId]))
+        selected_parent_id <- as.numeric(hierarchySuggestionsTable()$PARENT_ID[rowId])
+        selected_parent_name <- hierarchySuggestionsTable()$PARENT_NAME[rowId]
+        combineSelectedConcepts(new_concept_name = selected_parent_name,
+                                new_concept_id =  selected_parent_id,
+                                selected_ids = selected_concept_ids)
+        updatedHierarchySuggestionsTable = hierarchySuggestionsTable() %>%
+          dplyr::filter(!sapply(CONCEPT_IDS, function(ids) any(selected_concept_ids %in% ids)))
+        updateHierarchySuggestions(updatedHierarchySuggestionsTable)
+        target_mod(data_features())
+        combineConceptsWaiter$hide()
+      }
+    } else {
+      shiny::showNotification("Select at least one row to combine", type = "warning")
+    }
+  })
+
+
+  output$mapping_correlation_suggestions_concept_table <- DT::renderDT({
+    shiny::req(studyName(), correlationSuggestionsTable())
+
+    mapping_data = correlationSuggestionsTable()
+    mapping_data <- mapping_data[order(-CORRELATION)]
+    correlationSuggestionsTable(mapping_data)
+    col_order <- c(
+      'CONCEPT_NAMES', 'CORRELATION', 'P_VALUE', 'MEDIAN_DAYS_INBETWEEN'
+    )
+    mapping_data_reordered <- mapping_data[, ..col_order, drop = FALSE]
+
+    DT::datatable(
+      mapping_data_reordered,
+      selection = 'single',
+      filter = 'top',
+    )
+  }, server = TRUE)
+
+  shiny::observeEvent(input$combine_correlation_suggestion_btn, {
+    if(!isPatientLevelDataPresent()){
+      CohortContrast:::showNoPatientDataAllowedWarning()
+    } else if (length(input$mapping_correlation_suggestions_concept_table_rows_selected) > 0) {
+      combineConceptsWaiter$show()
+      rowId = input$mapping_correlation_suggestions_concept_table_rows_selected
+        selected_concept_ids <- as.numeric(unlist(correlationSuggestionsTable()$CONCEPT_IDS[rowId]))
+        selected_concept_names <- unlist(correlationSuggestionsTable()$CONCEPT_NAMES[rowId])
+        selected_parent_id <-  selected_concept_ids[1]
+        selected_parent_name <- selected_concept_names[1]
+        combineSelectedConcepts(new_concept_name = selected_parent_name,
+                                new_concept_id =  selected_parent_id,
+                                selected_ids = selected_concept_ids)
+        updatedCorrelationSuggestionsTable = correlationSuggestionsTable() %>%
+          dplyr::filter(!sapply(CONCEPT_IDS, function(ids) any(selected_concept_ids %in% ids)))
+        updateCorrelationSuggestions(updatedCorrelationSuggestionsTable)
+        target_mod(data_features())
+        combineConceptsWaiter$hide()
+
+    } else {
+      shiny::showNotification("Select at least one row to combine", type = "warning")
+    }
+  })
   ############################################################# CORRELATION VIEW
   shiny::observeEvent(input$accept_corr_btn, {
       shiny::removeModal()
       new_concept_name <- input$new_concept_name
-      combineSelectedConcepts(new_concept_name, isManualCombine = FALSE)
+      combineSelectedConcepts(new_concept_name = new_concept_name, selected_ids = selectedCorrelationGroup())
       target_mod(data_features())
 
       cachedData(list(
@@ -1745,17 +1857,15 @@ server <- function(input, output, session) {
 
   #################################################################### FUNCTIONS
   # Function to combine selected concepts
-  combineSelectedConcepts <- function(new_concept_name, isManualCombine = TRUE) {
-    selected_rows <- input$concept_table_rows_selected
-    selected_ids <- selectedCorrelationGroup()
-
+  combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, selected_ids = NULL) {
+    # selected_rows <- input$concept_table_rows_selected
+    # selected_ids <- selectedCorrelationGroup()
     abstraction_level <- as.numeric(abstractionLevelReactive())
     data_features <- data_features()
     data_patients <- data_patients()
     data_initial <- data_initial()
     data_person <- data_person()
     complementary_mapping <- complementaryMappingTable()
-
     # Assuming data_initial, data_features, and processed_table are data.tables
     # Step 1: Grouping and summarizing, followed by reshaping
     n_patients_temp <- data_initial[, .N, by = COHORT_DEFINITION_ID]
@@ -1768,35 +1878,38 @@ server <- function(input, output, session) {
 
     selected_concept_ids = NA
     selected_concept_names = NA
-    representingConceptId = NA
+    representingConceptId = new_concept_id
     representingHeritage = NA
     representingZTest = NA
     representingLogitTest = NA
     representingKSTest = NA
 
-    if(isManualCombine) {
-      # Step 3: Filtering processed_table and selecting concept IDs
-      selected_concept_ids <- as.numeric(processed_table$CONCEPT_ID[selected_rows])
-      selected_concept_names <- processed_table$CONCEPT_NAME[selected_rows]
-
-      representingConceptId <- selected_concept_ids[
-        which.max(as.numeric(processed_table$PREVALENCE_DIFFERENCE_RATIO[selected_rows]))
-      ]
-      representingHeritage <- processed_table$HERITAGE[selected_rows][
-        which.max(as.numeric(processed_table$PREVALENCE_DIFFERENCE_RATIO[selected_rows]))]
-
-      # Step 4: Determining ZTEST, KSTEST and LOGITTEST values
-      representingZTest <- any(processed_table$ZTEST[selected_rows])
-      representingLogitTest <- any(processed_table$LOGITTEST[selected_rows])
-      representingKSTest <- any(processed_table$KSTEST[selected_rows])
-    }
-    else {
+    # if(isManualCombine) {
+    #   # Step 3: Filtering processed_table and selecting concept IDs
+    #   selected_concept_ids <- as.numeric(processed_table$CONCEPT_ID[selected_rows])
+    #   selected_concept_names <- processed_table$CONCEPT_NAME[selected_rows]
+    #
+    #   representingConceptId <- selected_concept_ids[
+    #     which.max(as.numeric(processed_table$PREVALENCE_DIFFERENCE_RATIO[selected_rows]))
+    #   ]
+    #   representingHeritage <- processed_table$HERITAGE[selected_rows][
+    #     which.max(as.numeric(processed_table$PREVALENCE_DIFFERENCE_RATIO[selected_rows]))]
+    #
+    #   # Step 4: Determining ZTEST, KSTEST and LOGITTEST values
+    #   representingZTest <- any(processed_table$ZTEST[selected_rows])
+    #   representingLogitTest <- any(processed_table$LOGITTEST[selected_rows])
+    #   representingKSTest <- any(processed_table$KSTEST[selected_rows])
+    # }
+  #  else {
       # Step 3: Filtering processed_table and selecting concept IDs
       selected_concept_ids <- as.numeric(selected_ids)
       selected_concept_names <- processed_table[CONCEPT_ID %in% selected_concept_ids, CONCEPT_NAME]
+
+      if(is.null(representingConceptId)){
       representingConceptId <- selected_concept_ids[
         which.max(as.numeric(processed_table[CONCEPT_ID %in% selected_concept_ids, PREVALENCE_DIFFERENCE_RATIO]))
       ]
+      }
       representingHeritage <- processed_table[CONCEPT_ID %in% selected_concept_ids, HERITAGE][
         which.max(as.numeric(processed_table[CONCEPT_ID %in% selected_concept_ids, PREVALENCE_DIFFERENCE_RATIO]))]
 
@@ -1804,18 +1917,32 @@ server <- function(input, output, session) {
       representingZTest <- any(processed_table[CONCEPT_ID %in% selected_concept_ids, ZTEST])
       representingLogitTest <- any(processed_table[CONCEPT_ID %in% selected_concept_ids, LOGITTEST])
       representingKSTest <- any(processed_table[CONCEPT_ID %in% selected_concept_ids, KSTEST])
-    }
+   # }
 
     # Step 5: Updating data_features with new values
-    data_features[
-      CONCEPT_ID == representingConceptId & ABSTRACTION_LEVEL == abstraction_level,
-      `:=`(
-        ZTEST = representingZTest,
-        LOGITTEST = representingLogitTest,
-        KSTEST = representingKSTest,
-        HERITAGE = representingHeritage
-      )
-    ]
+    # data_features[
+    #   CONCEPT_ID == representingConceptId & ABSTRACTION_LEVEL == abstraction_level,
+    #   `:=`(
+    #     ZTEST = representingZTest,
+    #     LOGITTEST = representingLogitTest,
+    #     KSTEST = representingKSTest,
+    #     HERITAGE = representingHeritage
+    #   )
+    # ]
+    new_row <- data.table::data.table(
+      CONCEPT_ID = representingConceptId,
+      CONCEPT_NAME = new_concept_name,
+      ABSTRACTION_LEVEL = abstraction_level,
+      ZTEST = representingZTest,
+      LOGITTEST = representingLogitTest,
+      KSTEST = representingKSTest,
+      HERITAGE = representingHeritage
+    )
+
+    # Remove row if there was for representingConceptId
+    data_features <- data_features[!(CONCEPT_ID %in% c(selected_concept_ids, representingConceptId) & ABSTRACTION_LEVEL == abstraction_level)]
+
+    data_features <- rbind(data_features, new_row, fill = TRUE)
     rows_to_update <- data_patients[
       , CONCEPT_ID %in% selected_concept_ids & ABSTRACTION_LEVEL == abstraction_level
     ]
@@ -1835,6 +1962,8 @@ server <- function(input, output, session) {
           TIME_TO_EVENT = list(unlist(TIME_TO_EVENT))),
       by = .(COHORT_DEFINITION_ID, PERSON_ID, CONCEPT_ID, CONCEPT_NAME, HERITAGE, ABSTRACTION_LEVEL)
     ]
+
+
     # Assuming data_features and data_patients are data.tables
     # Step 1: Select specific columns from data_features
     data_features_temp <- data_features[
@@ -1977,7 +2106,7 @@ server <- function(input, output, session) {
     data_features(data_features)
     data_patients(data_patients)
     # Update complementaryMappingTable
-    new_rows <- data.frame(CONCEPT_ID = selected_concept_ids, CONCEPT_NAME = selected_concept_names,NEW_CONCEPT_ID = representingConceptId, NEW_CONCEPT_NAME = new_concept_name, ABSTRACTION_LEVEL = abstraction_level, stringsAsFactors = FALSE)
+    new_rows <- data.frame(CONCEPT_ID = selected_concept_ids, CONCEPT_NAME = selected_concept_names, NEW_CONCEPT_ID = representingConceptId, NEW_CONCEPT_NAME = new_concept_name, ABSTRACTION_LEVEL = abstraction_level, stringsAsFactors = FALSE)
     complementary_mapping <- rbind(complementary_mapping, new_rows)
     # Update all related concept names in complementaryMappingTable
     # Step 1: Identify related concepts
@@ -2234,6 +2363,35 @@ server <- function(input, output, session) {
       };
     ")))
     )
+  }
+
+  updateHierarchySuggestions <- function(customisedTable = NULL) {
+      shiny::req(studyName(), pathToResults)
+      result <- NULL
+      if(is.null(customisedTable)) {
+      result <- CohortContrast:::getAncestorMappings(
+        active_concept_ids = rownames(target_row_annotation()),
+        concept_table = originalData()$conceptsData$concept,
+        concept_ancestor = originalData()$conceptsData$concept_ancestor
+      )
+
+      } else {
+        result <- customisedTable
+      }
+      hierarchySuggestionsTable(result)
+  }
+
+  updateCorrelationSuggestions <- function(customisedTable = NULL) {
+    shiny::req(studyName(), pathToResults)
+    result <- NULL
+    if(is.null(customisedTable)) {
+      result_corr <- CohortContrast:::computePairwiseCorrelations(target_filtered()$correlation_analysis$ordered_matrix, target_row_annotation())
+      result_time <- CohortContrast:::calculateMedianTransitions(target_filtered()$target_time_annotation)
+      result <- CohortContrast:::mergeCorrelationWithTransitions(correlation_data = result_corr, transition_data = result_time)
+    } else {
+      result <- customisedTable
+    }
+    correlationSuggestionsTable(result)
   }
 
   }
