@@ -5,24 +5,15 @@
 \title{Create a mapping table with predefined maximum abstraction level}
 \usage{
 generateMappingTable(
-  cdm,
   abstractionLevel = 10,
   data = NULL,
-  concept_ancestor = NULL,
-  concept = NULL,
   maxMinDataFrame = NULL
 )
 }
 \arguments{
-\item{cdm}{Connection to database}
-
 \item{abstractionLevel}{Maximum abstraction level allowed}
 
 \item{data}{CohortContrastObject returned by CohortContrast function}
-
-\item{concept_ancestor}{Data frame of concept_ancestor table}
-
-\item{concept}{Data frame of concept table}
 
 \item{maxMinDataFrame}{A dataframe with columns descendant_concept_id and max_levels_of_separation}
 }

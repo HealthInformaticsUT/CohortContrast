@@ -349,6 +349,7 @@ create_CohortContrast_object <- function(data) {
     data_initial = data$data_initial,
     data_person = data$data_person,
     data_features = data$data_features,
+    conceptsData = data$conceptsData,
     complementaryMappingTable = data$complementaryMappingTable,
     trajectoryDataList = data$trajectoryDataList,
     config = data$config

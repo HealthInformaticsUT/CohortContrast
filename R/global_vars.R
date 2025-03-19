@@ -13,6 +13,12 @@ utils::globalVariables(
     'cor', 'median_transition_time', 'prevalence_perc', 'selection', 'var',
     'AGE_AT_INDEX', 'BIRTH_DATE', 'Gender', 'Group', 'PREVALENCE_PERC',
     'TIME_OF_OCCURRENCE', 'concept_name', 'id', 'id_source', 'id_target', 'label',
-    'median_time', 'median_time_of_occurrence', 'prevalence', 'relative_size', 'target'
+    'median_time', 'median_time_of_occurrence', 'prevalence', 'relative_size', 'target',
+    'CONCEPT_IDS', 'CONCEPT_ID_1', 'CONCEPT_ID_2', 'CONCEPT_NAMES', 'CORRELATION', 'COUNT',
+    'FISHER_Z', 'MEDIAN_TRANSITION_TIME', 'MEDIAN_TRANSITION_TIME_direct',
+    'MEDIAN_TRANSITION_TIME_reverse', 'NEXT_CONCEPT_ID', 'NEXT_TIME_TO_EVENT',
+    'P_VALUE', 'STANDARD_ERROR', 'Z_SCORE', 'ancestor_concept_id', 'concept_id',
+    'concept_id_1', 'concept_id_2', 'concept_name_1', 'concept_name_2',
+    'descendant_concept_id', 'invalid_reason'
   )
 )

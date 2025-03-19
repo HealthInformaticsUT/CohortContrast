@@ -154,6 +154,11 @@ CohortContrast <- function(cdm,
 
   data$config = config
   data$complementaryMappingTable = complementaryMappingTable
+
+  data$conceptsData = list()
+  data$conceptsData$concept_ancestor = cdm$concept_ancestor %>% as.data.frame()
+  data$conceptsData$concept = cdm$concept %>% as.data.frame() %>% dplyr::filter(is.na(invalid_reason))
+
   cl <- parallel::makeCluster(numCores)
   doParallel::registerDoParallel(cl)
 
@@ -161,13 +166,11 @@ CohortContrast <- function(cdm,
     # Get stable tables
     # TODO Foward the datasets as cdm, fetch data later when they are smaller datasets
     if (getAllAbstractions) {
-      concept_ancestor = cdm$concept_ancestor %>% as.data.frame()
-      concept = cdm$concept %>% as.data.frame()
 
       data$data_patients$PERSON_ID = as.integer(data$data_patients$PERSON_ID)
       #assertAncestryCompleteness(cdm)
       printCustomMessage("Get data for all concept abstraction levels ...")
-      max_min_levels <- concept_ancestor %>%
+      max_min_levels <- data$conceptsData$concept_ancestor %>%
         dplyr::group_by(.data$descendant_concept_id) %>%
         dplyr::summarise(maximum_minimal_separation = max(.data$max_levels_of_separation))
       updateMapping <- updateMapping
@@ -177,7 +180,7 @@ CohortContrast <- function(cdm,
       new_data_patients <- foreach::foreach(maxAbstraction = maximumAbstractionLevel:0, .combine = rbind, .packages = c("CohortContrast", "dplyr"),
                                             .export = c("maxAbstraction")) %dopar% {
                                               # Load necessary libraries in each worker
-                                              complementaryMappingTable = generateMappingTable(cdm = cdm, abstractionLevel = maxAbstraction, data = data, concept_ancestor = concept_ancestor, concept = concept, maxMinDataFrame =max_min_levels)
+                                              complementaryMappingTable = generateMappingTable(cdm = cdm, abstractionLevel = maxAbstraction, data = data, maxMinDataFrame =max_min_levels)
                                               complementaryMappingTable1 <- updateMapping(complementaryMappingTable)
                                               newData <- handleMapping(data = data, complementaryMappingTable = complementaryMappingTable, abstractionLevel = maxAbstraction)
                                               newData$PERSON_ID = as.integer(newData$PERSON_ID)
@@ -1132,6 +1135,7 @@ saveResult <- function(data, pathToResults) {
     data$data_patients = NULL
     data$data_initial = NULL
     data$data_person = NULL
+    data$conceptsData = NULL
   }
   save_object(data, path = filePath)
   printCustomMessage(paste("Saved the result to ", filePath, sep = ""))

@@ -180,7 +180,7 @@ body <- shinydashboard::dashboardBody(
         uiOutput("dynamic_correlation_widgets"),
       hr(),
       shiny::actionButton("visual_snapshot", "Create visual snapshot!"),
-      fluidRow(tabsetPanel(
+      fluidRow(tabsetPanel( id = "controlPanel",
         tabPanel("Prevalence plot",
                  plotOutput("prevalencePlot")),
         tabPanel("Time panel",
@@ -199,6 +199,45 @@ body <- shinydashboard::dashboardBody(
                    tabPanel("Comparison", uiOutput("dynamicDemographicCompareGraphUI"), uiOutput("dynamic_demographic_widgets"))
                  )
                  ),
+        tabPanel(title = "Mapping suggestions",
+                 tabsetPanel(id = "mappingControlPanel",
+                tabPanel("Helpdesk",
+                         value = "suggestions_help_tab",
+                         shiny::tags$div(
+                           style = "background-color: #f8f8f8; padding: 20px; border-radius: 5px;",
+                           shiny::tags$h4("Hierarchy based"),
+                           shiny::tags$p("The suggestions shown are based on vocabularies used in the OMOP CDM instance. The parent is the concept the children will be mapped to once you select the row and press 'Combine' button. Under suggestions you can see all of the possible parents the concepts set can be mapped to. The suggestions are based on all the active concepts that are shown with the configuration/filtering."),
+                           shiny::tags$h4("Correlation based"),
+                           shiny::tags$p("The suggestions shown are based on correlation and median days inbetween the two concepts. The correlation shown is calculated based on binary vectors of prevalence for patients. The p-value shows the result of Fischer's test on correlation. The days inbetween is calculated per each patient for all occurrences, the result is summarised over all the patients. We suggest to combine concepts which have high correlation, and a small value of days inbetween. The concepts combined should also make sense in the medical concepts. The name of the combined concept will be the first concept."),
+                                      )),
+                tabPanel("Hierarchy based",
+                 value = "hierarchy_suggestions_tab",
+                 fluidRow(
+                   column(2, h3("Hierarchy Panel")),
+                   column(10, div(
+                     actionButton("combine_hierarchy_suggestion_btn", "Combine",
+                                  style = "margin-top: 15px; padding: 5px;") # Adjust top spacing
+                   ))
+                 ),
+                 fluidRow(
+                   shinyjs::useShinyjs(),
+                   div(style = 'width: 100%; padding: 0 20px;', DT::DTOutput("mapping_hierarchy_suggestions_concept_table"))
+                 )),
+                tabPanel("Correlation based",
+                  value = "correlation_suggestions_tab",
+                  fluidRow(
+                    column(2, h3("Correlation Panel")),
+                    column(10, div(
+                      actionButton("combine_correlation_suggestion_btn", "Combine",
+                                   style = "margin-top: 15px; padding: 5px;") # Adjust top spacing
+                    ))
+                  ),
+                 fluidRow(
+                   shinyjs::useShinyjs(),
+                   div(style = 'width: 100%; padding: 0 20px;', DT::DTOutput("mapping_correlation_suggestions_concept_table"))
+                 ))),
+                 #      tags$iframe(src = "public/index.html", width = "100%", height = "650px"),
+        ),
       ))
     ),
     shinydashboard::tabItem(
