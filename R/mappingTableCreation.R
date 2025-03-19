@@ -131,7 +131,7 @@ getAncestorMappings <- function(active_concept_ids, concept_table, concept_ances
   data.table::setkey(concept_names_lookup, concept_id)
 
   ancestor_groups[, CONCEPT_NAMES := lapply(CONCEPT_IDS, function(ids) {
-    concept_names_lookup[data.table::J(ids), concept_name, nomatch = 0L]
+    concept_names_lookup[data.table::SJ(ids), concept_name, nomatch = 0L]
   })]
 
   # Step 4: Add parent concept name using a fast join
