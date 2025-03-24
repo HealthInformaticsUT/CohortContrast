@@ -142,7 +142,94 @@ getAncestorMappings <- function(active_concept_ids, concept_table, concept_ances
   ][
     , .(PARENT_ID = ancestor_concept_id, PARENT_NAME = concept_name, COUNT, CONCEPT_IDS, CONCEPT_NAMES)
   ]
+  # Step 5: Keep only rows where PARENT_ID is in CONCEPT_IDS
+  ancestor_groups <- ancestor_groups[
+    mapply(function(pid, ids) pid %in% ids, PARENT_ID, CONCEPT_IDS)
+  ]
 
   return(ancestor_groups)
+}
+
+
+#' @keywords internal
+filterHeritagePriorityMappings <- function(df) {
+  # Ensure the dataframe is sorted by COUNT in descending order
+  df <- df %>%
+    dplyr::arrange(dplyr::desc(COUNT))
+
+  # Identify rows where PARENT_ID is present in CONCEPT_IDS
+  df <- df %>%
+    dplyr::mutate(PARENT_IN_CONCEPTS = purrr::map2_lgl(PARENT_ID, CONCEPT_IDS,
+                                                       ~ .x %in% .y))
+
+  # Filter to keep only rows where PARENT_ID appears in CONCEPT_IDS
+  sub_df <- df %>% dplyr::filter(PARENT_IN_CONCEPTS)
+
+  # Initialize selected rows and tracking vector for removed concept IDs
+  selected_rows <- list()
+  removed_concepts <- c()
+
+  # Iterate through sorted sub_df, selecting highest-priority rows first
+  for (i in seq_len(nrow(sub_df))) {
+    row <- sub_df[i, ]
+
+    # Extract concept IDs
+    concept_ids <- unlist(row$CONCEPT_IDS)
+
+    # If none of the concept_ids are in removed_concepts, keep this row
+    if (!any(concept_ids %in% removed_concepts)) {
+      selected_rows <- append(selected_rows, list(row))
+      removed_concepts <- c(removed_concepts, concept_ids)  # Track used concept IDs
+    }
+  }
+
+  # Combine selected rows into a dataframe
+  final_df <- dplyr::bind_rows(selected_rows)
+
+  return(final_df)
+}
+
+#' @keywords internal
+filterCorrelationMappings <- function(df, data_features, minCorrelation = 0.8, maxDaysInbetween = 1) {
+  if (nrow(df) == 0 || is.null(df) || nrow(data_features) == 0 || is.null(data_features)) {
+    return(df)
+  }
+
+  # Step 1: Filter according to correlation and days thresholds
+  df <- df %>%
+    dplyr::filter(CORRELATION >= minCorrelation, MEDIAN_DAYS_INBETWEEN <= maxDaysInbetween)
+
+  # Step 2: Keep only rows where all CONCEPT_IDS have the same HERITAGE
+  df <- df %>%
+    dplyr::rowwise() %>%
+    dplyr::filter({
+      concept_ids <- CONCEPT_IDS
+      heritages <- data_features %>%
+        dplyr::filter(CONCEPT_ID %in% concept_ids) %>%
+        dplyr::pull(HERITAGE) %>%
+        unique()
+      length(heritages) == 1
+    }) %>%
+    dplyr::ungroup()
+
+  # Step 3: Ensure each concept appears only once (deduplicate)
+  # Unnest to one row per concept_id
+  df_long <- df %>%
+    tidyr::unnest_longer(CONCEPT_IDS) %>%
+    dplyr::rename(CONCEPT_ID = CONCEPT_IDS)
+
+  # Step 4: Prioritize rows with higher correlation and lower median days
+  df_ranked <- df_long %>%
+    dplyr::arrange(CONCEPT_ID, dplyr::desc(CORRELATION), MEDIAN_DAYS_INBETWEEN) %>%
+    dplyr::group_by(CONCEPT_ID) %>%
+    dplyr::slice_head(n = 1) %>%
+    dplyr::ungroup()
+
+  # Step 5: Reconstruct unique groups of concept IDs
+  df_final <- df_ranked %>%
+    dplyr::group_by(dplyr::across(-CONCEPT_ID)) %>%
+    dplyr::summarise(CONCEPT_IDS = list(unique(CONCEPT_ID)), .groups = "drop")
+
+  return(df_final)
 }
 

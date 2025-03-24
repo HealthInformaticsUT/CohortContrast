@@ -48,3 +48,10 @@
   border-color: black;
 }
 
+#combine_correlation_suggestion_automatic_btn {
+  color: black;
+  width: 100px;
+  background-color: orange;
+  font-weight: bold;
+  border-color: black;
+}

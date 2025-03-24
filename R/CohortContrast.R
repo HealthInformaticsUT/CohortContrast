@@ -665,7 +665,7 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
           )
         )
       }
-      else if (prevalence_cohort_1 == 0 | prevalence_cohort_2 == 0) {
+      else if (prevalence_cohort_1 == 0 || prevalence_cohort_2 == 0) {
        # print("Times 2")
         level_results <- rbind(
           level_results,

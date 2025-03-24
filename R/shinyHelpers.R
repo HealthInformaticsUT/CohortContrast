@@ -663,79 +663,156 @@ if (is.data.frame(complementaryMappingTable)) {
 
 #' @keywords internal
 mergeCorrelationWithTransitions <- function(correlation_data, transition_data) {
-
   # Ensure CONCEPT_IDS is a list of exactly two elements
   correlation_data <- correlation_data %>%
     dplyr::mutate(
       CONCEPT_IDS = purrr::map(CONCEPT_IDS, function(x) {
         if (!is.list(x) && length(x) == 2) return(as.list(x)) # Convert vectors to lists
-        if (is.list(x) && length(x) == 2) return(x)  # Already a list with 2 elements
-        return(list(NA, NA)) # Handle unexpected cases
+        if (is.list(x) && length(x) == 2) return(x)            # Already a list with 2 elements
+        return(list(NA, NA))                                   # Handle unexpected cases
       })
     )
 
-  # Extract concept IDs safely
+  # Extract concept IDs and normalize order for joining
   correlation_data <- correlation_data %>%
     dplyr::mutate(
-      CONCEPT_ID_1 = purrr::map_int(CONCEPT_IDS, ~ as.integer(.x[[1]])),
-      CONCEPT_ID_2 = purrr::map_int(CONCEPT_IDS, ~ as.integer(.x[[2]]))
-    )  # Drop the original list column
-
-  # Ensure integer format for joins
-  correlation_data <- correlation_data %>%
+      ID1 = purrr::map_int(CONCEPT_IDS, ~ as.integer(.x[[1]])),
+      ID2 = purrr::map_int(CONCEPT_IDS, ~ as.integer(.x[[2]]))
+    ) %>%
     dplyr::mutate(
-      CONCEPT_ID_1 = as.integer(CONCEPT_ID_1),
-      CONCEPT_ID_2 = as.integer(CONCEPT_ID_2)
+      CONCEPT_ID_1 = pmin(ID1, ID2),
+      CONCEPT_ID_2 = pmax(ID1, ID2)
     )
 
-  # Join with transition data in both possible orders
-  merged_data <- correlation_data %>%
-    dplyr::left_join(transition_data,
-                     by = c("CONCEPT_ID_1" = "CONCEPT_ID", "CONCEPT_ID_2" = "NEXT_CONCEPT_ID")) %>%
-    dplyr::left_join(transition_data,
-                     by = c("CONCEPT_ID_1" = "NEXT_CONCEPT_ID", "CONCEPT_ID_2" = "CONCEPT_ID"),
-                     suffix = c("_direct", "_reverse"))
+  # Join with undirected transition_data (CONCEPT_ID_1, CONCEPT_ID_2)
+  result <- correlation_data %>%
+    dplyr::left_join(transition_data, by = c("CONCEPT_ID_1", "CONCEPT_ID_2")) %>%
+    dplyr::select(
+      CONCEPT_NAMES,
+      CONCEPT_IDS,
+      CORRELATION,
+      P_VALUE,
+      MEDIAN_DAYS_INBETWEEN = MEDIAN_TRANSITION_TIME
+    )
 
-  # Merge transition times from both joins (pick non-NA)
-  merged_data <- merged_data %>%
-    dplyr::mutate(MEDIAN_TRANSITION_TIME = dplyr::coalesce(MEDIAN_TRANSITION_TIME_direct, MEDIAN_TRANSITION_TIME_reverse)) %>%
-    dplyr::select(-MEDIAN_TRANSITION_TIME_direct, -MEDIAN_TRANSITION_TIME_reverse)
-
-  # Keep only the original columns from correlation_data + MEDIAN_TRANSITION_TIME
-  result <- merged_data %>%
-    dplyr::select(CONCEPT_NAMES, CONCEPT_IDS, CORRELATION,P_VALUE, MEDIAN_DAYS_INBETWEEN = MEDIAN_TRANSITION_TIME)
   return(result)
 }
 
+
 #' @keywords internal
 calculateMedianTransitions <- function(data) {
+  dt <- data.table::as.data.table(data)
 
-  # Expand TIME_TO_EVENT list column
-  data_long <- data %>%
-    tidyr::unnest(TIME_TO_EVENT) %>%
-    dplyr::arrange(PERSON_ID, TIME_TO_EVENT)
+  # Step 1: Unnest TIME_TO_EVENT (assumes CONCEPT_ID is scalar per row)
+  dt <- dt[, .(TIME_TO_EVENT = unlist(TIME_TO_EVENT)), by = .(PERSON_ID, CONCEPT_ID)]
 
-  # Create lead CONCEPT_ID and TIME_TO_EVENT to calculate transitions
-  data_long <- data_long %>%
-    dplyr::group_by(PERSON_ID) %>%
-    dplyr::mutate(
-      NEXT_CONCEPT_ID = dplyr::lead(CONCEPT_ID),
-      NEXT_TIME_TO_EVENT = dplyr::lead(TIME_TO_EVENT)
-    ) %>%
-    dplyr::filter(!is.na(NEXT_CONCEPT_ID)) %>%  # Remove rows without a next event
-    dplyr::ungroup()
+  # Step 2: Sort by person and time
+  data.table::setorder(dt, PERSON_ID, TIME_TO_EVENT)
 
-  # Compute transition times
-  data_long <- data_long %>%
-    dplyr::mutate(TRANSITION_TIME = NEXT_TIME_TO_EVENT - TIME_TO_EVENT)
+  # Step 3: For each person, get adjacent concept transitions
+  dt[, `:=`(
+    NEXT_CONCEPT_ID = data.table::shift(CONCEPT_ID, type = "lead"),
+    NEXT_TIME = data.table::shift(TIME_TO_EVENT, type = "lead")
+  ), by = PERSON_ID]
 
-  # Calculate median transition time for each concept pair
-  median_transitions <- data_long %>%
-    dplyr::group_by(CONCEPT_ID, NEXT_CONCEPT_ID) %>%
-    dplyr::summarise(MEDIAN_TRANSITION_TIME = stats::median(TRANSITION_TIME, na.rm = TRUE), .groups = "drop") %>%
-    dplyr::filter(CONCEPT_ID != NEXT_CONCEPT_ID)
+  # Step 4: Filter out invalid transitions
+  dt <- dt[!is.na(NEXT_CONCEPT_ID) & CONCEPT_ID != NEXT_CONCEPT_ID]
 
-  return(median_transitions)
+  # Step 5: Normalize concept pairs (unordered)
+  dt[, `:=`(
+    CONCEPT_ID_1 = pmin(CONCEPT_ID, NEXT_CONCEPT_ID),
+    CONCEPT_ID_2 = pmax(CONCEPT_ID, NEXT_CONCEPT_ID),
+    TRANSITION_TIME = NEXT_TIME - TIME_TO_EVENT
+  )]
+
+  # Step 6: Remove NA or negative transition times (optional)
+  dt <- dt[!is.na(TRANSITION_TIME) & TRANSITION_TIME >= 0]
+
+  # Step 7: Aggregate median per concept pair
+  result <- dt[
+    , .(MEDIAN_TRANSITION_TIME = stats::median(TRANSITION_TIME, na.rm = TRUE)),
+    by = .(CONCEPT_ID_1, CONCEPT_ID_2)
+  ]
+
+  return(result[])
+}
+
+
+#' @keywords internal
+calculateMedianTransitionsPairwise <- function(data) {
+
+  # Step 1: Unnest TIME_TO_EVENT (concepts are already 1 per row)
+  dt <- data.table::as.data.table(data)
+  dt <- dt[, .(TIME_TO_EVENT = unlist(TIME_TO_EVENT)), by = .(PERSON_ID, CONCEPT_ID)]
+  dt <- dt[!is.na(TIME_TO_EVENT)]
+  data.table::setorder(dt, PERSON_ID, TIME_TO_EVENT)
+
+  # Step 2: Create a nested table: list of times per person+concept
+  nested <- dt[, .(TIMES = list(TIME_TO_EVENT)), by = .(PERSON_ID, CONCEPT_ID)]
+
+  # Step 3: Split by person
+  person_groups <- split(nested, by = "PERSON_ID", keep.by = TRUE)
+  all_results <- list()
+
+  for (person_data in person_groups) {
+    concepts <- person_data$CONCEPT_ID
+    if (length(concepts) < 2) next
+
+    # Create all unordered concept pairs
+    concept_pairs <- t(utils::combn(concepts, 2, simplify = TRUE))
+    person_result <- list()
+
+    for (k in seq_len(nrow(concept_pairs))) {
+      c1 <- concept_pairs[k, 1]
+      c2 <- concept_pairs[k, 2]
+
+      times1 <- person_data[CONCEPT_ID == c1, TIMES][[1]]
+      times2 <- person_data[CONCEPT_ID == c2, TIMES][[1]]
+
+      if (length(times1) == 0 || length(times2) == 0) next
+
+      # Greedy pair matching
+      n1 <- length(times1)
+      n2 <- length(times2)
+      i <- j <- 1
+      diffs <- numeric()
+
+      while (i <= n1 && j <= n2) {
+        diffs <- c(diffs, times2[j] - times1[i])
+        i <- i + 1
+        j <- j + 1
+      }
+
+      if (length(diffs)) {
+        person_result[[length(person_result) + 1]] <- data.table::data.table(
+          CONCEPT_ID_1 = min(c1, c2),
+          CONCEPT_ID_2 = max(c1, c2),
+          TRANSITION_TIME = diffs
+        )
+      }
+    }
+
+    if (length(person_result)) {
+      all_results[[length(all_results) + 1]] <- data.table::rbindlist(person_result)
+    }
+  }
+
+  # Combine and compute medians
+  if (length(all_results) == 0) {
+    return(data.table::data.table(
+      CONCEPT_ID_1 = integer(),
+      CONCEPT_ID_2 = integer(),
+      MEDIAN_TRANSITION_TIME = numeric()
+    ))
+  }
+
+  all_dt <- data.table::rbindlist(all_results)
+  result <- all_dt[
+    , .(MEDIAN_TRANSITION_TIME = stats::median(TRANSITION_TIME, na.rm = TRUE)),
+    by = .(CONCEPT_ID_1, CONCEPT_ID_2)
+  ]
+
+  return(result[])
 }
 
 #' @keywords internal

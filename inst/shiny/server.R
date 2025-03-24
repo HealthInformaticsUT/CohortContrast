@@ -599,6 +599,7 @@ server <- function(input, output, session) {
 
 
   output$dynamicTrajectoryGraphUI <- shiny::renderUI({
+    trajectoryPlotWaiter$show()
     result <- NULL
 
     if (is.null(studyName()) || is.null(target_filtered())) {
@@ -620,7 +621,7 @@ server <- function(input, output, session) {
         is_corr_initiated = isCorrelationView()
       )
     }
-
+    trajectoryPlotWaiter$hide()
     result
   })
 
@@ -1005,9 +1006,9 @@ server <- function(input, output, session) {
         updatedHierarchySuggestionsTable = hierarchySuggestionsTable() %>%
           dplyr::filter(!sapply(CONCEPT_IDS, function(ids) any(selected_concept_ids %in% ids)))
         updateHierarchySuggestions(updatedHierarchySuggestionsTable)
-        target_mod(data_features())
-        combineConceptsWaiter$hide()
       }
+      target_mod(data_features())
+      combineConceptsWaiter$hide()
     } else {
       shiny::showNotification("Select at least one row to combine", type = "warning")
     }
@@ -1018,7 +1019,7 @@ server <- function(input, output, session) {
     if(!isPatientLevelDataPresent()){
       CohortContrast:::showNoPatientDataAllowedWarning()
     } else {
-      mappingsToExecute <- filter_priority_mappings(hierarchySuggestionsTable())
+      mappingsToExecute <- filterHeritagePriorityMappings(hierarchySuggestionsTable())
       apply(mappingsToExecute, 1, function(row) {
 
         selected_concept_ids <- as.numeric(unlist(row['CONCEPT_IDS']))
@@ -1078,6 +1079,32 @@ server <- function(input, output, session) {
     } else {
       shiny::showNotification("Select at least one row to combine", type = "warning")
     }
+  })
+
+  shiny::observeEvent(input$combine_correlation_suggestion_automatic_btn, {
+    combineConceptsWaiter$show()
+    if(!isPatientLevelDataPresent()){
+      CohortContrast:::showNoPatientDataAllowedWarning()
+    } else {
+      mappingsToExecute <- filterCorrelationMappings(correlationSuggestionsTable(), data_features = data_features(), minCorrelation = input$combine_correlation_suggestion_automatic_correlation_threshold, maxDaysInbetween = input$combine_correlation_suggestion_automatic_days_threshold)
+      apply(mappingsToExecute, 1, function(row) {
+
+        selected_concept_ids <- as.numeric(unlist(row['CONCEPT_IDS']))
+        if(!any(is.na(selected_concept_ids))){
+          selected_concept_names <- unlist(row['CONCEPT_NAMES'])
+          selected_parent_id <-  selected_concept_ids[1]
+          selected_parent_name <- selected_concept_names[1]
+          combineSelectedConcepts(new_concept_name = selected_parent_name,
+                                  new_concept_id =  selected_parent_id,
+                                  selected_ids = selected_concept_ids)
+          updatedCorrelationSuggestionsTable = correlationSuggestionsTable() %>%
+            dplyr::filter(!sapply(CONCEPT_IDS, function(ids) any(selected_concept_ids %in% ids)))
+          updateCorrelationSuggestions(updatedCorrelationSuggestionsTable)
+          target_mod(data_features())
+        }
+      })
+    }
+    combineConceptsWaiter$hide()
   })
   ############################################################# CORRELATION VIEW
   shiny::observeEvent(input$accept_corr_btn, {
@@ -1396,6 +1423,7 @@ server <- function(input, output, session) {
         data_patients = data_patients(),
         data_features = data_features(),
         data_person = data_person(),
+        conceptsData = originalData()$conceptsData,
         filtered_target = temp_filtered_target,
         complementaryMappingTable = complementaryMappingTable(),
         config = cachedData()$config
@@ -1883,7 +1911,6 @@ server <- function(input, output, session) {
   # Function to combine selected concepts
   combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, selected_ids = NULL) {
     # selected_rows <- input$concept_table_rows_selected
-
     # selected_ids <- selectedCorrelationGroup()
     abstraction_level <- as.numeric(abstractionLevelReactive())
     data_features <- data_features()
@@ -2364,7 +2391,7 @@ server <- function(input, output, session) {
         height = "650px"
       ),
 
-      # ✅ Send JSON Data to the iFrame after it loads
+      # Send JSON Data to the iFrame after it loads
       tags$script(HTML(paste0("
       document.getElementById('bpmnFrame').onload = function() {
         console.log('✅ Sending BPMN Data to iframe...');
@@ -2401,44 +2428,6 @@ server <- function(input, output, session) {
       result <- customisedTable
     }
     correlationSuggestionsTable(result)
-  }
-
-
-  filter_priority_mappings <- function(df) {
-    # Ensure the dataframe is sorted by COUNT in descending order
-    df <- df %>%
-      dplyr::arrange(dplyr::desc(COUNT))
-
-    # Identify rows where PARENT_ID is present in CONCEPT_IDS
-    df <- df %>%
-      dplyr::mutate(PARENT_IN_CONCEPTS = purrr::map2_lgl(PARENT_ID, CONCEPT_IDS,
-                                                         ~ .x %in% .y))
-
-    # Filter to keep only rows where PARENT_ID appears in CONCEPT_IDS
-    sub_df <- df %>% dplyr::filter(PARENT_IN_CONCEPTS)
-
-    # Initialize selected rows and tracking vector for removed concept IDs
-    selected_rows <- list()
-    removed_concepts <- c()
-
-    # Iterate through sorted sub_df, selecting highest-priority rows first
-    for (i in seq_len(nrow(sub_df))) {
-      row <- sub_df[i, ]
-
-      # Extract concept IDs
-      concept_ids <- unlist(row$CONCEPT_IDS)
-
-      # If none of the concept_ids are in removed_concepts, keep this row
-      if (!any(concept_ids %in% removed_concepts)) {
-        selected_rows <- append(selected_rows, list(row))
-        removed_concepts <- c(removed_concepts, concept_ids)  # Track used concept IDs
-      }
-    }
-
-    # Combine selected rows into a dataframe
-    final_df <- dplyr::bind_rows(selected_rows)
-
-    return(final_df)
   }
   }
 
