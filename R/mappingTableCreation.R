@@ -114,41 +114,56 @@ updateMapping <- function(mappingTable) {
 }
 
 #' @keywords internal
-getAncestorMappings <- function(active_concept_ids, concept_table, concept_ancestor) {
+getAncestorMappings <- function(active_concept_ids, concept_table, concept_ancestor, allowed_parents = NULL) {
+  # Step 1: Filter concept_ancestor for relevant descendant concepts
+  filtered_ancestor_data <- concept_ancestor[
+    descendant_concept_id %in% active_concept_ids
+  ]
 
+  # Step 2: Group by ancestor and keep only those with >1 descendant
+  ancestor_groups <- filtered_ancestor_data[
+    , .(
+      CONCEPT_IDS = list(unique(descendant_concept_id)),
+      COUNT = data.table::uniqueN(descendant_concept_id)
+    ),
+    by = ancestor_concept_id
+  ][COUNT > 1]
 
-  # Step 1: Filter concept_ancestor for relevant concepts
-  filtered_ancestor_data <- concept_ancestor[descendant_concept_id %in% active_concept_ids]
-
-  # Step 2: Group by ancestor, ensuring at least two descendants
-  ancestor_groups <- filtered_ancestor_data[, .(
-    CONCEPT_IDS = list(unique(descendant_concept_id)),  # Store as list
-    COUNT = data.table::uniqueN(descendant_concept_id)  # Count unique descendants
-  ), by = ancestor_concept_id][COUNT > 1]  # Keep only ancestors with >1 descendant
-
-  # Step 3: Retrieve concept names (optimized using a join instead of `lapply()`)
+  # Step 3: Get concept names for the CONCEPT_IDS (descendants)
   concept_names_lookup <- concept_table[, .(concept_id, concept_name)]
   data.table::setkey(concept_names_lookup, concept_id)
 
   ancestor_groups[, CONCEPT_NAMES := lapply(CONCEPT_IDS, function(ids) {
-    concept_names_lookup[data.table::SJ(ids), concept_name, nomatch = 0L]
+    concept_names_lookup[
+      data.table::data.table(concept_id = ids),
+      on = "concept_id",
+      concept_name,
+      nomatch = 0L
+    ]
   })]
 
   # Step 4: Add parent concept name using a fast join
-  ancestor_groups <- ancestor_groups[
-    concept_table[, .(concept_id, concept_name)],
-    on = .(ancestor_concept_id = concept_id),
+  concept_table_subset <- concept_table[, .(concept_id, concept_name)]
+  data.table::setnames(concept_table_subset, "concept_id", "ancestor_concept_id")
+
+  ancestor_groups <- concept_table_subset[
+    ancestor_groups,
+    on = "ancestor_concept_id",
     nomatch = 0L
   ][
-    , .(PARENT_ID = ancestor_concept_id, PARENT_NAME = concept_name, COUNT, CONCEPT_IDS, CONCEPT_NAMES)
+    , .(PARENT_ID = ancestor_concept_id,
+        PARENT_NAME = concept_name,
+        COUNT, CONCEPT_IDS, CONCEPT_NAMES)
   ]
-  # Step 5: Keep only rows where PARENT_ID is in CONCEPT_IDS
-  ancestor_groups <- ancestor_groups[
-    mapply(function(pid, ids) pid %in% ids, PARENT_ID, CONCEPT_IDS)
-  ]
+
+  # Step 5: Keep only rows where PARENT_ID is in allowed_parents
+  if (is.null(allowed_parents)) allowed_parents <- active_concept_ids
+
+  ancestor_groups <- ancestor_groups[PARENT_ID %in% allowed_parents]
 
   return(ancestor_groups)
 }
+
 
 
 #' @keywords internal
@@ -195,7 +210,7 @@ filterCorrelationMappings <- function(df, data_features, minCorrelation = 0.8, m
     return(df)
   }
 
-  # Step 1: Filter according to correlation and days thresholds
+  # Step 1: Filter according to thresholds
   df <- df %>%
     dplyr::filter(CORRELATION >= minCorrelation, MEDIAN_DAYS_INBETWEEN <= maxDaysInbetween)
 
@@ -212,24 +227,28 @@ filterCorrelationMappings <- function(df, data_features, minCorrelation = 0.8, m
     }) %>%
     dplyr::ungroup()
 
-  # Step 3: Ensure each concept appears only once (deduplicate)
-  # Unnest to one row per concept_id
+  # Step 3: Unnest to long format with row_id
   df_long <- df %>%
+    dplyr::mutate(row_id = dplyr::row_number()) %>%
     tidyr::unnest_longer(CONCEPT_IDS) %>%
     dplyr::rename(CONCEPT_ID = CONCEPT_IDS)
 
-  # Step 4: Prioritize rows with higher correlation and lower median days
-  df_ranked <- df_long %>%
+  # Step 4: Prioritize the best row per CONCEPT_ID
+  best_rows <- df_long %>%
     dplyr::arrange(CONCEPT_ID, dplyr::desc(CORRELATION), MEDIAN_DAYS_INBETWEEN) %>%
     dplyr::group_by(CONCEPT_ID) %>%
     dplyr::slice_head(n = 1) %>%
-    dplyr::ungroup()
+    dplyr::ungroup() %>%
+    dplyr::pull(row_id) %>%
+    unique()
 
-  # Step 5: Reconstruct unique groups of concept IDs
-  df_final <- df_ranked %>%
-    dplyr::group_by(dplyr::across(-CONCEPT_ID)) %>%
-    dplyr::summarise(CONCEPT_IDS = list(unique(CONCEPT_ID)), .groups = "drop")
+  # Step 5: Keep only rows where all concept_ids are among the best row_ids
+  df <- df %>%
+    dplyr::mutate(row_id = dplyr::row_number()) %>%
+    dplyr::filter(row_id %in% best_rows) %>%
+    dplyr::select(-row_id)
 
-  return(df_final)
+  return(df)
 }
+
 

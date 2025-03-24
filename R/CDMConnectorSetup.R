@@ -17,16 +17,19 @@ createControlCohortMatching <-
       overwrite = T
     )
     cdm$target = omopgenerics::newCohortTable(cdm$target)
+    target_with_clusters = NULL
     # 1. Create a match cohort of the target cohort based on all the people in the database ----
     if (is.null(max) && is.null(min)) {
     cdm$control <-
       CohortConstructor::matchCohorts(cdm$target, ratio = ratio, name = "control")
+    target_with_clusters = cdm$control %>% dplyr::collect() %>% dplyr::filter(.data$cohort_definition_id == 1)
+    cdm$control <- dplyr::filter(cdm$control, .data$cohort_definition_id == 2)
     }
     else {
       cdm$control <-
         CohortConstructor::matchCohorts(cdm$target, ratio = Inf, name = "control")
+      target_with_clusters = cdm$control %>% dplyr::collect() %>% dplyr::filter(.data$cohort_definition_id == 1)
       cdm$control <- dplyr::filter(cdm$control, .data$cohort_definition_id == 2)
-      # TODO
       # Group by person and filter by max and min criteria
       matched_counts <- cdm$control %>%
         dplyr::group_by(.data$cluster_id) %>%
@@ -54,13 +57,46 @@ createControlCohortMatching <-
           dplyr::select(-.data$row_number)
       }
     }
-    # 2. Restrict the people in the matched cohort to those in the control cohort ----
-    cdm$control <- cdm$control |>
-      dplyr::ungroup() |>
-      # Filter to people in the matched cohort
-      dplyr::filter(.data$cohort_definition_id == 2) |>
-      dplyr::select(-.data$cluster_id)
-    result <- cdm$control %>% as.data.frame()
+    # Step 1: Get target's start and duration
+    # Maybe apply same dates as in target match
+    target_dates <- target_with_clusters %>%
+      dplyr::mutate(
+        duration = cohort_end_date - cohort_start_date
+      ) %>%
+      dplyr::select(cluster_id, start_date_target = cohort_start_date, duration) %>%
+      dplyr::distinct()
+
+    # Step 2: Join to all controls
+    control <- cdm$control %>%
+      dplyr::collect() %>%
+      dplyr::filter(.data$cohort_definition_id == 2) %>%
+      dplyr::left_join(target_dates, by = "cluster_id") %>%
+      dplyr::mutate(
+        # Target end date (to be tested)
+        end_date_target = start_date_target + lubridate::days(as.integer(duration)),
+
+        # Condition: can we apply the target start + end date to the control?
+        use_target_dates = cohort_start_date <= start_date_target & cohort_end_date >= end_date_target,
+
+        # Apply either target dates or fallback to control start + target duration
+        cohort_start_date = dplyr::if_else(
+          use_target_dates,
+          start_date_target,
+          cohort_start_date
+        ),
+        cohort_end_date = dplyr::if_else(
+          use_target_dates,
+          end_date_target,
+          cohort_start_date + lubridate::days(as.integer(duration))
+        )
+      )
+
+    result <- control  %>%
+      dplyr::ungroup() %>%
+      dplyr::select(cohort_definition_id, subject_id, cohort_start_date, cohort_end_date) %>%
+      dplyr::filter(dplyr::if_all(dplyr::everything(), ~ !is.na(.))) %>%
+      as.data.frame()
+
     return(result)
   }
 

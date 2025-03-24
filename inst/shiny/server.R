@@ -957,7 +957,7 @@ server <- function(input, output, session) {
   })
   ########################################################## MAPPING SUGGESTIONS
 
-  observeEvent(input$mappingControlPanel, {
+  observeEvent(list(input$mappingControlPanel), {
     createMappingWaiter$show()
       # Example: Call a function to update data
     if (input$mappingControlPanel %in% c("hierarchy_suggestions_tab", "correlation_suggestions_tab") && isPatientLevelDataPresent()) {
@@ -966,10 +966,17 @@ server <- function(input, output, session) {
       # Check if rownames have changed
       if (!identical(current_row_names, last_row_annotation())) {
         last_row_annotation(current_row_names)
-        updateHierarchySuggestions()
+        updateHierarchySuggestions(allowOnlyActive = input$allowOnlyActiveHierarchyMappingToggle)
         updateCorrelationSuggestions()
       }
     }
+    createMappingWaiter$hide()
+  })
+
+  observeEvent(list(input$allowOnlyActiveHierarchyMappingToggle), {
+    shiny::req(hierarchySuggestionsTable())
+    createMappingWaiter$show()
+        updateHierarchySuggestions(allowOnlyActive = input$allowOnlyActiveHierarchyMappingToggle)
     createMappingWaiter$hide()
   })
 
@@ -1005,7 +1012,7 @@ server <- function(input, output, session) {
                                 selected_ids = selected_concept_ids)
         updatedHierarchySuggestionsTable = hierarchySuggestionsTable() %>%
           dplyr::filter(!sapply(CONCEPT_IDS, function(ids) any(selected_concept_ids %in% ids)))
-        updateHierarchySuggestions(updatedHierarchySuggestionsTable)
+        updateHierarchySuggestions(customisedTable = updatedHierarchySuggestionsTable)
       }
       target_mod(data_features())
       combineConceptsWaiter$hide()
@@ -1019,7 +1026,7 @@ server <- function(input, output, session) {
     if(!isPatientLevelDataPresent()){
       CohortContrast:::showNoPatientDataAllowedWarning()
     } else {
-      mappingsToExecute <- filterHeritagePriorityMappings(hierarchySuggestionsTable())
+      mappingsToExecute <- CohortContrast:::filterHeritagePriorityMappings(hierarchySuggestionsTable())
       apply(mappingsToExecute, 1, function(row) {
 
         selected_concept_ids <- as.numeric(unlist(row['CONCEPT_IDS']))
@@ -1031,7 +1038,7 @@ server <- function(input, output, session) {
                                 selected_ids = selected_concept_ids)
         updatedHierarchySuggestionsTable = hierarchySuggestionsTable() %>%
           dplyr::filter(!sapply(CONCEPT_IDS, function(ids) any(selected_concept_ids %in% ids)))
-        updateHierarchySuggestions(updatedHierarchySuggestionsTable)
+        updateHierarchySuggestions(customisedTable = updatedHierarchySuggestionsTable)
       }
         })
       target_mod(data_features())
@@ -2401,16 +2408,25 @@ server <- function(input, output, session) {
     )
   }
 
-  updateHierarchySuggestions <- function(customisedTable = NULL) {
+  updateHierarchySuggestions <- function(customisedTable = NULL, allowOnlyActive = TRUE) {
       shiny::req(studyName(), pathToResults)
       result <- NULL
       if(is.null(customisedTable)) {
+        if(allowOnlyActive){
       result <- CohortContrast:::getAncestorMappings(
         active_concept_ids = rownames(target_row_annotation()),
         concept_table = originalData()$conceptsData$concept,
-        concept_ancestor = originalData()$conceptsData$concept_ancestor
+        concept_ancestor = originalData()$conceptsData$concept_ancestor,
+        allowed_parents = rownames(target_row_annotation())
       )
-
+        } else{
+          result <- CohortContrast:::getAncestorMappings(
+            active_concept_ids = data_patients() %>% dplyr::filter(ABSTRACTION_LEVEL == abstractionLevelReactive()) %>% dplyr::pull(CONCEPT_ID),
+            concept_table = originalData()$conceptsData$concept,
+            concept_ancestor = originalData()$conceptsData$concept_ancestor,
+            allowed_parents = rownames(target_row_annotation())
+          )
+}
       } else {
         result <- customisedTable
       }

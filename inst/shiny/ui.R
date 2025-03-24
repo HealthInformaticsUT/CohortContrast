@@ -214,11 +214,20 @@ body <- shinydashboard::dashboardBody(
                  value = "hierarchy_suggestions_tab",
                  fluidRow(
                    column(2, h3("Hierarchy Panel")),
-                   column(10, div(
+                   column(2, div(
                      actionButton("combine_hierarchy_suggestion_btn", "Combine",
                                   style = "margin-top: 15px; padding: 5px;"),
                      actionButton("combine_hierarchy_suggestion_automatic_btn", "Auto-Combine",
                                   style = "margin-top: 15px; padding: 5px;")
+                   )),
+                   column(8,           shiny::div(
+                     shiny.fluent::Toggle.shinyInput(
+                       "allowOnlyActiveHierarchyMappingToggle",
+                       label = "Allow only active concepts",
+                       value = TRUE,
+                       onText = "On",
+                       offText = "Off"
+                     )
                    ))
                  ),
                  fluidRow(

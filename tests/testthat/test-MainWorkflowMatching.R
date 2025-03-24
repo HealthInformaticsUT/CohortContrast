@@ -123,7 +123,7 @@ test_that("Test patient matching with min and max values", {
   DBI::dbExecute(db , "CREATE SCHEMA IF NOT EXISTS testthat")
   DBI::dbWriteTable(db ,   DBI::SQL('"testthat"."cohort"'), cohort)
 
-  cdm <- CDMConnector::cdm_from_con(db , cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
+  cdm <- CDMConnector::cdmFromCon(db , cdmName = "eunomia", cdmSchema = "main", writeSchema = "main")
 
   targetTable <- cohortFromCohortTable(cdm = cdm, db = db, tableName = "cohort", schemaName = 'testthat', cohortId = 500)
   controlTable <- createControlCohortMatching(cdm = cdm, targetTable = targetTable, ratio = 3, min = 1, max = 2)
