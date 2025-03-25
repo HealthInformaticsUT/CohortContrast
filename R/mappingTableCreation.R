@@ -114,7 +114,7 @@ updateMapping <- function(mappingTable) {
 }
 
 #' @keywords internal
-getAncestorMappings <- function(active_concept_ids, concept_table, concept_ancestor, allowed_parents = NULL) {
+getAncestorMappings <- function(active_concept_ids, concept_table, concept_ancestor, allowed_parents = NULL, isOnlyActiveParentsAllowed = TRUE) {
   # Step 1: Filter concept_ancestor for relevant descendant concepts
   filtered_ancestor_data <- concept_ancestor[
     descendant_concept_id %in% active_concept_ids
@@ -159,8 +159,9 @@ getAncestorMappings <- function(active_concept_ids, concept_table, concept_ances
   # Step 5: Keep only rows where PARENT_ID is in allowed_parents
   if (is.null(allowed_parents)) allowed_parents <- active_concept_ids
 
+  if (isOnlyActiveParentsAllowed) {
   ancestor_groups <- ancestor_groups[PARENT_ID %in% allowed_parents]
-
+}
   return(ancestor_groups)
 }
 
