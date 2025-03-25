@@ -55,3 +55,11 @@
   font-weight: bold;
   border-color: black;
 }
+
+#rename_btn {
+  color: black;
+  width: 200px;
+  background-color: lightpink;
+  font-weight: bold;
+  border-color: black;
+}

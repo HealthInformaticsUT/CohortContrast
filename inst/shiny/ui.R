@@ -220,10 +220,17 @@ body <- shinydashboard::dashboardBody(
                      actionButton("combine_hierarchy_suggestion_automatic_btn", "Auto-Combine",
                                   style = "margin-top: 15px; padding: 5px;")
                    )),
-                   column(8,           shiny::div(
+                   column(8,           shiny::div(style = "display: flex; gap: 20px; align-items: center; margin-top: 10px;",
                      shiny.fluent::Toggle.shinyInput(
-                       "allowOnlyActiveHierarchyMappingToggle",
-                       label = "Allow only active concepts",
+                       "allowOnlyActiveChildrenHierarchyMappingToggle",
+                       label = "Allow only active concepts as children",
+                       value = TRUE,
+                       onText = "On",
+                       offText = "Off"
+                     ),
+                     shiny.fluent::Toggle.shinyInput(
+                       "allowOnlyActiveParentsHierarchyMappingToggle",
+                       label = "Allow only active concepts as parents",
                        value = TRUE,
                        onText = "On",
                        offText = "Off"
@@ -318,6 +325,7 @@ body <- shinydashboard::dashboardBody(
       ),
       fluidRow(
         actionButton("combine_btn", "Combine Selected"),
+        actionButton("rename_btn", "Rename"),
         actionButton("reset_btn_mappings", "Reset"),
         actionButton("save_btn", "Snapshot")
       ),

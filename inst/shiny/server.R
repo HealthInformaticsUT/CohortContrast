@@ -463,6 +463,7 @@ server <- function(input, output, session) {
       target_time_annotation(result$target_time_annotation)
       target_matrix(result$target_matrix)
       correlationGroups(result$correlation_analysis$groups)
+
     } else {
       result <- list()
       prevalence_plot_data(if (is.null(cachedData()$prevalence_plot_data)) NULL else cachedData()$prevalence_plot_data %>%
@@ -936,6 +937,16 @@ server <- function(input, output, session) {
     combineConceptsWaiter$hide()
     target()
   })
+  # Rename concept
+  shiny::observeEvent(input$accept_renamed_btn, {
+    shiny::removeModal()
+    new_concept_name <- input$new_renamed_concept_name
+    processed_table <- target_mod()[ABSTRACTION_LEVEL == as.numeric(abstractionLevelReactive())]
+    selected_concept_id <- as.numeric(processed_table$CONCEPT_ID[input$concept_table_rows_selected])
+    renameSelectedConcept(new_concept_name = new_concept_name, selected_concept_id = selected_concept_id)
+    target_mod(data_features())
+    target()
+  })
 
   # Reset data to original
   shiny::observeEvent(input$reset_btn_mappings, {
@@ -958,25 +969,27 @@ server <- function(input, output, session) {
   ########################################################## MAPPING SUGGESTIONS
 
   observeEvent(list(input$mappingControlPanel), {
-    createMappingWaiter$show()
       # Example: Call a function to update data
     if (input$mappingControlPanel %in% c("hierarchy_suggestions_tab", "correlation_suggestions_tab") && isPatientLevelDataPresent()) {
       # Get current row names
       current_row_names <- rownames(target_row_annotation())
       # Check if rownames have changed
       if (!identical(current_row_names, last_row_annotation())) {
+        createMappingWaiter$show()
         last_row_annotation(current_row_names)
-        updateHierarchySuggestions(allowOnlyActive = input$allowOnlyActiveHierarchyMappingToggle)
+        updateHierarchySuggestions(allowOnlyActiveChildren = input$allowOnlyActiveChildrenHierarchyMappingToggle,
+                                   isOnlyActiveParentsAllowed = input$allowOnlyActiveParentsHierarchyMappingToggle)
         updateCorrelationSuggestions()
+        createMappingWaiter$hide()
       }
     }
-    createMappingWaiter$hide()
   })
 
-  observeEvent(list(input$allowOnlyActiveHierarchyMappingToggle), {
+  observeEvent(list(input$allowOnlyActiveParentsHierarchyMappingToggle, input$allowOnlyActiveChildrenHierarchyMappingToggle), {
     shiny::req(hierarchySuggestionsTable())
     createMappingWaiter$show()
-        updateHierarchySuggestions(allowOnlyActive = input$allowOnlyActiveHierarchyMappingToggle)
+    updateHierarchySuggestions(allowOnlyActiveChildren = input$allowOnlyActiveChildrenHierarchyMappingToggle,
+                               isOnlyActiveParentsAllowed = input$allowOnlyActiveParentsHierarchyMappingToggle)
     createMappingWaiter$hide()
   })
 
@@ -1010,11 +1023,11 @@ server <- function(input, output, session) {
         combineSelectedConcepts(new_concept_name = selected_parent_name,
                                 new_concept_id =  selected_parent_id,
                                 selected_ids = selected_concept_ids)
-        updatedHierarchySuggestionsTable = hierarchySuggestionsTable() %>%
-          dplyr::filter(!sapply(CONCEPT_IDS, function(ids) any(selected_concept_ids %in% ids)))
-        updateHierarchySuggestions(customisedTable = updatedHierarchySuggestionsTable)
       }
       target_mod(data_features())
+      target_filtered()
+      updateHierarchySuggestions(allowOnlyActiveChildren = input$allowOnlyActiveChildrenHierarchyMappingToggle,
+                                 isOnlyActiveParentsAllowed = input$allowOnlyActiveParentsHierarchyMappingToggle)
       combineConceptsWaiter$hide()
     } else {
       shiny::showNotification("Select at least one row to combine", type = "warning")
@@ -1022,10 +1035,10 @@ server <- function(input, output, session) {
   })
 
   shiny::observeEvent(input$combine_hierarchy_suggestion_automatic_btn, {
-    combineConceptsWaiter$show()
     if(!isPatientLevelDataPresent()){
       CohortContrast:::showNoPatientDataAllowedWarning()
     } else {
+      combineConceptsWaiter$show()
       mappingsToExecute <- CohortContrast:::filterHeritagePriorityMappings(hierarchySuggestionsTable())
       apply(mappingsToExecute, 1, function(row) {
 
@@ -1036,14 +1049,14 @@ server <- function(input, output, session) {
         combineSelectedConcepts(new_concept_name = selected_parent_name,
                                 new_concept_id =  selected_parent_id,
                                 selected_ids = selected_concept_ids)
-        updatedHierarchySuggestionsTable = hierarchySuggestionsTable() %>%
-          dplyr::filter(!sapply(CONCEPT_IDS, function(ids) any(selected_concept_ids %in% ids)))
-        updateHierarchySuggestions(customisedTable = updatedHierarchySuggestionsTable)
       }
         })
       target_mod(data_features())
+      target_filtered()
+      updateHierarchySuggestions(allowOnlyActiveChildren = input$allowOnlyActiveChildrenHierarchyMappingToggle,
+                                 isOnlyActiveParentsAllowed = input$allowOnlyActiveParentsHierarchyMappingToggle)
+      combineConceptsWaiter$hide()
     }
-    combineConceptsWaiter$hide()
   })
 
   output$mapping_correlation_suggestions_concept_table <- DT::renderDT({
@@ -1077,10 +1090,10 @@ server <- function(input, output, session) {
         combineSelectedConcepts(new_concept_name = selected_parent_name,
                                 new_concept_id =  selected_parent_id,
                                 selected_ids = selected_concept_ids)
-        updatedCorrelationSuggestionsTable = correlationSuggestionsTable() %>%
-          dplyr::filter(!sapply(CONCEPT_IDS, function(ids) any(selected_concept_ids %in% ids)))
-        updateCorrelationSuggestions(updatedCorrelationSuggestionsTable)
         target_mod(data_features())
+        target_filtered()
+        updateCorrelationSuggestions()
+
         combineConceptsWaiter$hide()
 
     } else {
@@ -1104,12 +1117,12 @@ server <- function(input, output, session) {
           combineSelectedConcepts(new_concept_name = selected_parent_name,
                                   new_concept_id =  selected_parent_id,
                                   selected_ids = selected_concept_ids)
-          updatedCorrelationSuggestionsTable = correlationSuggestionsTable() %>%
-            dplyr::filter(!sapply(CONCEPT_IDS, function(ids) any(selected_concept_ids %in% ids)))
-          updateCorrelationSuggestions(updatedCorrelationSuggestionsTable)
-          target_mod(data_features())
         }
       })
+
+      target_filtered()
+      target_mod(data_features())
+      updateCorrelationSuggestions()
     }
     combineConceptsWaiter$hide()
   })
@@ -1251,6 +1264,24 @@ server <- function(input, output, session) {
       shiny::showNotification("Select at least two rows to combine", type = "warning")
     }
   })
+
+  shiny::observeEvent(input$rename_btn, {
+    if(!isPatientLevelDataPresent()){
+      CohortContrast:::showNoPatientDataAllowedWarning()
+    } else if (length(input$concept_table_rows_selected) > 1) {
+      shiny::showNotification("Select only one row", type = "warning")
+    } else {
+      shiny::showModal(shiny::modalDialog(
+        title = "Combine Concepts",
+        textInput("new_renamed_concept_name", "Enter New Concept Name:", ""),
+        footer = htmltools::tagList(
+          shiny::modalButton("Cancel"),
+          shiny::actionButton("accept_renamed_btn", "Accept")
+        )
+      ))
+    }
+  })
+
 
   shiny::observeEvent(input$combine_corr_btn, {
     if(!isPatientLevelDataPresent()){
@@ -1915,6 +1946,70 @@ server <- function(input, output, session) {
   })
 
   #################################################################### FUNCTIONS
+  # Function to rename selected concept
+  renameSelectedConcept <- function(new_concept_name, selected_concept_id) {
+    abstraction_level <- as.numeric(abstractionLevelReactive())
+    data_features <- data_features()
+    data_patients <- data_patients()
+    complementary_mapping <- complementaryMappingTable()
+
+
+    processed_table <- target_mod()[ABSTRACTION_LEVEL == abstraction_level]
+    selected_concept_name <- processed_table[CONCEPT_ID == selected_concept_id, CONCEPT_NAME]
+    # check if new_concept_name can be used
+    new_concept_name = ensureUniqueConceptName(data_patients, selected_concept_id, new_concept_name)
+
+    # Update complementaryMappingTable
+    new_row <- data.frame(CONCEPT_ID = selected_concept_id, CONCEPT_NAME = selected_concept_name, NEW_CONCEPT_ID = selected_concept_id, NEW_CONCEPT_NAME = new_concept_name, ABSTRACTION_LEVEL = abstraction_level, stringsAsFactors = FALSE)
+    complementary_mapping <- rbind(complementary_mapping, new_row)
+
+    # Update tables
+    rows_to_update <- data_patients[
+      , CONCEPT_ID == selected_concept_id & ABSTRACTION_LEVEL == abstraction_level
+    ]
+
+    data_patients[
+      rows_to_update,
+      `:=`(
+        CONCEPT_NAME = new_concept_name
+      )
+    ]
+
+    rows_to_update <- data_features[
+      , CONCEPT_ID == selected_concept_id & ABSTRACTION_LEVEL == abstraction_level
+    ]
+
+    data_features[
+      rows_to_update,
+      `:=`(
+        CONCEPT_NAME = new_concept_name
+      )
+    ]
+
+    data_features(data_features)
+    data_patients(data_patients)
+    complementaryMappingTable(complementary_mapping)
+    cachedData(list(
+      data_initial = data_initial(),
+      data_patients = data_patients,
+      data_features = data_features,
+      data_person = data_person(),
+      complementaryMappingTable = complementary_mapping,
+      # Preserve existing values if needed
+      target_matrix = cachedData()$target_matrix,
+      target_row_annotation = cachedData()$target_row_annotation,
+      target_col_annotation = cachedData()$target_col_annotation,
+      config = cachedData()$config,
+      compressedDatas = cachedData()$compressedDatas,
+      prevalence_plot_data = cachedData()$prevalence_plot_data,
+      time_plot_data = cachedData()$time_plot_data,
+      heatmap_plot_data = cachedData()$heatmap_plot_data,
+      prevalence_plot_data_correlation = cachedData()$prevalence_plot_data_correlation,
+      time_plot_data_correlation = cachedData()$time_plot_data_correlation,
+      heatmap_plot_data_correlation = cachedData()$heatmap_plot_data_correlation
+    ))
+    }
+
   # Function to combine selected concepts
   combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, selected_ids = NULL) {
     # selected_rows <- input$concept_table_rows_selected
@@ -1928,15 +2023,8 @@ server <- function(input, output, session) {
     # Assuming data_initial, data_features, and processed_table are data.tables
 
     # check if new_concept_name can be used
-    used_concept_names <- unique(data_patients %>% dplyr::filter(!(.data$CONCEPT_ID %in% selected_ids)) %>%  dplyr::pull(CONCEPT_NAME))
-    counter = 2
-    maybe_new_concept_name = new_concept_name
-    while(maybe_new_concept_name %in% used_concept_names){
-      maybe_new_concept_name = paste(new_concept_name, counter, sep = " ")
-      counter = counter + 1
-      cli::cli_alert_warning(paste0("Mapped '", gsub("\\{", "{{", gsub("\\}", "}}", new_concept_name)), "' to '",  gsub("\\{", "{{", gsub("\\}", "}}", maybe_new_concept_name)), "' because of duplicate concept names for differing ids!"))
-    }
-    new_concept_name = maybe_new_concept_name
+    new_concept_name = ensureUniqueConceptName(data_patients, selected_ids, new_concept_name)
+
 
     # Step 1: Grouping and summarizing, followed by reshaping
     n_patients_temp <- data_initial[, .N, by = COHORT_DEFINITION_ID]
@@ -2408,23 +2496,25 @@ server <- function(input, output, session) {
     )
   }
 
-  updateHierarchySuggestions <- function(customisedTable = NULL, allowOnlyActive = TRUE) {
+  updateHierarchySuggestions <- function(customisedTable = NULL, allowOnlyActiveChildren = TRUE, isOnlyActiveParentsAllowed = TRUE) {
       shiny::req(studyName(), pathToResults)
       result <- NULL
       if(is.null(customisedTable)) {
-        if(allowOnlyActive){
+        if(allowOnlyActiveChildren){
       result <- CohortContrast:::getAncestorMappings(
         active_concept_ids = rownames(target_row_annotation()),
         concept_table = originalData()$conceptsData$concept,
         concept_ancestor = originalData()$conceptsData$concept_ancestor,
-        allowed_parents = rownames(target_row_annotation())
+        allowed_parents = rownames(target_row_annotation()),
+        isOnlyActiveParentsAllowed = isOnlyActiveParentsAllowed
       )
         } else{
           result <- CohortContrast:::getAncestorMappings(
             active_concept_ids = data_patients() %>% dplyr::filter(ABSTRACTION_LEVEL == abstractionLevelReactive()) %>% dplyr::pull(CONCEPT_ID),
             concept_table = originalData()$conceptsData$concept,
             concept_ancestor = originalData()$conceptsData$concept_ancestor,
-            allowed_parents = rownames(target_row_annotation())
+            allowed_parents = rownames(target_row_annotation()),
+            isOnlyActiveParentsAllowed = isOnlyActiveParentsAllowed
           )
 }
       } else {
@@ -2438,12 +2528,39 @@ server <- function(input, output, session) {
     result <- NULL
     if(is.null(customisedTable)) {
       result_corr <- CohortContrast:::computePairwiseCorrelations(target_filtered()$correlation_analysis$ordered_matrix, target_row_annotation())
-      result_time <- CohortContrast:::calculateMedianTransitions(target_filtered()$target_time_annotation)
+      result_time <- CohortContrast:::calculateMedianTransitions(target_time_annotation())
       result <- CohortContrast:::mergeCorrelationWithTransitions(correlation_data = result_corr, transition_data = result_time)
     } else {
       result <- customisedTable
     }
     correlationSuggestionsTable(result)
+  }
+
+  ensureUniqueConceptName <- function(data_patients, selected_ids, new_concept_name) {
+    # Get concept names that are not associated with the selected IDs
+    used_concept_names <- unique(
+      data_patients %>%
+        dplyr::filter(!(.data$CONCEPT_ID %in% selected_ids)) %>%
+        dplyr::pull(CONCEPT_NAME)
+    )
+
+    counter <- 2
+    maybe_new_concept_name <- new_concept_name
+
+    # Check if the new concept name is already used and make it unique
+    while (maybe_new_concept_name %in% used_concept_names) {
+      maybe_new_concept_name <- paste(new_concept_name, counter)
+      counter <- counter + 1
+      cli::cli_alert_warning(
+        paste0(
+          "Mapped '", gsub("\\{", "{{", gsub("\\}", "}}", new_concept_name)),
+          "' to '", gsub("\\{", "{{", gsub("\\}", "}}", maybe_new_concept_name)),
+          "' because of duplicate concept names for differing ids!"
+        )
+      )
+    }
+
+    return(maybe_new_concept_name)
   }
   }
 
