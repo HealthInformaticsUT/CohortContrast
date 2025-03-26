@@ -180,7 +180,7 @@ CohortContrast <- function(cdm,
       new_data_patients <- foreach::foreach(maxAbstraction = maximumAbstractionLevel:0, .combine = rbind, .packages = c("CohortContrast", "dplyr"),
                                             .export = c("maxAbstraction")) %dopar% {
                                               # Load necessary libraries in each worker
-                                              complementaryMappingTable = generateMappingTable(cdm = cdm, abstractionLevel = maxAbstraction, data = data, maxMinDataFrame =max_min_levels)
+                                              complementaryMappingTable = generateMappingTable(abstractionLevel = maxAbstraction, data = data, maxMinDataFrame =max_min_levels)
                                               complementaryMappingTable1 <- updateMapping(complementaryMappingTable)
                                               newData <- handleMapping(data = data, complementaryMappingTable = complementaryMappingTable, abstractionLevel = maxAbstraction)
                                               newData$PERSON_ID = as.integer(newData$PERSON_ID)
