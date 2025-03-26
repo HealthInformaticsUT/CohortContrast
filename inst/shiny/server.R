@@ -2022,10 +2022,6 @@ server <- function(input, output, session) {
     complementary_mapping <- complementaryMappingTable()
     # Assuming data_initial, data_features, and processed_table are data.tables
 
-    # check if new_concept_name can be used
-    new_concept_name = ensureUniqueConceptName(data_patients, selected_ids, new_concept_name)
-
-
     # Step 1: Grouping and summarizing, followed by reshaping
     n_patients_temp <- data_initial[, .N, by = COHORT_DEFINITION_ID]
     n_patients <- reshape2::dcast(n_patients_temp, formula = 1 ~ COHORT_DEFINITION_ID, value.var = "N", fill = 0)
@@ -2060,6 +2056,13 @@ server <- function(input, output, session) {
       representingLogitTest <- any(processed_table[CONCEPT_ID %in% selected_concept_ids, LOGITTEST])
       representingKSTest <- any(processed_table[CONCEPT_ID %in% selected_concept_ids, KSTEST])
 
+
+    # Remove row if there was for representingConceptId
+    data_features <- data_features[!(CONCEPT_ID %in% c(selected_concept_ids, representingConceptId) & ABSTRACTION_LEVEL == abstraction_level)]
+
+    # check if new_concept_name can be used
+    new_concept_name = ensureUniqueConceptName(data_features, c(selected_concept_ids, representingConceptId), new_concept_name)
+
     new_row <- data.table::data.table(
       CONCEPT_ID = representingConceptId,
       CONCEPT_NAME = new_concept_name,
@@ -2070,12 +2073,10 @@ server <- function(input, output, session) {
       HERITAGE = representingHeritage
     )
 
-    # Remove row if there was for representingConceptId
-    data_features <- data_features[!(CONCEPT_ID %in% c(selected_concept_ids, representingConceptId) & ABSTRACTION_LEVEL == abstraction_level)]
-
     data_features <- rbind(data_features, new_row, fill = TRUE)
+
     rows_to_update <- data_patients[
-      , CONCEPT_ID %in% selected_concept_ids & ABSTRACTION_LEVEL == abstraction_level
+      , CONCEPT_ID %in% c(selected_concept_ids, representingConceptId) & ABSTRACTION_LEVEL == abstraction_level
     ]
 
     # Step 4: Update rows and group by relevant columns, then summarize
@@ -2143,7 +2144,7 @@ server <- function(input, output, session) {
     # Step 5: Determining ZTEST, KSTEST and LOGITTEST values
     total_concepts = data_features %>% dplyr::filter(.data$ABSTRACTION_LEVEL == abstraction_level) %>% nrow()
     # ZTEST
-    concept_row <- data_features[CONCEPT_ID == representingConceptId & ABSTRACTION_LEVEL == abstraction_level, .(TARGET_SUBJECT_COUNT, CONTROL_SUBJECT_COUNT)]
+    concept_row <- data_features[CONCEPT_ID == representingConceptId & CONCEPT_NAME == new_concept_name & ABSTRACTION_LEVEL == abstraction_level, .(TARGET_SUBJECT_COUNT, CONTROL_SUBJECT_COUNT)]
     target_subject_count <- concept_row$TARGET_SUBJECT_COUNT
     control_subject_count <- concept_row$CONTROL_SUBJECT_COUNT
 
