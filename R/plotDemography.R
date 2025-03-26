@@ -242,6 +242,7 @@ getDemographyPlotData <- function(data_patients = NULL, data_person = NULL, data
       control_person$Group <- "Target"
     }
   }
+
   # Combine datasets
   combined_data <- dplyr::bind_rows(target_person, control_person)
 
