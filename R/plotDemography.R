@@ -6,7 +6,9 @@ getDemographyYearOfBirthPlot <- function(plot_data = NULL) {
   demographic_data <- plot_data %>%
     dplyr::group_by(COHORT_DEFINITION_ID, YEAR_OF_BIRTH, GENDER_CONCEPT_ID) %>%
     dplyr::summarise(count = dplyr::n(), .groups = "drop") %>%
-    dplyr::mutate(relative_size = count / sum(count))  # Normalize by total count
+    dplyr::group_by(COHORT_DEFINITION_ID, GENDER_CONCEPT_ID) %>%
+    dplyr::mutate(relative_size = count / sum(count)) %>%  # Normalize by total count
+    dplyr::ungroup()
 
   # Separate Target & Control Groups
   target_data <- demographic_data %>% dplyr::filter(COHORT_DEFINITION_ID == "target")
@@ -40,6 +42,21 @@ getDemographyYearOfBirthPlot <- function(plot_data = NULL) {
     "Target_Male" = "darkgreen", "Control_Male" = "lightgreen"  # Male colors
   )
 
+
+  # Add missing values
+  full_years <- expand.grid(
+    YEAR_OF_BIRTH = min(combined_data$YEAR_OF_BIRTH):max(combined_data$YEAR_OF_BIRTH),
+    Group = unique(combined_data$Group),
+    Gender = c("Female", "Male")
+  )
+
+  # Join with actual data to introduce NA for missing years
+  combined_data <- full_years %>%
+    dplyr::left_join(combined_data, by = c("YEAR_OF_BIRTH", "Group", "Gender")) %>%
+    dplyr::mutate(
+      relative_size = ifelse(is.na(relative_size), 0, relative_size)
+    )
+
   # Create the plot
   plot <- ggplot2::ggplot() +
     # Female Data (above x-axis)
@@ -59,9 +76,9 @@ getDemographyYearOfBirthPlot <- function(plot_data = NULL) {
       y = "Relative Size"
     ) +
     # Annotate Labels for Male & Female
-    ggplot2::annotate("text", x = stats::quantile(demographic_data$YEAR_OF_BIRTH, probs = 0.8), y = 0.012,
+    ggplot2::annotate("text", x = stats::quantile(demographic_data$YEAR_OF_BIRTH, probs = 0), y = 0.1,
                       label = "Female", color = "purple", size = 5, fontface = "bold") +
-    ggplot2::annotate("text", x = stats::quantile(demographic_data$YEAR_OF_BIRTH, probs = 0.8), y = -0.012,
+    ggplot2::annotate("text", x = stats::quantile(demographic_data$YEAR_OF_BIRTH, probs = 0), y = -0.1,
                       label = "Male", color = "darkgreen", size = 5, fontface = "bold") +
     # Custom Theme for Bigger Axis Labels
     ggplot2::theme_minimal() +
@@ -83,7 +100,7 @@ getDemographyAgeAtIndexPlot <- function(plot_data = NULL,
 
   upperPlotGroupId <- "Target"
   lowerPlotGroupId <- "Control"
-  # TODO logic
+
   groups = plot_data$Group %>% unique()
   if ("Group1" %in% groups) {upperPlotGroupId <- "Group1"}
   if ("Group2" %in% groups) {lowerPlotGroupId <- "Group2"}
@@ -94,7 +111,9 @@ getDemographyAgeAtIndexPlot <- function(plot_data = NULL,
   demographic_data <- plot_data %>%
     dplyr::group_by(Group, AGE_AT_INDEX, GENDER_CONCEPT_ID) %>%
     dplyr::summarise(count = dplyr::n(), .groups = "drop") %>%
-    dplyr::mutate(relative_size = count / sum(count))  # Normalize by total count
+    dplyr::group_by(Group, GENDER_CONCEPT_ID) %>%
+    dplyr::mutate(relative_size = count / sum(count)) %>%  # Normalize by total count
+    dplyr::ungroup()
 
   # Separate Target & Control Groups
   target_data <- demographic_data %>% dplyr::filter(Group == upperPlotGroupId)
@@ -131,6 +150,20 @@ getDemographyAgeAtIndexPlot <- function(plot_data = NULL,
     interaction(lowerPlotGroupId, "Male", sep = "_")
   )
 
+  # Add missing values
+  full_years <- expand.grid(
+    AGE_AT_INDEX = min(combined_data$AGE_AT_INDEX):max(combined_data$AGE_AT_INDEX),
+    Group = unique(combined_data$Group),
+    Gender = c("Female", "Male")
+  )
+
+  # Join with actual data to introduce NA for missing years
+  combined_data <- full_years %>%
+    dplyr::left_join(combined_data, by = c("AGE_AT_INDEX", "Group", "Gender")) %>%
+    dplyr::mutate(
+      relative_size = ifelse(is.na(relative_size), 0, relative_size)
+    )
+
   # Create the plot
   plot <- ggplot2::ggplot() +
     # Female Data (above x-axis)
@@ -150,9 +183,9 @@ getDemographyAgeAtIndexPlot <- function(plot_data = NULL,
       y = "Relative Size"
     ) +
     # Annotate Labels for Male & Female
-    ggplot2::annotate("text", x = stats::quantile(demographic_data$AGE_AT_INDEX, probs = 0.2), y = 0.012,
+    ggplot2::annotate("text", x = stats::quantile(demographic_data$AGE_AT_INDEX, probs = 0), y = 0.1,
                       label = "Female", color = "purple", size = 5, fontface = "bold") +
-    ggplot2::annotate("text", x = stats::quantile(demographic_data$AGE_AT_INDEX, probs = 0.2), y = -0.012,
+    ggplot2::annotate("text", x = stats::quantile(demographic_data$AGE_AT_INDEX, probs = 0), y = -0.1,
                       label = "Male", color = "darkgreen", size = 5, fontface = "bold") +
     # Custom Theme for Bigger Axis Labels
     ggplot2::theme_minimal() +
@@ -180,37 +213,37 @@ getDemographyPlotData <- function(data_patients = NULL, data_person = NULL, data
   if(!is.null(groupOneIds) && length(groupOneIds) > 0){
     target <- data_patients %>% dplyr::filter(COHORT_DEFINITION_ID == "target", PERSON_ID %in% groupOneIds) %>% dplyr::pull(PERSON_ID) %>% unique()
     target_person <- data_person %>% dplyr::filter(PERSON_ID %in% target)
+    target_person <- target_person %>% dplyr::right_join(data_initial %>% dplyr::filter(COHORT_DEFINITION_ID == "target"), by = c("PERSON_ID" = "SUBJECT_ID")) %>%
+      dplyr::filter(!is.na(YEAR_OF_BIRTH))
     target_person$Group <- "Group1"
   } else {
     # Filter target group
-    target <- data_patients %>% dplyr::filter(COHORT_DEFINITION_ID == "target") %>% dplyr::pull(PERSON_ID) %>% unique()
-    target_person <- data_person %>% dplyr::filter(PERSON_ID %in% target)
+    target_person <- data_person %>% dplyr::right_join(data_initial %>% dplyr::filter(COHORT_DEFINITION_ID == "target"), by = c("PERSON_ID" = "SUBJECT_ID")) %>%
+      dplyr::filter(!is.na(YEAR_OF_BIRTH))
     target_person$Group <- "Target"
   }
+
   if (!is.null(groupTwoIds) && length(groupTwoIds) > 0) {
     # If comparing we always compare to target
     control <- data_patients %>% dplyr::filter(COHORT_DEFINITION_ID == "target", PERSON_ID %in% groupTwoIds) %>% dplyr::pull(PERSON_ID) %>% unique()
     control_person <- data_person %>% dplyr::filter(PERSON_ID %in% control)
+    control_person <- control_person %>% dplyr::right_join(data_initial %>% dplyr::filter(COHORT_DEFINITION_ID == "target"), by = c("PERSON_ID" = "SUBJECT_ID")) %>%
+      dplyr::filter(!is.na(YEAR_OF_BIRTH))
     control_person$Group <- "Group2"
   } else {
     if(is.null(groupOneIds)) {
-    control <- data_patients %>% dplyr::filter(COHORT_DEFINITION_ID == "control") %>% dplyr::pull(PERSON_ID) %>% unique()
-    control_person <- data_person %>% dplyr::filter(PERSON_ID %in% control)
+    control_person <- data_person %>% dplyr::right_join(data_initial %>% dplyr::filter(COHORT_DEFINITION_ID == "control"), by = c("PERSON_ID" = "SUBJECT_ID")) %>%
+      dplyr::filter(!is.na(YEAR_OF_BIRTH))
     control_person$Group <- "Control"
     } else {
       # If a group one is selected we compare to target
-      control <- data_patients %>% dplyr::filter(COHORT_DEFINITION_ID == "target") %>% dplyr::pull(PERSON_ID) %>% unique()
-      control_person <- data_person %>% dplyr::filter(PERSON_ID %in% control)
+      control_person <- data_person %>% dplyr::right_join(data_initial %>% dplyr::filter(COHORT_DEFINITION_ID == "target"), by = c("PERSON_ID" = "SUBJECT_ID")) %>%
+        dplyr::filter(!is.na(YEAR_OF_BIRTH))
       control_person$Group <- "Target"
     }
   }
   # Combine datasets
   combined_data <- dplyr::bind_rows(target_person, control_person)
-
-  # Merge with initial dataset
-  combined_data <- data_initial %>% dplyr::left_join(combined_data, by = c("SUBJECT_ID" = "PERSON_ID")) %>%
-    dplyr::filter(!is.na(YEAR_OF_BIRTH), !is.na(Group))
-
 
   # Calculate Age at Index
   combined_data <- combined_data %>%
