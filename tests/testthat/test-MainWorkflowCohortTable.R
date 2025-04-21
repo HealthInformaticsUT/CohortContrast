@@ -16,7 +16,7 @@ test_that("Created features table is correct.", {
 
   cohort = rbind(control, target)
 
-  db  <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+  db  <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomiaDir("GiBleed"))
   DBI::dbExecute(db , "CREATE SCHEMA IF NOT EXISTS testthat")
   DBI::dbWriteTable(db ,   DBI::SQL('"testthat"."cohort"'), cohort)
 

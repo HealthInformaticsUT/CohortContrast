@@ -11,7 +11,7 @@ test_that("Created features table is correct.", {
   ################################################################################
   pathToCSV <- paste(pathToResults, '/inst/CSV/cohort/cohort.csv', sep = '')
 
-  db  <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+  db  <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomiaDir("GiBleed"))
 
 
   cdm <- CDMConnector::cdm_from_con(db, cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")

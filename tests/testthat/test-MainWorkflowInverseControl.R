@@ -11,7 +11,7 @@ test_that("Created features table is correct with JSON inverseControl.", {
   ################################################################################
 
   target <- readr::read_csv('./inst/CSV/target/target.csv')
-  db  <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+  db  <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomiaDir("GiBleed"))
   DBI::dbExecute(db , "CREATE SCHEMA IF NOT EXISTS testthat")
   DBI::dbWriteTable(db ,   DBI::SQL('"testthat"."target_mock"'), target)
 
@@ -63,7 +63,7 @@ target$cohort_definition_id = 500
 
 cohort = rbind(control, target)
 
-db  <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+db  <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomiaDir("GiBleed"))
 DBI::dbExecute(db , "CREATE SCHEMA IF NOT EXISTS testthat")
 DBI::dbWriteTable(db ,   DBI::SQL('"testthat"."cohort"'), cohort)
 

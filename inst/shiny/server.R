@@ -1106,7 +1106,7 @@ server <- function(input, output, session) {
     if(!isPatientLevelDataPresent()){
       CohortContrast:::showNoPatientDataAllowedWarning()
     } else {
-      mappingsToExecute <- filterCorrelationMappings(correlationSuggestionsTable(), data_features = data_features(), minCorrelation = input$combine_correlation_suggestion_automatic_correlation_threshold, maxDaysInbetween = input$combine_correlation_suggestion_automatic_days_threshold)
+      mappingsToExecute <- CohortContrast:::filterCorrelationMappings(correlationSuggestionsTable(), data_features = data_features(), minCorrelation = input$combine_correlation_suggestion_automatic_correlation_threshold, maxDaysInbetween = input$combine_correlation_suggestion_automatic_days_threshold)
       apply(mappingsToExecute, 1, function(row) {
 
         selected_concept_ids <- as.numeric(unlist(row['CONCEPT_IDS']))

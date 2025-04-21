@@ -11,7 +11,7 @@ test_that("Created features table is correct with JSON & patient matching", {
   ################################################################################
 
   target <- readr::read_csv('./inst/CSV/target/target.csv')
-  db  <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+  db  <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomiaDir("GiBleed"))
   DBI::dbExecute(db , "CREATE SCHEMA IF NOT EXISTS testthat")
   DBI::dbWriteTable(db ,   DBI::SQL('"testthat"."target_mock"'), target)
 
@@ -65,7 +65,7 @@ test_that("Created features table is correct with Cohorts table & patient matchi
 
   cohort = rbind(control, target)
 
-  db  <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+  db  <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomiaDir("GiBleed"))
   DBI::dbExecute(db , "CREATE SCHEMA IF NOT EXISTS testthat")
   DBI::dbWriteTable(db ,   DBI::SQL('"testthat"."cohort"'), cohort)
 
@@ -119,7 +119,7 @@ test_that("Test patient matching with min and max values", {
 
   cohort = rbind(control, target)
 
-  db  <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+  db  <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomiaDir("GiBleed"))
   DBI::dbExecute(db , "CREATE SCHEMA IF NOT EXISTS testthat")
   DBI::dbWriteTable(db ,   DBI::SQL('"testthat"."cohort"'), cohort)
 
