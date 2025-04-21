@@ -21,6 +21,6 @@ utils::globalVariables(
     'concept_id_1', 'concept_id_2', 'concept_name_1', 'concept_name_2',
     'descendant_concept_id', 'invalid_reason', "ID1", 'ID2', 'MEDIAN_DAYS_INBETWEEN', 'NEW_CONCEPT_NAME', 'NEXT_TIME', 'PARENT_ID',
     'PARENT_IN_CONCEPTS', "TIMES",    'cluster_id', 'cohort_definition_id', 'cohort_end_date', 'duration',
-    'end_date_target', 'row_id', 'start_date_target', 'subject_id', 'use_target_dates'
+    'end_date_target', 'row_id', 'start_date_target', 'subject_id', 'use_target_dates', 'age', 'year_of_birth'
   )
 )

@@ -342,3 +342,77 @@ createCohortContrastCdm <- function(cdm,
   cdm$cohortcontrast_cohorts = omopgenerics::newCohortTable(cdm$cohortcontrast_cohorts)
   return(cdm)
 }
+
+
+#' Function for matching the control to target by age
+#'
+#' @param cdm Connection to the database (package CDMConnector)
+#' @param sourceTable Table which is used as reference for matching
+#' @param tableToMatch Table which is matched
+#' @param maxAllowedAgeDifference Value for maximum allowed age difference to be mapped to
+#' @export
+matchCohortsByAge <- function(cdm, sourceTable, tableToMatch, maxAllowedAgeDifference = 0) {
+  cdmPerson <- cdm$person %>% dplyr::collect()
+  # Step 1: Calculate age at cohort start
+  # Join and calculate age
+  source <- dplyr::left_join(sourceTable, cdmPerson, by = c("subject_id" = "person_id")) %>%
+    dplyr::mutate(age = lubridate::year(cohort_start_date) - year_of_birth)
+
+  match <- dplyr::left_join(tableToMatch, cdmPerson, by = c("subject_id" = "person_id")) %>%
+    dplyr::mutate(age = lubridate::year(cohort_start_date) - year_of_birth)
+
+  source_sample <- source
+  match_sample <- match
+
+
+  age_diffs_before <- outer(source_sample$age, match_sample$age, FUN = function(x, y) abs(x - y))
+  avg_age_diff_before <- mean(age_diffs_before, na.rm = TRUE)
+  cat(sprintf("🔹 Average age difference before matching: %.2f years\n", avg_age_diff_before))
+
+  # For reproducibility
+  set.seed(2025)
+
+  matched_source_list <- list()
+  matched_match_list <- list()
+
+  for (age_val in sort(unique(source$age))) {
+    source_subset <- dplyr::filter(source, age == age_val)
+    match_subset <- dplyr::filter(match, dplyr::between(age, age_val - maxAllowedAgeDifference, age_val + maxAllowedAgeDifference))
+
+    n_to_match <- min(nrow(source_subset), nrow(match_subset))
+    if (n_to_match == 0) next
+
+    source_sample <- dplyr::slice_sample(source_subset, n = n_to_match)
+    match_sample <- dplyr::slice_sample(match_subset, n = n_to_match)
+
+    matched_source_list[[length(matched_source_list) + 1]] <- source_sample
+    matched_match_list[[length(matched_match_list) + 1]] <- match_sample
+
+    match <- dplyr::anti_join(match, match_sample, by = "subject_id")
+  }
+
+  matched_source <- dplyr::bind_rows(matched_source_list) %>%
+    dplyr::select(dplyr::all_of(names(sourceTable)))
+
+  matched_match <- dplyr::bind_rows(matched_match_list) %>%
+    dplyr::select(dplyr::all_of(names(tableToMatch)))
+
+  # Compute post-match age difference
+  age1 <- lubridate::year(matched_source$cohort_start_date) -
+    cdmPerson$year_of_birth[match(matched_source$subject_id, cdmPerson$person_id)]
+
+  age2 <- lubridate::year(matched_match$cohort_start_date) -
+    cdmPerson$year_of_birth[match(matched_match$subject_id, cdmPerson$person_id)]
+
+  age_diff_after <- abs(age1 - age2)
+  avg_age_diff_after <- mean(age_diff_after, na.rm = TRUE)
+
+  cat(sprintf("✅ Matched %d pairs\n", nrow(matched_source)))
+  cat(sprintf("✅ Average age difference after matching: %.2f years (max allowed: %d)\n",
+              avg_age_diff_after, maxAllowedAgeDifference))
+
+  return(list(
+    source = matched_source,
+    tableToMatch = matched_match
+  ))
+}
