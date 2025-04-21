@@ -12,7 +12,7 @@ test_that("Created features table is correct.", {
 
   control <- readr::read_csv('./inst/CSV/control/control.csv')
   target <- readr::read_csv('./inst/CSV/target/target.csv')
-  db <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
+  db <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomiaDir("GiBleed"))
   DBI::dbExecute(db , "CREATE SCHEMA IF NOT EXISTS testthat")
   DBI::dbWriteTable(db ,   DBI::SQL('"testthat"."target_mock"'), target)
   DBI::dbWriteTable(db ,   DBI::SQL('"testthat"."control_mock"'), control)
