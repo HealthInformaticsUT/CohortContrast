@@ -628,6 +628,17 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
       prevalence_cohort_1 <- ifelse(is.na(sum(concept_data$PREVALENCE[concept_data$CONTROL == 1])), 0, sum(concept_data$PREVALENCE[concept_data$CONTROL == 1]))
 
       if (prevalence_cohort_2 / sample_2_n < presenceFilter | prevalence_cohort_1 == 0 | prevalence_cohort_2 == 0) {
+        if (prevalence_cohort_1 == 0 | prevalence_cohort_2 == 0) {
+          level_results <- rbind(
+            level_results,
+            data.frame(
+              CONCEPT_ID = concept_id,
+              LOGITTEST = TRUE,
+              LOGITTEST_P_VALUE = 0,
+              ABSTRACTION_LEVEL = abstraction_level
+            )
+          )
+        } else {
         level_results <- rbind(
           level_results,
           data.frame(
@@ -636,7 +647,7 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
             LOGITTEST_P_VALUE = 1,
             ABSTRACTION_LEVEL = abstraction_level
           )
-        )
+        )}
         next
       }
 
@@ -653,8 +664,7 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
         NA
       })
 
-      if (!is.na(p_value) && p_value < alpha) {
-       # print("Times 1")
+      if (!is.na(p_value) & p_value < alpha) {
         level_results <- rbind(
           level_results,
           data.frame(
@@ -665,8 +675,7 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
           )
         )
       }
-      else if (prevalence_cohort_1 == 0 || prevalence_cohort_2 == 0) {
-       # print("Times 2")
+      else if (prevalence_cohort_1 == 0 | prevalence_cohort_2 == 0) {
         level_results <- rbind(
           level_results,
           data.frame(
@@ -678,7 +687,6 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
         )
       }
       else {
-      #  print("Times 3")
         level_results <- rbind(
           level_results,
           data.frame(

@@ -36,7 +36,7 @@ nGramDiscovery <- function(data, collapse_size = 0) {
                                         observed_test = sig_pass,
                                         persons_count_p_value = binom_pval,
                                         persons_test = person_pass)
-  return(clustered)
+  return(result)
 }
 
 #' Function for summarizing ngrams from nGramDiscovery output
