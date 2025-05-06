@@ -255,6 +255,11 @@ combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, sel
     return(data)
   }
 
+#' Function for automatically combining concepts by hierarchy mapping
+#'
+#' @param data CohortContrastObject
+#' @param abstraction_level abstraction level to use for mapping
+#' @export
 automaticHierarchyCombineConcepts <- function(data, abstraction_level = -1) {
 
   concept_table = data.table::as.data.table(data$conceptsData$concept)
@@ -299,6 +304,73 @@ automaticHierarchyCombineConcepts <- function(data, abstraction_level = -1) {
     }
   }
 
+
+  return(data)
+}
+
+
+#' Function for automatically combining concepts by hierarchy mapping
+#'
+#' @param data CohortContrastObject
+#' @param abstraction_level abstraction level to use for mapping
+#' @param minCorrelation minimum correlation to use for automatic concept combining
+#' @param maxDaysInbetween minimum days inbetween concepts to use for automatic concept combining
+#' @export
+automaticCorrelationCombineConcepts <- function(data, abstraction_level = -1, minCorrelation = 0.7, maxDaysInbetween = 1) {
+
+  counter <- 1
+
+  while (TRUE) {
+    cli::cli_alert_warning(paste0("Automatic correlation mapping iteration ", counter))
+
+    target_filtered = CohortContrast:::format_results(data = data,
+                                                      autoScaleRate = FALSE,
+                                                      applyInverseTarget = FALSE,
+                                                      applyZTest = data$config$runZTests,
+                                                      applyLogitTest = data$config$runLogitTests,
+                                                      abstractionLevel = abstraction_level)
+    filter_target = CohortContrast:::filter_target(target = target_filtered, prevalence_threshold = data$config$presenceFilter,
+                                                   prevalence_ratio_threshold = data$config$prevalenceCutOff,removeUntreated = FALSE)
+
+    filter_target = prepare_filtered_target(filtered_target = filter_target, correlation_threshold = 0)
+
+    result_corr <- CohortContrast:::computePairwiseCorrelations(filter_target$correlation_analysis$ordered_matrix,filter_target$target_row_annotation)
+    result_time <- CohortContrast:::calculateMedianTransitions(filter_target$target_time_annotation)
+    correlationSuggestionsTable <- CohortContrast:::mergeCorrelationWithTransitions(correlation_data = result_corr, transition_data = result_time)
+
+
+    data_features = data$data_features %>% dplyr::filter(ABSTRACTION_LEVEL == abstraction_level)
+    counter = counter + 1
+
+    mappingsToExecute <- filterCorrelationMappings(correlationSuggestionsTable, data_features = data_features, minCorrelation = minCorrelation, maxDaysInbetween = maxDaysInbetween)
+
+    if(nrow(mappingsToExecute) == 0){
+      break
+    }
+    traversedConceptIds = c()
+    # Explicit for loop replaces apply
+    for (i in seq_len(nrow(mappingsToExecute))) {
+      row <- mappingsToExecute[i, ]
+      selected_concept_ids <- as.numeric(unlist(row[['CONCEPT_IDS']]))
+
+      # We cannot allow for one concept to be merged multiple times during one iteration
+      if (any(selected_concept_ids %in% traversedConceptIds)) next
+      traversedConceptIds <- c(traversedConceptIds, selected_concept_ids)
+
+      if (!any(is.na(selected_concept_ids))) {
+        selected_parent_id <- as.numeric(unlist(row[['CONCEPT_IDS']]))[1]
+        selected_parent_name <- as.character(unlist(row[['CONCEPT_NAMES']]))[1]
+
+        data <- combineSelectedConcepts(
+          new_concept_name = selected_parent_name,
+          new_concept_id = selected_parent_id,
+          selected_ids = selected_concept_ids,
+          abstraction_level = abstraction_level,
+          data = data
+        )
+      }
+    }
+  }
 
   return(data)
 }
