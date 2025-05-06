@@ -299,7 +299,7 @@ automaticHierarchyCombineConcepts <- function(data, abstraction_level = -1, minD
     counter = counter + 1
 
     mappingTable <- CohortContrast:::getAncestorMappings(
-      active_concept_ids = data_features %>% dplyr::pull(CONCEPT_ID) %>% interaction(concept_ancestor_allowed$concept_id),
+      active_concept_ids = data_features %>% dplyr::pull(CONCEPT_ID) %>% intersect(concept_ancestor_allowed),
       concept_table = concept_table,
       concept_ancestor = concept_ancestor
     )
