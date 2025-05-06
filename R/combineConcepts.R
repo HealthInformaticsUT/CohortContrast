@@ -259,21 +259,47 @@ combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, sel
 #'
 #' @param data CohortContrastObject
 #' @param abstraction_level abstraction level to use for mapping
+#' @param minDepthAllowed integer for restricting the mapping, if a concept is part of a hierarchy tree then minDepthAllowed value will prune the tree from said depth value upwards
 #' @export
-automaticHierarchyCombineConcepts <- function(data, abstraction_level = -1) {
+automaticHierarchyCombineConcepts <- function(data, abstraction_level = -1, minDepthAllowed = 0) {
 
   concept_table = data.table::as.data.table(data$conceptsData$concept)
   concept_ancestor = data.table::as.data.table(data$conceptsData$concept_ancestor)
+
+  concept_ancestor_summarised_descendants = concept_ancestor %>%
+    dplyr::filter(ancestor_concept_id != descendant_concept_id) %>%
+    dplyr::group_by(descendant_concept_id) %>%
+    dplyr::summarise(distToRoot = max(min_levels_of_separation)) %>%
+    dplyr::select(concept_id = descendant_concept_id, distToRoot)
+
+  concept_ancestor_summarised_roots = concept_ancestor %>%
+    dplyr::filter(ancestor_concept_id != descendant_concept_id) %>%
+    dplyr::pull(ancestor_concept_id) %>% unique() %>% setdiff(concept_ancestor_summarised_descendants$concept_id) %>%
+    tibble::as_tibble()
+  colnames(concept_ancestor_summarised_roots) = c("concept_id")
+  concept_ancestor_summarised_roots$distToRoot = 0
+
+  concept_ancestor_summarised_alone = concept_ancestor %>%
+    dplyr::filter(ancestor_concept_id == descendant_concept_id,
+                  !(ancestor_concept_id %in% concept_ancestor_summarised_roots$concept_id),
+                  !(ancestor_concept_id %in% concept_ancestor_summarised_descendants$concept_id)) %>%
+    dplyr::select(concept_id = ancestor_concept_id) %>%
+    dplyr::mutate(distToRoot = 999999999)
+
+  concept_ancestor_allowed = rbind(concept_ancestor_summarised_descendants, concept_ancestor_summarised_roots, concept_ancestor_summarised_alone) %>%
+    dplyr::filter(distToRoot >= minDepthAllowed) %>% dplyr::pull(concept_id)
+
   counter <- 1
 
   while (TRUE) {
     cli::cli_alert_warning(paste0("Automatic hierarchy mapping iteration ", counter))
 
-    data_features = data$data_features %>% dplyr::filter(ABSTRACTION_LEVEL == abstraction_level)
+    data_features = data$data_features %>% dplyr::filter(ABSTRACTION_LEVEL == abstraction_level,
+                                                         CONCEPT_ID %in% concept_ancestor_allowed)
     counter = counter + 1
 
     mappingTable <- CohortContrast:::getAncestorMappings(
-      active_concept_ids = data_features %>% dplyr::pull(CONCEPT_ID),
+      active_concept_ids = data_features %>% dplyr::pull(CONCEPT_ID) %>% interaction(concept_ancestor_allowed$concept_id),
       concept_table = concept_table,
       concept_ancestor = concept_ancestor
     )
