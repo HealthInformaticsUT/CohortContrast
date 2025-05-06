@@ -21,6 +21,12 @@ utils::globalVariables(
     'concept_id_1', 'concept_id_2', 'concept_name_1', 'concept_name_2',
     'descendant_concept_id', 'invalid_reason', "ID1", 'ID2', 'MEDIAN_DAYS_INBETWEEN', 'NEW_CONCEPT_NAME', 'NEXT_TIME', 'PARENT_ID',
     'PARENT_IN_CONCEPTS', "TIMES",    'cluster_id', 'cohort_definition_id', 'cohort_end_date', 'duration',
-    'end_date_target', 'row_id', 'start_date_target', 'subject_id', 'use_target_dates', 'age', 'year_of_birth'
+    'end_date_target', 'row_id', 'start_date_target', 'subject_id', 'use_target_dates', 'age', 'year_of_birth',
+    'avg_time', 'binom_pval', 'cluster', 'concept_ids', 'concept_names', 'embed',
+    'expected_count', 'freq', 'grams', 'id_list', 'n_events', 'n_ops', 'n_persons',
+    'n_unique_persons', 'name_ngram', 'new_group', 'ngram', 'ngram_cluster', 'ngram_names',
+    'ngram_time', 'observed_count', 'overrep_ratio', 'p_value', 'person', 'person_ids',
+    'person_pass', 'prob_product', 'sig_pass', 'start_time', 'time', 'time_diff', 'total',
+    'unique_persons_ids'
   )
 )

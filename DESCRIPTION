@@ -37,8 +37,6 @@ Imports:
     data.table,
     reshape2,
     scales,
-    Cohort2Trajectory,
-    TrajectoryViz,
     cli,
     shinyWidgets,
     bit64,
@@ -48,7 +46,12 @@ Imports:
     shiny.fluent,
     jsonlite,
     htmltools,
-    forcats
+    forcats,
+    Matrix,
+    cluster,
+    vegan,
+    Cohort2Trajectory,
+    TrajectoryViz
 Suggests: 
     testthat (>= 3.0.0),
     PatientProfiles (>= 1.1.0),

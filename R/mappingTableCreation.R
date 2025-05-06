@@ -115,6 +115,8 @@ updateMapping <- function(mappingTable) {
 
 #' @keywords internal
 getAncestorMappings <- function(active_concept_ids, concept_table, concept_ancestor, allowed_parents = NULL, isOnlyActiveParentsAllowed = TRUE) {
+  concept_table <- data.table::as.data.table(concept_table)
+  concept_ancestor <- data.table::as.data.table(concept_ancestor)
   # Step 1: Filter concept_ancestor for relevant descendant concepts
   filtered_ancestor_data <- concept_ancestor[
     descendant_concept_id %in% active_concept_ids
