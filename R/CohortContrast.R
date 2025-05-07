@@ -8,7 +8,7 @@
 #' @param prevalenceCutOff numeric > if set, removes all of the concepts which are not present (in target) more than prevalenceCutOff times
 #' @param topK numeric > if set, keeps this number of features in the analysis. Maximum number of features exported.
 #' @param presenceFilter numeric > if set, removes all features represented less than the given percentage
-#' @param complementaryMappingTable Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_NAME, NEW_CONCEPT_ID, NEW_CONCEPT_NAME, ABSTRACTION_LEVEL,
+#' @param complementaryMappingTable Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_NAME, NEW_CONCEPT_ID, NEW_CONCEPT_NAME, ABSTRACTION_LEVEL
 #' @param runZTests boolean for Z-tests
 #' @param runLogitTests boolean for logit-tests
 #' @param runKSTests boolean for Kolmogorov-Smirnov tests
@@ -129,8 +129,25 @@ CohortContrast <- function(cdm,
   cdm <- createCohortContrastCdm(cdm = cdm, targetTable = targetTable, controlTable = controlTable)
   targetCohortId = 2
 
-  if(is.null(complementaryMappingTable)){
-    complementaryMappingTable = data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character() , ABSTRACTION_LEVEL = integer(), stringsAsFactors = FALSE)
+  # Handle complementaryMappingTable
+  required_columns <- c("CONCEPT_ID", "CONCEPT_NAME", "NEW_CONCEPT_ID", "NEW_CONCEPT_NAME", "ABSTRACTION_LEVEL")
+  if (!is.data.frame(complementaryMappingTable)) {
+    complementaryMappingTable <- data.frame(
+      CONCEPT_ID = integer(),
+      CONCEPT_NAME = character(),
+      NEW_CONCEPT_ID = integer(),
+      NEW_CONCEPT_NAME = character(),
+      ABSTRACTION_LEVEL = integer(),
+      stringsAsFactors = FALSE
+    )
+  } else {
+    colnames(complementaryMappingTable) = toupper(colnames(complementaryMappingTable))
+    missing_cols <- setdiff(required_columns, colnames(complementaryMappingTable))
+    if (length(missing_cols) > 0) {
+      cli::cli_warn("`complementaryMappingTable` is missing required columns: {paste(missing_cols, collapse = ', ')}")
+    } else {
+      cli::cli_alert_success("Inserted `complementaryMappingTable` has the correct format")
+    }
   }
 
   config = list(

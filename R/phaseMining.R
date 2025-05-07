@@ -273,15 +273,16 @@ run_clustering <- function(all_phases) {
   dist_hybrid <- stats::as.dist(norm(as.matrix(dist_concepts)) + norm(as.matrix(dist_patients)))
   hc <- stats::hclust(dist_hybrid, method = "average")
 
+  k_to_try <-  max(2, round(sqrt(length(all_concepts)))):round(sqrt(nrow(all_phases)))
   sil_scores <- sapply(
-    max(2, round(sqrt(length(all_concepts)))):round(sqrt(nrow(all_phases))),
+    k_to_try,
     function(k) {
       cl <- stats::cutree(hc, k)
       mean(cluster::silhouette(cl, dist_hybrid)[, 3])
     }
   )
 
-  best_k <- which.max(sil_scores) + 1
+  best_k <- k_to_try[which.max(sil_scores)]
   all_phases$cluster <- as.integer(stats::cutree(hc, k = best_k))
   all_phases
 }
