@@ -467,39 +467,17 @@ performPrevalenceAnalysis <- function(data_patients,
       prevalence_cohort_1 <- dplyr::filter(cohort_1, .data$CONCEPT_ID == concept_id, .data$ABSTRACTION_LEVEL == abstraction_level)$TOTAL_PREVALENCE
       prevalence_cohort_2 <- dplyr::filter(cohort_2, .data$CONCEPT_ID == concept_id, .data$ABSTRACTION_LEVEL == abstraction_level)$TOTAL_PREVALENCE
 
-      if ((length(prevalence_cohort_1) == 0 || length(prevalence_cohort_2) == 0) ||
-          (prevalence_cohort_2 / sample_2_n < presenceFilter) ||
-          (prevalence_cohort_2 > sample_2_n || prevalence_cohort_1 > sample_1_n) ||
-          (prevalence_cohort_2 == prevalence_cohort_1)) {
+      # Correction
+      prevalence_cohort_1 = ifelse(length(prevalence_cohort_1) == 0, 0, prevalence_cohort_1)
+      prevalence_cohort_2 = ifelse(length(prevalence_cohort_2) == 0, 0, prevalence_cohort_2)
 
-        if (length(prevalence_cohort_2) == 0 || length(prevalence_cohort_1) == 0 ) {
-          level_results <- rbind(
-            level_results,
-            data.frame(
-              CONCEPT_ID = concept_id,
-              ZTEST = TRUE,
-              ZTEST_P_VALUE = NA,
-              ABSTRACTION_LEVEL = abstraction_level
-            )
-          )
-        } else {
-          level_results <- rbind(
-            level_results,
-            data.frame(
-              CONCEPT_ID = concept_id,
-              ZTEST = FALSE,
-              ZTEST_P_VALUE = 1,
-              ABSTRACTION_LEVEL = abstraction_level
-            )
-          )
-        }
-      } else {
-        test_result <- stats::prop.test(
+      test_result <- stats::prop.test(
           c(prevalence_cohort_1, prevalence_cohort_2),
           c(sample_1_n, sample_2_n),
           conf.level = 0.95
         )
-        if (is.na(test_result$p.value)) {
+
+      if (is.na(test_result$p.value)) {
           level_results <- rbind(
             level_results,
             data.frame(
@@ -519,17 +497,6 @@ performPrevalenceAnalysis <- function(data_patients,
               ABSTRACTION_LEVEL = abstraction_level
             )
           )
-        }
-        else if (prevalence_cohort_1 == 0 | prevalence_cohort_2 == 0) {
-          level_results <- rbind(
-            level_results,
-            data.frame(
-              CONCEPT_ID = concept_id,
-              ZTEST = TRUE,
-              ZTEST_P_VALUE = NA,
-              ABSTRACTION_LEVEL = abstraction_level
-            )
-          )
         } else {
           level_results <- rbind(
             level_results,
@@ -542,7 +509,6 @@ performPrevalenceAnalysis <- function(data_patients,
           )
         }
       }
-    }
     return(level_results)
   }
   parallel::stopCluster(cl)
@@ -613,43 +579,15 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
       no_match_target_df = NULL
       no_match_control_df = NULL
       if(no_match_target != 0){
-
-      # print(concept_id)
-      # print(no_match_target)
       no_match_target_df = data.frame(COHORT_DEFINITION_ID = "target", PREVALENCE = 0, TARGET = rep(1, times = no_match_target), CONTROL = 0)
       }
       if(no_match_control != 0){
-      # print(no_match_control)
       no_match_control_df = data.frame(COHORT_DEFINITION_ID = "control", PREVALENCE = 0, TARGET = 0, CONTROL = rep(1, times = no_match_control))
       }
       concept_data = rbind(rbind(no_match_target_df, no_match_control_df), concept_data)
 
       prevalence_cohort_2 <- ifelse(is.na(sum(concept_data$PREVALENCE[concept_data$TARGET == 1])), 0, sum(concept_data$PREVALENCE[concept_data$TARGET == 1]))
       prevalence_cohort_1 <- ifelse(is.na(sum(concept_data$PREVALENCE[concept_data$CONTROL == 1])), 0, sum(concept_data$PREVALENCE[concept_data$CONTROL == 1]))
-
-      if (prevalence_cohort_2 / sample_2_n < presenceFilter | prevalence_cohort_1 == 0 | prevalence_cohort_2 == 0) {
-        if (prevalence_cohort_1 == 0 | prevalence_cohort_2 == 0) {
-          level_results <- rbind(
-            level_results,
-            data.frame(
-              CONCEPT_ID = concept_id,
-              LOGITTEST = TRUE,
-              LOGITTEST_P_VALUE = 0,
-              ABSTRACTION_LEVEL = abstraction_level
-            )
-          )
-        } else {
-        level_results <- rbind(
-          level_results,
-          data.frame(
-            CONCEPT_ID = concept_id,
-            LOGITTEST = FALSE,
-            LOGITTEST_P_VALUE = 1,
-            ABSTRACTION_LEVEL = abstraction_level
-          )
-        )}
-        next
-      }
 
       # Perform logistic regression
       model <- stats::glm(TARGET ~ PREVALENCE, data = concept_data, family = stats::binomial)
@@ -671,17 +609,6 @@ performPrevalenceAnalysisLogistic <- function(data_patients,
             CONCEPT_ID = concept_id,
             LOGITTEST = TRUE,
             LOGITTEST_P_VALUE = p_value,
-            ABSTRACTION_LEVEL = abstraction_level
-          )
-        )
-      }
-      else if (prevalence_cohort_1 == 0 | prevalence_cohort_2 == 0) {
-        level_results <- rbind(
-          level_results,
-          data.frame(
-            CONCEPT_ID = concept_id,
-            LOGITTEST = TRUE,
-            LOGITTEST_P_VALUE = NA,
             ABSTRACTION_LEVEL = abstraction_level
           )
         )
