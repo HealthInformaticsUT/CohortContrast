@@ -116,42 +116,6 @@ printCustomMessage <- function(message) {
   cat("\n") # Print a new line
 }
 
-#' Function for creating the complementary mapping table which can be used in CohortContrast execution function
-#'
-#' @param conceptIds Array of concept ids to use
-#' @param conceptNames Matching array of concept names to use
-#' @keywords internal
-
-createComplementaryMappingTable <-
-  function(conceptIds, conceptNames) {
-    # Check if vectors are of the same length
-    if (length(conceptIds) != length(conceptNames)) {
-      print("Error: Vectors 'conceptIds' and 'conceptNames' must be of the same length.")
-      return(NULL)
-    }
-
-    # Check if concept names are all strings
-    if (!all(sapply(conceptNames, is.character))) {
-      print("Error: All 'conceptNames' must be strings.")
-      return(NULL)
-    }
-
-    # Check if all concept IDs are unique
-    if (length(unique(conceptIds)) != length(conceptIds)) {
-      print("Error: All 'conceptIds' must be unique.")
-      return(NULL)
-    }
-
-    # Create the dataframe
-    complementaryMappingTable <-
-      data.frame(
-        CONCEPT_ID = conceptIds,
-        CONCEPT_NAME = conceptNames,
-        stringsAsFactors = FALSE
-      )
-
-    return(complementaryMappingTable)
-  }
 
 #'Function for loading all of the study names saved in ./tmp/datasets
 #'

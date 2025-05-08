@@ -27,6 +27,6 @@ utils::globalVariables(
     'n_unique_persons', 'name_ngram', 'new_group', 'ngram', 'ngram_cluster', 'ngram_names',
     'ngram_time', 'observed_count', 'overrep_ratio', 'p_value', 'person', 'person_ids',
     'person_pass', 'prob_product', 'sig_pass', 'start_time', 'time', 'time_diff', 'total',
-    'unique_persons_ids', 'distToRoot', 'min_levels_of_separation'
+    'unique_persons_ids', 'distToRoot', 'min_levels_of_separation', "TYPE"
   )
 )

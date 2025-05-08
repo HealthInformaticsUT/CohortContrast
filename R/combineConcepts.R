@@ -1,7 +1,7 @@
 #' @keywords internal
-combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, selected_ids = NULL, abstraction_level = -1, data = NULL) {
+combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, selected_ids = NULL, abstraction_level = -1, data = NULL, type = "custom") {
     if(is.null(data)) return(NULL)
-
+    # TODO: make tests modular and apply
     data_features <- data.table::as.data.table(data$data_features)
     data_patients <- data.table::as.data.table(data$data_patients)
     data_initial <- data.table::as.data.table(data$data_initial)
@@ -228,7 +228,7 @@ combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, sel
     )]
 
     # Update complementaryMappingTable
-    new_rows <- data.frame(CONCEPT_ID = selected_concept_ids, CONCEPT_NAME = selected_concept_names, NEW_CONCEPT_ID = representingConceptId, NEW_CONCEPT_NAME = new_concept_name, ABSTRACTION_LEVEL = abstraction_level, stringsAsFactors = FALSE)
+    new_rows <- data.frame(CONCEPT_ID = selected_concept_ids, CONCEPT_NAME = selected_concept_names, NEW_CONCEPT_ID = representingConceptId, NEW_CONCEPT_NAME = new_concept_name, ABSTRACTION_LEVEL = abstraction_level, TYPE = type, stringsAsFactors = FALSE)
     complementary_mapping <- rbind(complementary_mapping, new_rows)
 
     # Step 1: Identify related concepts
@@ -324,7 +324,8 @@ automaticHierarchyCombineConcepts <- function(data, abstraction_level = -1, minD
           new_concept_id = selected_parent_id,
           selected_ids = selected_concept_ids,
           abstraction_level = abstraction_level,
-          data = data
+          data = data,
+          type = "hierarchy"
         )
       }
     }
@@ -392,7 +393,8 @@ automaticCorrelationCombineConcepts <- function(data, abstraction_level = -1, mi
           new_concept_id = selected_parent_id,
           selected_ids = selected_concept_ids,
           abstraction_level = abstraction_level,
-          data = data
+          data = data,
+          type = "correlation"
         )
       }
     }

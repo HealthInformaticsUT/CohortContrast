@@ -8,7 +8,7 @@
 #' @param prevalenceCutOff numeric > if set, removes all of the concepts which are not present (in target) more than prevalenceCutOff times
 #' @param topK numeric > if set, keeps this number of features in the analysis. Maximum number of features exported.
 #' @param presenceFilter numeric > if set, removes all features represented less than the given percentage
-#' @param complementaryMappingTable Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_NAME, NEW_CONCEPT_ID, NEW_CONCEPT_NAME, ABSTRACTION_LEVEL
+#' @param complementaryMappingTable Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_NAME, NEW_CONCEPT_ID, NEW_CONCEPT_NAME, ABSTRACTION_LEVEL, TYPE
 #' @param runZTests boolean for Z-tests
 #' @param runLogitTests boolean for logit-tests
 #' @param runKSTests boolean for Kolmogorov-Smirnov tests
@@ -130,7 +130,7 @@ CohortContrast <- function(cdm,
   targetCohortId = 2
 
   # Handle complementaryMappingTable
-  required_columns <- c("CONCEPT_ID", "CONCEPT_NAME", "NEW_CONCEPT_ID", "NEW_CONCEPT_NAME", "ABSTRACTION_LEVEL")
+  required_columns <- c("CONCEPT_ID", "CONCEPT_NAME", "NEW_CONCEPT_ID", "NEW_CONCEPT_NAME", "ABSTRACTION_LEVEL", "TYPE")
   if (!is.data.frame(complementaryMappingTable)) {
     complementaryMappingTable <- data.frame(
       CONCEPT_ID = integer(),
@@ -138,6 +138,7 @@ CohortContrast <- function(cdm,
       NEW_CONCEPT_ID = integer(),
       NEW_CONCEPT_NAME = character(),
       ABSTRACTION_LEVEL = integer(),
+      TYPE = character(),
       stringsAsFactors = FALSE
     )
   } else {
@@ -145,6 +146,10 @@ CohortContrast <- function(cdm,
     missing_cols <- setdiff(required_columns, colnames(complementaryMappingTable))
     if (length(missing_cols) > 0) {
       cli::cli_warn("`complementaryMappingTable` is missing required columns: {paste(missing_cols, collapse = ', ')}")
+      if ("TYPE" %in% missing_cols){
+        complementaryMappingTable$TYPE = "custom"
+        cli::cli_warn("Added column TYPE to `complementaryMappingTable` with value `custom`")
+      }
     } else {
       cli::cli_alert_success("Inserted `complementaryMappingTable` has the correct format")
     }
@@ -197,7 +202,7 @@ CohortContrast <- function(cdm,
       new_data_patients <- foreach::foreach(maxAbstraction = maximumAbstractionLevel:0, .combine = rbind, .packages = c("CohortContrast", "dplyr"),
                                             .export = c("maxAbstraction")) %dopar% {
                                               # Load necessary libraries in each worker
-                                              complementaryMappingTable = generateMappingTable(abstractionLevel = maxAbstraction, data = data, maxMinDataFrame =max_min_levels)
+                                              complementaryMappingTable = generateMappingTable(abstractionLevel = maxAbstraction, data = data, maxMinDataFrame = max_min_levels)
                                               complementaryMappingTable1 <- updateMapping(complementaryMappingTable)
                                               newData <- handleMapping(data = data, complementaryMappingTable = complementaryMappingTable, abstractionLevel = maxAbstraction)
                                               newData$PERSON_ID = as.integer(newData$PERSON_ID)
@@ -247,7 +252,7 @@ CohortContrast <- function(cdm,
   data$data_patients = dplyr::mutate(data$data_patients, COHORT_DEFINITION_ID = dplyr::if_else(.data$COHORT_DEFINITION_ID == 2, "target", "control"))
   data$data_initial = dplyr::mutate(data$data_initial, COHORT_DEFINITION_ID = dplyr::if_else(.data$COHORT_DEFINITION_ID == 2, "target", "control"))
 
-  data$complementaryMappingTable = if (!(is.null(complementaryMappingTable) | isFALSE(complementaryMappingTable))) complementaryMappingTable else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character(), ABSTRACTION_LEVEL = integer(), stringsAsFactors = FALSE)
+  data$complementaryMappingTable = if (!(is.null(data$complementaryMappingTable))) data$complementaryMappingTable else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character(), ABSTRACTION_LEVEL = integer(), TYPE = character(), stringsAsFactors = FALSE)
 
   data = create_CohortContrast_object(data)
 
@@ -824,7 +829,7 @@ handleMapping <- function(data, complementaryMappingTable, abstractionLevel = -1
                 PREVALENCE = .data$PREVALENCE,
                 HERITAGE = .data$HERITAGE,
                 TIME_TO_EVENT = .data$TIME_TO_EVENT,
-                ABSTRACTION_LEVEL= .data$ABSTRACTION_LEVEL.x)
+                ABSTRACTION_LEVEL = .data$ABSTRACTION_LEVEL.x)
 
   # Step 3: Summarize data_patients to aggregate PREVALENCE
   final_data <- data_patients %>%
@@ -1121,8 +1126,9 @@ resolveConceptNameOverlap <- function(data) {
                     NEW_CONCEPT_NAME = .data$CONCEPT_NAME,
                     NEW_CONCEPT_ID = .data$CONCEPT_ID,
                     CONCEPT_NAME = gsub("\\s*\\([^()]*\\)$", "", .data$CONCEPT_NAME),
-                    ABSTRACTION_LEVEL = .data$ABSTRACTION_LEVEL) %>%
-      dplyr::select(.data$CONCEPT_ID, .data$CONCEPT_NAME, .data$NEW_CONCEPT_ID, .data$NEW_CONCEPT_NAME, .data$ABSTRACTION_LEVEL)
+                    ABSTRACTION_LEVEL = .data$ABSTRACTION_LEVEL,
+                    TYPE = "conflict") %>%
+      dplyr::select(.data$CONCEPT_ID, .data$CONCEPT_NAME, .data$NEW_CONCEPT_ID, .data$NEW_CONCEPT_NAME, .data$ABSTRACTION_LEVEL, .data$TYPE)
 
     for (i in 1:nrow(cmt)) {
       row = cmt[i,]
@@ -1159,8 +1165,9 @@ resolveConceptNameOverlap <- function(data) {
         CONCEPT_ID = CONCEPT_ID - 1000000000*.data$ordinal,
                     NEW_CONCEPT_NAME = .data$CONCEPT_NAME,
                     CONCEPT_NAME = gsub("\\s*\\([^()]*\\)$", "", .data$CONCEPT_NAME),
-                    ABSTRACTION_LEVEL = .data$ABSTRACTION_LEVEL) %>%
-      dplyr::select(.data$CONCEPT_ID, .data$CONCEPT_NAME, .data$NEW_CONCEPT_ID, .data$NEW_CONCEPT_NAME, .data$ABSTRACTION_LEVEL)
+                    ABSTRACTION_LEVEL = .data$ABSTRACTION_LEVEL,
+                    TYPE = "conflict") %>%
+      dplyr::select(.data$CONCEPT_ID, .data$CONCEPT_NAME, .data$NEW_CONCEPT_ID, .data$NEW_CONCEPT_NAME, .data$ABSTRACTION_LEVEL, .data$TYPE)
 
     for (i in 1:nrow(cmt)) {
       row = cmt[i,]
