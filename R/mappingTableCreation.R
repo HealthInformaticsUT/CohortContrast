@@ -19,7 +19,7 @@ generateMappingTable <- function(abstractionLevel = 10, data = NULL, maxMinDataF
   max_minimal_separation_levels = unique(need_to_map_concept_ids %>% dplyr::select(.data$maximum_minimal_separation) %>% dplyr::pull())
 
   # Create an empty dataframe with the specified columns
-  complementaryMappingTable = data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character() , ABSTRACTION_LEVEL = integer(), stringsAsFactors = FALSE)
+  complementaryMappingTable = data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character() , ABSTRACTION_LEVEL = integer(), TYPE = character(), stringsAsFactors = FALSE)
 
   for(min_separation_level in sort(max_minimal_separation_levels)){
     printCustomMessage(paste("Generating mapping for abstraction level",min_separation_level,'...', sep = " " ))
@@ -38,7 +38,9 @@ generateMappingTable <- function(abstractionLevel = 10, data = NULL, maxMinDataF
                     CONCEPT_NAME = .data$CONCEPT_NAME,
                     NEW_CONCEPT_ID = .data$concept_id.new,
                     NEW_CONCEPT_NAME = .data$concept_name) %>% as.data.frame() %>%
-                    dplyr::mutate(ABSTRACTION_LEVEL = abstractionLevel)
+                    dplyr::mutate(ABSTRACTION_LEVEL = abstractionLevel,
+                                  TYPE = "hierarchy")
+
     #complementaryMappingTable <- updateMapping(abstractionLevelMappingTable)
     complementaryMappingTable <- rbind(complementaryMappingTable, abstractionLevelMappingTable)
   }
@@ -66,7 +68,7 @@ assertAncestryCompleteness <- function(cdm){
 
 
 updateMapping <- function(mappingTable) {
-  required_columns <- c("CONCEPT_ID", "CONCEPT_NAME", "NEW_CONCEPT_ID", "NEW_CONCEPT_NAME", "ABSTRACTION_LEVEL")
+  required_columns <- c("CONCEPT_ID", "CONCEPT_NAME", "NEW_CONCEPT_ID", "NEW_CONCEPT_NAME", "ABSTRACTION_LEVEL", "TYPE")
   # Check if all required columns are present
   if (!all(required_columns %in% colnames(mappingTable))) {
     return(mappingTable)
@@ -85,7 +87,7 @@ updateMapping <- function(mappingTable) {
         CONCEPT_ID.new = dplyr::if_else(!is.na(.data$NEW_CONCEPT_ID.copy), .data$NEW_CONCEPT_ID.copy, .data$NEW_CONCEPT_ID),
         CONCEPT_NAME.new = dplyr::if_else(!is.na(.data$NEW_CONCEPT_NAME.copy), .data$NEW_CONCEPT_NAME.copy, .data$NEW_CONCEPT_NAME)
       ) %>%
-      dplyr::select(.data$CONCEPT_ID, .data$CONCEPT_NAME, NEW_CONCEPT_ID = .data$CONCEPT_ID.new, NEW_CONCEPT_NAME = .data$CONCEPT_NAME.new, .data$ABSTRACTION_LEVEL) %>%
+      dplyr::select(.data$CONCEPT_ID, .data$CONCEPT_NAME, NEW_CONCEPT_ID = .data$CONCEPT_ID.new, NEW_CONCEPT_NAME = .data$CONCEPT_NAME.new, .data$ABSTRACTION_LEVEL, .data$TYPE) %>%
       dplyr::distinct()
     # dplyr::select(.data$CONCEPT_ID, .data$CONCEPT_NAME, .data$NEW_CONCEPT_ID, .data$NEW_CONCEPT_NAME, .data$ABSTRACTION_LEVEL)
 

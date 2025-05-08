@@ -42,7 +42,7 @@ server <- function(input, output, session) {
 
   ## Indirect user inputs
   correlationGroups <- shiny::reactiveVal(NULL)
-  complementaryMappingTable <- shiny::reactiveVal(data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character() , ABSTRACTION_LEVEL = integer(), stringsAsFactors = FALSE))
+  complementaryMappingTable <- shiny::reactiveVal(data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character() , ABSTRACTION_LEVEL = integer(), TYPE = character(), stringsAsFactors = FALSE))
   isPatientLevelDataPresent <- shiny::reactiveVal(TRUE)
   lookbackDays <- shiny::reactiveVal(NULL)
   removeButtonCounter <- shiny::reactiveVal(0)
@@ -930,7 +930,7 @@ server <- function(input, output, session) {
 
     processed_table <- target_mod()[ABSTRACTION_LEVEL == as.numeric(abstractionLevelReactive())]
     selected_concept_ids <- as.numeric(processed_table$CONCEPT_ID[input$concept_table_rows_selected])
-    combineSelectedConcepts(new_concept_name = new_concept_name, selected_ids = selected_concept_ids)
+    combineSelectedConcepts(new_concept_name = new_concept_name, selected_ids = selected_concept_ids, type = "custom")
     target_mod(data_features())
 
     shiny::updateCheckboxInput(session, "dt_select_all", "Select all", value = F)
@@ -963,7 +963,7 @@ server <- function(input, output, session) {
       target_col_annotation(data.table::copy(originalData()$target_col_annotation))
       target_time_annotation(data.table::copy(originalData()$target_time_annotation))
       target_matrix(data.table::copy(originalData()$target_matrix))
-      complementaryMappingTable(if (!(is.null(originalData()$complementaryMappingTable) | isFALSE(originalData()$complementaryMappingTable))) data.table::copy(originalData()$complementaryMappingTable) else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character(), ABSTRACTION_LEVEL = integer(), stringsAsFactors = FALSE))
+      complementaryMappingTable(if (!(is.null(originalData()$complementaryMappingTable) | isFALSE(originalData()$complementaryMappingTable))) data.table::copy(originalData()$complementaryMappingTable) else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character(), ABSTRACTION_LEVEL = integer(), TYPE = character(), stringsAsFactors = FALSE))
       }
   })
   ########################################################## MAPPING SUGGESTIONS
@@ -1022,7 +1022,8 @@ server <- function(input, output, session) {
         selected_parent_name <- hierarchySuggestionsTable()$PARENT_NAME[rowId]
         combineSelectedConcepts(new_concept_name = selected_parent_name,
                                 new_concept_id =  selected_parent_id,
-                                selected_ids = selected_concept_ids)
+                                selected_ids = selected_concept_ids,
+                                type = "hierarchy")
       }
       target_mod(data_features())
       target_filtered()
@@ -1048,7 +1049,8 @@ server <- function(input, output, session) {
         selected_parent_name <- as.character(row['PARENT_NAME'])
         combineSelectedConcepts(new_concept_name = selected_parent_name,
                                 new_concept_id =  selected_parent_id,
-                                selected_ids = selected_concept_ids)
+                                selected_ids = selected_concept_ids,
+                                type = "hierarchy")
       }
         })
       target_mod(data_features())
@@ -1089,7 +1091,8 @@ server <- function(input, output, session) {
         selected_parent_name <- selected_concept_names[1]
         combineSelectedConcepts(new_concept_name = selected_parent_name,
                                 new_concept_id =  selected_parent_id,
-                                selected_ids = selected_concept_ids)
+                                selected_ids = selected_concept_ids,
+                                type = "correlation")
         target_mod(data_features())
         target_filtered()
         updateCorrelationSuggestions()
@@ -1116,7 +1119,8 @@ server <- function(input, output, session) {
           selected_parent_name <- selected_concept_names[1]
           combineSelectedConcepts(new_concept_name = selected_parent_name,
                                   new_concept_id =  selected_parent_id,
-                                  selected_ids = selected_concept_ids)
+                                  selected_ids = selected_concept_ids,
+                                  type = "correlation")
         }
       })
 
@@ -1130,7 +1134,7 @@ server <- function(input, output, session) {
   shiny::observeEvent(input$accept_corr_btn, {
       shiny::removeModal()
       new_concept_name <- input$new_concept_name
-      combineSelectedConcepts(new_concept_name = new_concept_name, selected_ids = selectedCorrelationGroup())
+      combineSelectedConcepts(new_concept_name = new_concept_name, selected_ids = selectedCorrelationGroup(), type = "correlation")
       target_mod(data_features())
 
       cachedData(list(
@@ -1960,7 +1964,7 @@ server <- function(input, output, session) {
     new_concept_name = ensureUniqueConceptName(data_patients, selected_concept_id, new_concept_name)
 
     # Update complementaryMappingTable
-    new_row <- data.frame(CONCEPT_ID = selected_concept_id, CONCEPT_NAME = selected_concept_name, NEW_CONCEPT_ID = selected_concept_id, NEW_CONCEPT_NAME = new_concept_name, ABSTRACTION_LEVEL = abstraction_level, stringsAsFactors = FALSE)
+    new_row <- data.frame(CONCEPT_ID = selected_concept_id, CONCEPT_NAME = selected_concept_name, NEW_CONCEPT_ID = selected_concept_id, NEW_CONCEPT_NAME = new_concept_name, ABSTRACTION_LEVEL = abstraction_level, TYPE = "rename", stringsAsFactors = FALSE)
     complementary_mapping <- rbind(complementary_mapping, new_row)
 
     # Update tables
@@ -2011,7 +2015,7 @@ server <- function(input, output, session) {
     }
 
   # Function to combine selected concepts
-  combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, selected_ids = NULL) {
+  combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, selected_ids = NULL, type = "custom") {
     # selected_rows <- input$concept_table_rows_selected
     # selected_ids <- selectedCorrelationGroup()
     abstraction_level <- as.numeric(abstractionLevelReactive())
@@ -2238,7 +2242,7 @@ server <- function(input, output, session) {
     data_features(data_features)
     data_patients(data_patients)
     # Update complementaryMappingTable
-    new_rows <- data.frame(CONCEPT_ID = selected_concept_ids, CONCEPT_NAME = selected_concept_names, NEW_CONCEPT_ID = representingConceptId, NEW_CONCEPT_NAME = new_concept_name, ABSTRACTION_LEVEL = abstraction_level, stringsAsFactors = FALSE)
+    new_rows <- data.frame(CONCEPT_ID = selected_concept_ids, CONCEPT_NAME = selected_concept_names, NEW_CONCEPT_ID = representingConceptId, NEW_CONCEPT_NAME = new_concept_name, ABSTRACTION_LEVEL = abstraction_level, TYPE = type, stringsAsFactors = FALSE)
     complementary_mapping <- rbind(complementary_mapping, new_rows)
     # Update all related concept names in complementaryMappingTable
     # Step 1: Identify related concepts
