@@ -1174,6 +1174,7 @@ generateSourceTables <- function(data,
 
   # Replace the old CONCEPT_ID with the new_concept_id
   data_patients$CONCEPT_ID <- data_patients$new_concept_id
+  data_patients$PERSON_ID <- as.integer(data_patients$PERSON_ID)
 
   # Drop the temporary new_concept_id column
   data_patients$new_concept_id <- NULL
