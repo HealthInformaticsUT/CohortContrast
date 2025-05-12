@@ -906,7 +906,7 @@ server <- function(input, output, session) {
 
     DT::datatable(
       complementaryMappingTable(),
-      selection = 'multiple',
+      selection = 'none',
       filter = 'top',
     )
   }, server = TRUE)
@@ -1274,6 +1274,8 @@ server <- function(input, output, session) {
       CohortContrast:::showNoPatientDataAllowedWarning()
     } else if (length(input$concept_table_rows_selected) > 1) {
       shiny::showNotification("Select only one row", type = "warning")
+    } else if (length(input$concept_table_rows_selected) < 1) {
+      shiny::showNotification("Select one row from the concept table for renaming", type = "warning")
     } else {
       shiny::showModal(shiny::modalDialog(
         title = "Combine Concepts",

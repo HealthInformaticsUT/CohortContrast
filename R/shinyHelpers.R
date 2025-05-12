@@ -11,14 +11,15 @@ format_results <-
            applyLogitTest = FALSE,
            abstractionLevel = -1) {
     data_copy = data
-
     data_copy$data_initial <-
       data.table::as.data.table(data_copy$data_initial)
     data_copy$data_features <-
       data.table::as.data.table(data_copy$data_features)
     data_copy$data_patients <-
       data.table::as.data.table(data_copy$data_patients)
+    data_copy$data_patients$PERSON_ID = as.integer(data_copy$data_patients$PERSON_ID)
     data_copy$data_person <- data.table::as.data.table(data_copy$data_person)
+
     # Calculate the number of patients in target and control groups
     n_patients <- data_copy$data_initial[, .N, by = COHORT_DEFINITION_ID]
 
