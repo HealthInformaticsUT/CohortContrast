@@ -252,7 +252,7 @@ CohortContrast <- function(cdm,
   data$data_patients = dplyr::mutate(data$data_patients, COHORT_DEFINITION_ID = dplyr::if_else(.data$COHORT_DEFINITION_ID == 2, "target", "control"))
   data$data_initial = dplyr::mutate(data$data_initial, COHORT_DEFINITION_ID = dplyr::if_else(.data$COHORT_DEFINITION_ID == 2, "target", "control"))
 
-  data$complementaryMappingTable = if (!(is.null(data$complementaryMappingTable))) data$complementaryMappingTable else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character(), ABSTRACTION_LEVEL = integer(), TYPE = character(), stringsAsFactors = FALSE)
+  data$complementaryMappingTable = if (is.data.frame(data$complementaryMappingTable)) data$complementaryMappingTable else data.frame(CONCEPT_ID = integer(), CONCEPT_NAME = character(), NEW_CONCEPT_ID = integer(), NEW_CONCEPT_NAME = character(), ABSTRACTION_LEVEL = integer(), TYPE = character(), stringsAsFactors = FALSE)
 
   data = create_CohortContrast_object(data)
 
