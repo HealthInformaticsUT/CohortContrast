@@ -1088,7 +1088,7 @@ server <- function(input, output, session) {
         selected_concept_ids <- as.numeric(unlist(correlationSuggestionsTable()$CONCEPT_IDS[rowId]))
         selected_concept_names <- unlist(correlationSuggestionsTable()$CONCEPT_NAMES[rowId])
         selected_parent_id <-  selected_concept_ids[1]
-        selected_parent_name <- selected_concept_names[1]
+        selected_parent_name <- paste(selected_concept_names, collapse = " + ")
         combineSelectedConcepts(new_concept_name = selected_parent_name,
                                 new_concept_id =  selected_parent_id,
                                 selected_ids = selected_concept_ids,
@@ -1116,7 +1116,7 @@ server <- function(input, output, session) {
         if(!any(is.na(selected_concept_ids))){
           selected_concept_names <- unlist(row['CONCEPT_NAMES'])
           selected_parent_id <-  selected_concept_ids[1]
-          selected_parent_name <- selected_concept_names[1]
+          selected_parent_name <- paste(selected_concept_names, collapse = " + ")
           combineSelectedConcepts(new_concept_name = selected_parent_name,
                                   new_concept_id =  selected_parent_id,
                                   selected_ids = selected_concept_ids,

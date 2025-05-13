@@ -386,7 +386,7 @@ automaticCorrelationCombineConcepts <- function(data, abstraction_level = -1, mi
 
       if (!any(is.na(selected_concept_ids))) {
         selected_parent_id <- as.numeric(unlist(row[['CONCEPT_IDS']]))[1]
-        selected_parent_name <- as.character(unlist(row[['CONCEPT_NAMES']]))[1]
+        selected_parent_name <- paste(as.character(unlist(row[['CONCEPT_NAMES']])), collapse = " + ")
 
         data <- combineSelectedConcepts(
           new_concept_name = selected_parent_name,
