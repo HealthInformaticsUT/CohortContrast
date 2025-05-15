@@ -7,7 +7,8 @@
 automaticHierarchyCombineConcepts(
   data,
   abstraction_level = -1,
-  minDepthAllowed = 0
+  minDepthAllowed = 0,
+  allowOnlyMinors = FALSE
 )
 }
 \arguments{
@@ -16,6 +17,8 @@ automaticHierarchyCombineConcepts(
 \item{abstraction_level}{abstraction level to use for mapping}
 
 \item{minDepthAllowed}{integer for restricting the mapping, if a concept is part of a hierarchy tree then minDepthAllowed value will prune the tree from said depth value upwards}
+
+\item{allowOnlyMinors}{allows only mappping if child has smaller prevalence than parent}
 }
 \description{
 Function for automatically combining concepts by hierarchy mapping

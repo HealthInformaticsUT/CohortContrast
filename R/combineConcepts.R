@@ -260,8 +260,9 @@ combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, sel
 #' @param data CohortContrastObject
 #' @param abstraction_level abstraction level to use for mapping
 #' @param minDepthAllowed integer for restricting the mapping, if a concept is part of a hierarchy tree then minDepthAllowed value will prune the tree from said depth value upwards
+#' @param allowOnlyMinors allows only mappping if child has smaller prevalence than parent
 #' @export
-automaticHierarchyCombineConcepts <- function(data, abstraction_level = -1, minDepthAllowed = 0) {
+automaticHierarchyCombineConcepts <- function(data, abstraction_level = -1, minDepthAllowed = 0, allowOnlyMinors = FALSE) {
 
   concept_table = data.table::as.data.table(data$conceptsData$concept)
   concept_ancestor = data.table::as.data.table(data$conceptsData$concept_ancestor)
@@ -304,6 +305,43 @@ automaticHierarchyCombineConcepts <- function(data, abstraction_level = -1, minD
       concept_ancestor = concept_ancestor
     )
 
+    if (allowOnlyMinors) {
+      prevalence_lookup <- data_features %>%
+        dplyr::select(CONCEPT_ID, TARGET_SUBJECT_PREVALENCE)
+
+      mappingtable_filtered <- mappingTable %>%
+        tidyr::unnest_longer(CONCEPT_IDS, indices_include = TRUE) %>%
+        dplyr::rename(child_id = CONCEPT_IDS, idx = CONCEPT_IDS_id) %>%
+        dplyr::mutate(child_name = purrr::map2_chr(CONCEPT_NAMES, idx, ~ .x[.y])) %>%
+
+        # Add prevalence info
+        dplyr::left_join(prevalence_lookup, by = c("PARENT_ID" = "CONCEPT_ID")) %>%
+        dplyr::rename(parent_prevalence = TARGET_SUBJECT_PREVALENCE) %>%
+        dplyr::left_join(prevalence_lookup, by = c("child_id" = "CONCEPT_ID")) %>%
+        dplyr::rename(child_prevalence = TARGET_SUBJECT_PREVALENCE) %>%
+
+        # Filter rows where child prevalence is not greater than parent
+        dplyr::filter(
+          is.na(child_prevalence) |
+            is.na(parent_prevalence) |
+            child_prevalence <= parent_prevalence
+        ) %>%
+
+        # Group back to original list structure
+        dplyr::group_by(PARENT_ID, PARENT_NAME) %>%
+        dplyr::summarise(
+          CONCEPT_IDS = list(child_id),
+          CONCEPT_NAMES = list(child_name),
+          .groups = "drop"
+        ) %>%
+        dplyr::rowwise() %>%
+        dplyr::mutate(COUNT = length(CONCEPT_IDS)) %>%
+        dplyr::filter(COUNT > 1) %>%
+        dplyr::select(PARENT_ID, PARENT_NAME, COUNT, CONCEPT_IDS, CONCEPT_NAMES)
+
+      mappingTable <- as.data.frame(mappingtable_filtered)
+    }
+
     mappingsToExecute <- CohortContrast:::filterHeritagePriorityMappings(mappingTable)
 
     if(nrow(mappingsToExecute) == 0){
@@ -342,8 +380,9 @@ automaticHierarchyCombineConcepts <- function(data, abstraction_level = -1, minD
 #' @param abstraction_level abstraction level to use for mapping
 #' @param minCorrelation minimum correlation to use for automatic concept combining
 #' @param maxDaysInbetween minimum days inbetween concepts to use for automatic concept combining
+#' @param heritageDriftAllowed boolean for allowing heritage drift (combining concepts from differing heritages)
 #' @export
-automaticCorrelationCombineConcepts <- function(data, abstraction_level = -1, minCorrelation = 0.7, maxDaysInbetween = 1) {
+automaticCorrelationCombineConcepts <- function(data, abstraction_level = -1, minCorrelation = 0.7, maxDaysInbetween = 1, heritageDriftAllowed = FALSE) {
 
   counter <- 1
 
@@ -369,7 +408,7 @@ automaticCorrelationCombineConcepts <- function(data, abstraction_level = -1, mi
     data_features = data$data_features %>% dplyr::filter(ABSTRACTION_LEVEL == abstraction_level)
     counter = counter + 1
 
-    mappingsToExecute <- filterCorrelationMappings(correlationSuggestionsTable, data_features = data_features, minCorrelation = minCorrelation, maxDaysInbetween = maxDaysInbetween)
+    mappingsToExecute <- filterCorrelationMappings(correlationSuggestionsTable, data_features = data_features, minCorrelation = minCorrelation, maxDaysInbetween = maxDaysInbetween, heritageDriftAllowed = heritageDriftAllowed)
 
     if(nrow(mappingsToExecute) == 0){
       break
