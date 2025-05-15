@@ -206,7 +206,7 @@ body <- shinydashboard::dashboardBody(
                          shiny::tags$div(
                            style = "background-color: #f8f8f8; padding: 20px; border-radius: 5px;",
                            shiny::tags$h4("Hierarchy based"),
-                           shiny::tags$p("The suggestions shown are based on vocabularies used in the OMOP CDM instance. The parent is the concept the children will be mapped to once you select the row and press 'Combine' button. Under suggestions you can see all of the possible parents the concepts set can be mapped to. The suggestions are based on all the active concepts that are shown with the configuration/filtering. The button Auto-Combine automatically combines all concepts which have a direct parent among the concepts suggested for mapping."),
+                           shiny::tags$p("The suggestions shown are based on vocabularies used in the OMOP CDM instance. The parent is the concept the children will be mapped to once you select the row and press 'Combine selected' button. Under suggestions you can see all of the possible parents the concepts set can be mapped to. The suggestions are based on all the active concepts that are shown with the configuration/filtering. The button Auto-Combine automatically combines all concepts which have a direct parent among the concepts suggested for mapping."),
                            shiny::tags$h4("Correlation based"),
                            shiny::tags$p("The suggestions shown are based on correlation and median days inbetween the two concepts. The correlation shown is calculated based on binary vectors of prevalence for patients. The p-value shows the result of Fischer's test on correlation. The days inbetween is calculated from patient level trajectories, if NA's present this means that the combination is never adjacent inside the data. We suggest to combine concepts which have high correlation, and a small value of days inbetween. The concepts combined should also make sense in the medical concept. The name of the combined concept will be the first concept. The Auto-Combine button will combine all the concepts of same heritage that are within the correlation and days inbetween inputs."),
                                       )),
@@ -215,7 +215,7 @@ body <- shinydashboard::dashboardBody(
                  fluidRow(
                    column(2, h3("Hierarchy Panel")),
                    column(2, div(
-                     actionButton("combine_hierarchy_suggestion_btn", "Combine",
+                     actionButton("combine_hierarchy_suggestion_btn", "Combine selected",
                                   style = "margin-top: 15px; padding: 5px;"),
                      actionButton("combine_hierarchy_suggestion_automatic_btn", "Auto-Combine",
                                   style = "margin-top: 15px; padding: 5px;")
@@ -247,7 +247,7 @@ body <- shinydashboard::dashboardBody(
                     column(2, h3("Correlation Panel")),
 
                     column(2, div(
-                      actionButton("combine_correlation_suggestion_btn", "Combine",
+                      actionButton("combine_correlation_suggestion_btn", "Combine selected",
                                    style = "margin-top: 15px; padding: 5px;"),
                       actionButton("combine_correlation_suggestion_automatic_btn", "Auto-Combine",
                                    style = "margin-top: 15px; padding: 5px;")

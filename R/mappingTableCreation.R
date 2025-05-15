@@ -210,7 +210,7 @@ filterHeritagePriorityMappings <- function(df) {
 }
 
 #' @keywords internal
-filterCorrelationMappings <- function(df, data_features, minCorrelation = 0.8, maxDaysInbetween = 1) {
+filterCorrelationMappings <- function(df, data_features, minCorrelation = 0.8, maxDaysInbetween = 1, heritageDriftAllowed = FALSE) {
   if (nrow(df) == 0 || is.null(df) || nrow(data_features) == 0 || is.null(data_features)) {
     return(df)
   }
@@ -220,6 +220,7 @@ filterCorrelationMappings <- function(df, data_features, minCorrelation = 0.8, m
     dplyr::filter(CORRELATION >= minCorrelation, MEDIAN_DAYS_INBETWEEN <= maxDaysInbetween)
 
   # Step 2: Keep only rows where all CONCEPT_IDS have the same HERITAGE
+  if (!heritageDriftAllowed) {
   df <- df %>%
     dplyr::rowwise() %>%
     dplyr::filter({
@@ -231,7 +232,7 @@ filterCorrelationMappings <- function(df, data_features, minCorrelation = 0.8, m
       length(heritages) == 1
     }) %>%
     dplyr::ungroup()
-
+}
   # Step 3: Unnest to long format with row_id
   df_long <- df %>%
     dplyr::mutate(row_id = dplyr::row_number()) %>%

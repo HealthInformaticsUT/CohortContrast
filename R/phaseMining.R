@@ -271,7 +271,7 @@ run_clustering <- function(all_phases) {
 
   norm <- function(x) (x - min(x)) / (max(x) - min(x))
   dist_hybrid <- stats::as.dist(norm(as.matrix(dist_concepts)) + norm(as.matrix(dist_patients)))
-  hc <- stats::hclust(dist_hybrid, method = "average")
+  hc <- stats::hclust(dist_hybrid, method = "complete")
 
   k_to_try <-  max(2, round(sqrt(length(all_concepts)))):round(sqrt(nrow(all_phases)))
   sil_scores <- sapply(

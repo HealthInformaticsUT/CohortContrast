@@ -86,12 +86,15 @@ format_results <-
     data_copy$data_features <-
       data_copy$data_features[data_features_temp, on = .(CONCEPT_ID), nomatch = 0]
 
-    if (applyZTest) {
-      data_copy$data_features <- data_copy$data_features[ZTEST == TRUE]
-    }
-
-    if (applyLogitTest) {
-      data_copy$data_features <- data_copy$data_features[LOGITTEST == TRUE]
+    if (applyZTest & applyLogitTest) {
+      data_copy$data_features <- data_copy$data_features[
+        data_copy$data_features$ZTEST == TRUE | data_copy$data_features$LOGITTEST == TRUE, ]
+    } else if (applyZTest) {
+      data_copy$data_features <- data_copy$data_features[
+        data_copy$data_features$ZTEST == TRUE, ]
+    } else if (applyLogitTest) {
+      data_copy$data_features <- data_copy$data_features[
+        data_copy$data_features$LOGITTEST == TRUE, ]
     }
 
     if (applyInverseTarget) {
@@ -650,7 +653,7 @@ if (is.data.frame(complementaryMappingTable)) {
   data_mapped = data$data_patients[0, ]
   # Add mappings and remove old
     # Add mappings
-  data_mapped_abstarction_level = handleMapping(data, complementaryMappingTable, abstractionLevel)
+  data_mapped_abstarction_level = handleMapping(data, complementaryMappingTable %>% dplyr::filter(TYPE != "conflict"), abstractionLevel)
   data_mapped = rbind(data_mapped, data_mapped_abstarction_level)
     # Remove old
   concept_ids_to_remove = complementaryMappingTable %>% dplyr::filter(.data$ABSTRACTION_LEVEL == abstractionLevel) %>% dplyr::pull(.data$CONCEPT_ID)
