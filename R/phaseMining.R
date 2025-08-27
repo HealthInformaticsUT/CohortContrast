@@ -279,7 +279,7 @@ run_clustering <- function(all_phases) {
     function(k) {
       cl <- stats::cutree(hc, k)
       sil <- cluster::silhouette(cl, dist_hybrid)
-      if(is.na(sil)){
+      if(all(is.na(sil))){
       return(Inf)  
       }
       mean(sil[, 3])
