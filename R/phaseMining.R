@@ -135,7 +135,7 @@ find_enriched_ngrams <- function(data, n = 2, prev_probs = 1) {
         times <- TIME_TO_EVENT
         ngrams <- extract_ngrams(ids, n)
         timegrams <- extract_ngrams(times, n)
-        if (is.null(ngrams)) return(tibble::tibble())
+        if (is.null(ngrams)) {NULL}
         tibble::tibble(
           ngram = make_ngram(ngrams),
           time_diff = apply(timegrams, 1, function(x) max(x) - min(x)),
@@ -146,6 +146,9 @@ find_enriched_ngrams <- function(data, n = 2, prev_probs = 1) {
       .groups = "drop"
     ) %>% tidyr::unnest(grams)
 
+  if(is.null(observed) | nrow(observed) == 0) {
+  return(tibble::tibble())  
+  }
   summary <- observed %>%
     dplyr::group_by(ngram) %>%
     dplyr::summarise(
