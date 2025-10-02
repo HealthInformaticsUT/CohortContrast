@@ -273,7 +273,14 @@ run_clustering <- function(all_phases) {
   dist_time <- stats::dist(scale(all_phases$time))
 
   norm <- function(x) (x - min(x)) / (max(x) - min(x))
-  dist_hybrid <- stats::as.dist(norm(as.matrix(dist_concepts)) + norm(as.matrix(dist_patients)))
+  norm_patients = norm(as.matrix(dist_patients))
+  norm_patients = ifelse(is.nan(norm_patients), 0, norm_patients)
+  norm_patients = ifelse(is.finite(norm_patients), norm_patients, 0)
+
+  norm_concepts = norm(as.matrix(dist_concepts))
+  norm_concepts = ifelse(is.nan(norm_concepts), 0, norm_concepts)
+  norm_concepts = ifelse(is.finite(norm_concepts), norm_concepts, 0)
+  dist_hybrid <- stats::as.dist(norm_concepts + norm_patients)
   hc <- stats::hclust(dist_hybrid, method = "complete")
 
   k_to_try <-  max(2, round(sqrt(length(all_concepts)))):round(sqrt(nrow(all_phases)))
