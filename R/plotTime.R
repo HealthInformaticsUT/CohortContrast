@@ -125,9 +125,11 @@ getTimePlotRegular <- function(plot_data) {
 
   # Heritage text dataset
   heritage_annot <- plot_data %>%
-    dplyr::mutate(CONCEPT_NAME = stringr::str_sub(.data$CONCEPT_NAME, 1, 60)) %>%
     dplyr::group_by(.data$HERITAGE) %>%
-    dplyr::summarise(CONCEPT_NAME = max(.data$CONCEPT_NAME), .groups = "drop")
+    dplyr::arrange(.data$HERITAGE, dplyr::desc(as.numeric(.data$CONCEPT_NAME))) %>%
+    dplyr::slice(1) %>%
+    dplyr::select(.data$HERITAGE, .data$CONCEPT_NAME) %>%
+    dplyr::ungroup()
 
   p <- ggplot2::ggplot(
     plot_data,
