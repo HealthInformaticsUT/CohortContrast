@@ -9,7 +9,7 @@ pathToResults <<- getwd()
 ################################################################################
 
 con <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomiaDir("GiBleed"))
-cdm <- CDMConnector::cdm_from_con(con, cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
+cdm <- CDMConnector::cdmFromCon(con = con, cdmName = "eunomia", cdmSchema = "main", writeSchema = "main")
 
 
 test_that("Connect", {
@@ -19,7 +19,7 @@ test_that("Connect", {
 
 
 test_that("Get connection cdm reference", {
-  cdm <- CDMConnector::cdm_from_con(con, cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
+  cdm <- CDMConnector::cdmFromCon(con = con, cdmName = "eunomia", cdmSchema = "main", writeSchema = "main")
   expect_s3_class(cdm, "cdm_reference")
 })
 

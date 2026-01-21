@@ -13,7 +13,7 @@ test_that("JSON workflow", {
 
   db <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomiaDir("GiBleed"))
 
-  cdm <- CDMConnector::cdm_from_con(db, cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
+  cdm <- CDMConnector::cdmFromCon(con = db, cdmName = "eunomia", cdmSchema = "main", writeSchema = "main")
 
   targetTable <- cohortFromJSON(pathToJSON = pathToJSON, cdm = cdm)
   controlTable <- createControlCohortInverse(cdm = cdm, targetTable = targetTable)

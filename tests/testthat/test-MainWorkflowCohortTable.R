@@ -20,7 +20,7 @@ test_that("Created features table is correct.", {
   DBI::dbExecute(db , "CREATE SCHEMA IF NOT EXISTS testthat")
   DBI::dbWriteTable(db ,   DBI::SQL('"testthat"."cohort"'), cohort)
 
-  cdm <- CDMConnector::cdm_from_con(db , cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
+  cdm <- CDMConnector::cdmFromCon(con = db, cdmName = "eunomia", cdmSchema = "main", writeSchema = "main")
 
   targetTable <- cohortFromCohortTable(cdm = cdm, db = db, tableName = "cohort", schemaName = 'testthat', cohortId = 500)
   controlTable <- cohortFromCohortTable(cdm = cdm, db = db, tableName = "cohort", schemaName = 'testthat', cohortId = 100)

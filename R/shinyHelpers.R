@@ -591,81 +591,6 @@ getHeritageColors <- function(asList = FALSE) {
 }
 
 #' @keywords internal
-showNoPatientDataAllowedWarning <- function(message = "This feature is not supported without patient level data"){
-  shiny::showNotification(message, type = "warning")
-}
-
-#' @keywords internal
-createFullScreenWaiter <- function(message = "Loading, please wait...") {
-  waiter::Waiter$new(
-    html = shiny::tagList(
-      shiny::h4(message, style = "color: white;"),
-      waiter::spin_3()
-    ),
-    color = "rgba(0, 0, 0, 0.75)" # Semi-transparent black background
-  )
-}
-
-
-#' @keywords internal
-safe_dev_off <- function() {
-  tryCatch(
-    {
-      grDevices::dev.off()  # Attempt to turn off the device
-    },
-    error = function(e) {
-      message("No active graphics device to turn off.")  # Catch and log the error
-    }
-  )
-}
-
-#' @keywords internal
-convert_abstraction_levels <- function(levels) {
-  # Convert numeric vector to character
-  levels <- as.character(levels)
-
-  # Check for presence of -1 and -2
-  has_original <- "-1" %in% levels
-  has_source <- "-2" %in% levels
-
-  # Replace -1 with "original" and -2 with "source"
-  levels[levels == "-1"] <- "original"
-  levels[levels == "-2"] <- "source"
-
-  # Remove "original" and "source" temporarily for sorting
-  non_special_levels <- levels[!levels %in% c("original", "source")]
-
-  # Sort numerically
-  sorted_levels <- as.character(sort(as.numeric(non_special_levels), decreasing = FALSE))
-
-  # Construct the final output based on the presence of special values
-  final_levels <- c(if (has_original) "original", sorted_levels, if (has_source) "source")
-
-  return(final_levels)
-}
-
-
-#' @keywords internal
-implementComplementaryMappingTable <- function(data, complementaryMappingTable, abstractionLevel = -1) {
-if (is.data.frame(complementaryMappingTable)) {
-  # Create empty dataframe
-  complementaryMappingTable = updateMapping(complementaryMappingTable)
-  data_mapped = data$data_patients[0, ]
-  # Add mappings and remove old
-    # Add mappings
-  data_mapped_abstarction_level = handleMapping(data, complementaryMappingTable %>% dplyr::filter(TYPE != "conflict"), abstractionLevel)
-  data_mapped = rbind(data_mapped, data_mapped_abstarction_level)
-    # Remove old
-  concept_ids_to_remove = complementaryMappingTable %>% dplyr::filter(.data$ABSTRACTION_LEVEL == abstractionLevel) %>% dplyr::pull(.data$CONCEPT_ID)
-  data$data_patients = data$data_patients %>% dplyr::filter(!(.data$CONCEPT_ID %in% concept_ids_to_remove & .data$ABSTRACTION_LEVEL == abstractionLevel))
-  # Add new mappings
-  data_mapped$ABSTRACTION_LEVEL = as.character(data_mapped$ABSTRACTION_LEVEL)
-  data$data_patients <- rbind(data$data_patients, data_mapped)
-}
- return(data)
-}
-
-#' @keywords internal
 mergeCorrelationWithTransitions <- function(correlation_data, transition_data) {
   # Ensure CONCEPT_IDS is a list of exactly two elements
   correlation_data <- correlation_data %>%
@@ -741,84 +666,6 @@ calculateMedianTransitions <- function(data) {
   return(result[])
 }
 
-
-#' @keywords internal
-calculateMedianTransitionsPairwise <- function(data) {
-
-  # Step 1: Unnest TIME_TO_EVENT (concepts are already 1 per row)
-  dt <- data.table::as.data.table(data)
-  dt <- dt[, .(TIME_TO_EVENT = unlist(TIME_TO_EVENT)), by = .(PERSON_ID, CONCEPT_ID)]
-  dt <- dt[!is.na(TIME_TO_EVENT)]
-  data.table::setorder(dt, PERSON_ID, TIME_TO_EVENT)
-
-  # Step 2: Create a nested table: list of times per person+concept
-  nested <- dt[, .(TIMES = list(TIME_TO_EVENT)), by = .(PERSON_ID, CONCEPT_ID)]
-
-  # Step 3: Split by person
-  person_groups <- split(nested, by = "PERSON_ID", keep.by = TRUE)
-  all_results <- list()
-
-  for (person_data in person_groups) {
-    concepts <- person_data$CONCEPT_ID
-    if (length(concepts) < 2) next
-
-    # Create all unordered concept pairs
-    concept_pairs <- t(utils::combn(concepts, 2, simplify = TRUE))
-    person_result <- list()
-
-    for (k in seq_len(nrow(concept_pairs))) {
-      c1 <- concept_pairs[k, 1]
-      c2 <- concept_pairs[k, 2]
-
-      times1 <- person_data[CONCEPT_ID == c1, TIMES][[1]]
-      times2 <- person_data[CONCEPT_ID == c2, TIMES][[1]]
-
-      if (length(times1) == 0 || length(times2) == 0) next
-
-      # Greedy pair matching
-      n1 <- length(times1)
-      n2 <- length(times2)
-      i <- j <- 1
-      diffs <- numeric()
-
-      while (i <= n1 && j <= n2) {
-        diffs <- c(diffs, times2[j] - times1[i])
-        i <- i + 1
-        j <- j + 1
-      }
-
-      if (length(diffs)) {
-        person_result[[length(person_result) + 1]] <- data.table::data.table(
-          CONCEPT_ID_1 = min(c1, c2),
-          CONCEPT_ID_2 = max(c1, c2),
-          TRANSITION_TIME = diffs
-        )
-      }
-    }
-
-    if (length(person_result)) {
-      all_results[[length(all_results) + 1]] <- data.table::rbindlist(person_result)
-    }
-  }
-
-  # Combine and compute medians
-  if (length(all_results) == 0) {
-    return(data.table::data.table(
-      CONCEPT_ID_1 = integer(),
-      CONCEPT_ID_2 = integer(),
-      MEDIAN_TRANSITION_TIME = numeric()
-    ))
-  }
-
-  all_dt <- data.table::rbindlist(all_results)
-  result <- all_dt[
-    , .(MEDIAN_TRANSITION_TIME = stats::median(TRANSITION_TIME, na.rm = TRUE)),
-    by = .(CONCEPT_ID_1, CONCEPT_ID_2)
-  ]
-
-  return(result[])
-}
-
 #' @keywords internal
 computePairwiseCorrelations <- function(ordered_matrix, target_row_annotation) {
   # Create mapping table (Concept Name <-> Concept ID)
@@ -875,4 +722,3 @@ computePairwiseCorrelations <- function(ordered_matrix, target_row_annotation) {
   correlation_table <- correlation_table[, .(CONCEPT_NAMES, CONCEPT_IDS, CORRELATION, P_VALUE)]
   return(correlation_table)
 }
-

@@ -51,8 +51,8 @@
 #' DBI::dbExecute(con, "CREATE SCHEMA IF NOT EXISTS example")
 #' DBI::dbWriteTable(con,   DBI::SQL('"example"."cohort"'), cohort)
 #'
-#' cdm <- CDMConnector::cdm_from_con(con, cdm_name = "eunomia",
-#'  cdm_schema = "main", write_schema = "main")
+#' cdm <- CDMConnector::cdmFromCon(con = con, cdmName = "eunomia",
+#'  cdmSchema = "main", writeSchema = "main")
 #'
 #'  targetTable <- cohortFromCohortTable(cdm = cdm, db = con,
 #'   tableName = "cohort", schemaName = 'example', cohortId = 500)
@@ -190,7 +190,7 @@ CohortContrast <- function(cdm,
     if (getAllAbstractions) {
 
       data$data_patients$PERSON_ID = as.integer(data$data_patients$PERSON_ID)
-      #assertAncestryCompleteness(cdm)
+      assertAncestryCompleteness(cdm)
       printCustomMessage("Get data for all concept abstraction levels ...")
       max_min_levels <- data$conceptsData$concept_ancestor %>%
         dplyr::group_by(.data$descendant_concept_id) %>%

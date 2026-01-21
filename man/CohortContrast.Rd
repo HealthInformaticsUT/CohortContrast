@@ -98,8 +98,8 @@ con <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBle
 DBI::dbExecute(con, "CREATE SCHEMA IF NOT EXISTS example")
 DBI::dbWriteTable(con,   DBI::SQL('"example"."cohort"'), cohort)
 
-cdm <- CDMConnector::cdm_from_con(con, cdm_name = "eunomia",
- cdm_schema = "main", write_schema = "main")
+cdm <- CDMConnector::cdmFromCon(con = con, cdmName = "eunomia",
+ cdmSchema = "main", writeSchema = "main")
 
  targetTable <- cohortFromCohortTable(cdm = cdm, db = con,
   tableName = "cohort", schemaName = 'example', cohortId = 500)

@@ -29,7 +29,7 @@ To run the `TrajectoryViz` graphical interface you can use the following wrapper
 # Initiate database connection & load data
 pathToResults <- "./inst/example"
 db <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
-cdm <- CDMConnector::cdm_from_con(db , cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
+cdm <- CDMConnector::cdmFromCon(con = db, cdmName = "eunomia", cdmSchema = "main", writeSchema = "main")
 data <- readRDS("./inst/example/example.rds")
 
 # Import raw data for trajectory creation

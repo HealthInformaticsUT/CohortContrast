@@ -257,7 +257,7 @@ cohortFromCSV <- function(pathToCsv, cohortId = NULL) {
 #' targetTable <- cohortFromJSON(pathToJSON = pathToJSON, cdm, cohortId = 2)
 #'}
 cohortFromJSON <- function(pathToJSON, cdm, cohortId = NULL) {
-  cohortSet = CDMConnector::read_cohort_set(pathToJSON)
+  cohortSet = CDMConnector::readCohortSet(pathToJSON)
   cdm = CDMConnector::generateCohortSet(cdm, cohortSet, "target")
 
   cohortTable = cdm$target %>% as.data.frame()

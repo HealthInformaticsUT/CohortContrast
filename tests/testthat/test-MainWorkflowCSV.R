@@ -14,7 +14,7 @@ test_that("Created features table is correct.", {
   db  <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomiaDir("GiBleed"))
 
 
-  cdm <- CDMConnector::cdm_from_con(db, cdm_name = "eunomia", cdm_schema = "main", write_schema = "main")
+  cdm <- CDMConnector::cdmFromCon(con = db, cdmName = "eunomia", cdmSchema = "main", writeSchema = "main")
 
   targetTable <- cohortFromCSV(pathToCsv = pathToCSV, cohortId = 1)
   controlTable <- cohortFromCSV(pathToCsv = pathToCSV, cohortId = 2)
