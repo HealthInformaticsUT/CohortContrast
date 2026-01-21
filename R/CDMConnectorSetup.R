@@ -344,6 +344,481 @@ createCohortContrastCdm <- function(cdm,
 }
 
 
+#' Remove Temporal Bias from CohortContrast Analysis
+#'
+#' This function identifies and optionally removes concepts that may represent temporal bias
+#' in a CohortContrast analysis. It works by creating age/sex matched controls from the
+#' general population for the same time periods as the target cohort, then using a
+#' proportion test to identify concepts where the matched cohort has greater or equal
+#' prevalence compared to the target. These concepts likely represent temporal trends
+#' (e.g., seasonal effects, healthcare changes) rather than condition-specific features.
+#'
+#' The function applies Bonferroni correction for multiple testing, adjusting the
+#' significance level by dividing alpha by the number of concepts being tested.
+#'
+#' @param data A CohortContrast result object (returned from CohortContrast function)
+#' @param cdm Connection to the database (package CDMConnector)
+#' @param ratio Matching ratio for control cohort generation (default: 1)
+#' @param alpha Significance level for the proportion test before Bonferroni correction (default: 0.05)
+#' @param domainsIncluded Domains to analyze for temporal bias (default: same as original analysis)
+#' @param removeIdentified If TRUE, automatically remove identified temporal bias concepts from the data (default: FALSE)
+#'
+#' @return A list containing:
+#'   \item{temporal_bias_concepts}{A data frame of concepts identified as potential temporal bias}
+#'   \item{data}{The original or filtered CohortContrast data object (if removeIdentified = TRUE)}
+#'   \item{matched_control_prevalences}{Prevalence data from the matched control cohort}
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' # Run CohortContrast analysis
+#' data <- CohortContrast(cdm, targetTable, controlTable, pathToResults, ...)
+#'
+#' # Identify temporal bias concepts
+#' result <- removeTemporalBias(data, cdm, ratio = 1)
+#'
+#' # View identified concepts
+#' print(result$temporal_bias_concepts)
+#'
+#' # Remove identified concepts and get filtered data
+#' result_filtered <- removeTemporalBias(data, cdm, removeIdentified = TRUE)
+#' filtered_data <- result_filtered$data
+#' }
+removeTemporalBias <- function(data,
+                               cdm,
+                               ratio = 1,
+                               alpha = 0.05,
+                               domainsIncluded = NULL,
+                               removeIdentified = FALSE) {
+
+  cli::cli_alert_info("Starting temporal bias detection...")
+
+  # Validate input
+  if (!inherits(data, "CohortContrastObject")) {
+    cli::cli_alert_warning("Input data is not a CohortContrastObject. Attempting to proceed anyway.")
+  }
+
+  if (is.null(data$data_initial)) {
+    stop("data_initial is missing from the CohortContrast result. Cannot perform temporal bias analysis.")
+  }
+
+  # Use domains from original analysis if not specified
+  if (is.null(domainsIncluded)) {
+    domainsIncluded <- data$config$domainsIncluded
+  }
+
+  # Extract target cohort data
+  target_initial <- data$data_initial %>%
+    dplyr::filter(.data$COHORT_DEFINITION_ID == "target")
+
+  if (nrow(target_initial) == 0) {
+    stop("No target cohort patients found in data_initial.")
+  }
+
+  n_target <- nrow(target_initial)
+  cli::cli_alert_info(paste0("Found ", n_target, " target cohort patients."))
+
+  # Prepare target table for matching (convert to format expected by createControlCohortMatching)
+  target_table <- target_initial %>%
+    dplyr::transmute(
+      cohort_definition_id = 1L,
+      subject_id = .data$SUBJECT_ID,
+      cohort_start_date = .data$COHORT_START_DATE,
+      cohort_end_date = .data$COHORT_END_DATE
+    )
+
+  # Create matched control cohort based on age and sex
+  cli::cli_alert_info("Creating age/sex matched control cohort for the same time periods...")
+  matched_control <- createControlCohortMatching(
+    cdm = cdm,
+    targetTable = target_table,
+    ratio = ratio
+  )
+
+  if (nrow(matched_control) == 0) {
+    cli::cli_alert_warning("No matched controls found. Cannot perform temporal bias analysis.")
+    return(list(
+      temporal_bias_concepts = data.frame(),
+      data = data,
+      matched_control_prevalences = data.frame()
+    ))
+  }
+
+  # Explicitly exclude any target subjects from matched cohort (safety check)
+  target_subject_ids <- target_initial$SUBJECT_ID
+  matched_control <- matched_control %>%
+    dplyr::filter(!.data$subject_id %in% target_subject_ids)
+
+  if (nrow(matched_control) == 0) {
+    cli::cli_alert_warning("No matched controls remaining after excluding target subjects.")
+    return(list(
+      temporal_bias_concepts = data.frame(),
+      data = data,
+      matched_control_prevalences = data.frame()
+    ))
+  }
+
+  n_matched <- dplyr::n_distinct(matched_control$subject_id)
+  cli::cli_alert_info(paste0("Created ", nrow(matched_control), " matched control records (", n_matched, " unique subjects, excluding target)."))
+
+  # Query concept prevalences for matched control cohort
+  cli::cli_alert_info("Querying concept prevalences for matched control cohort...")
+  matched_prevalences <- queryMatchedControlPrevalences(
+    cdm = cdm,
+    matchedControl = matched_control,
+    domainsIncluded = domainsIncluded
+  )
+
+  if (nrow(matched_prevalences) == 0) {
+    cli::cli_alert_warning("No concept prevalences found for matched control cohort.")
+    return(list(
+      temporal_bias_concepts = data.frame(),
+      data = data,
+      matched_control_prevalences = data.frame()
+    ))
+  }
+
+  # Calculate prevalences for matched cohort
+  matched_prevalence_summary <- matched_prevalences %>%
+    dplyr::group_by(.data$CONCEPT_ID, .data$CONCEPT_NAME, .data$HERITAGE) %>%
+    dplyr::summarise(
+      MATCHED_SUBJECT_COUNT = dplyr::n_distinct(.data$PERSON_ID),
+      .groups = "drop"
+    ) %>%
+    dplyr::mutate(MATCHED_PREVALENCE = .data$MATCHED_SUBJECT_COUNT / n_matched)
+
+  # Get target prevalences from original data
+  target_prevalences <- data$data_features %>%
+    dplyr::filter(.data$ABSTRACTION_LEVEL == -1) %>%
+    dplyr::select(
+      .data$CONCEPT_ID,
+      .data$CONCEPT_NAME,
+      .data$HERITAGE,
+      .data$TARGET_SUBJECT_PREVALENCE,
+      .data$TARGET_SUBJECT_COUNT
+    )
+
+  # Join prevalences
+  cli::cli_alert_info("Running proportion tests to identify temporal bias...")
+  comparison <- target_prevalences %>%
+    dplyr::inner_join(
+      matched_prevalence_summary,
+      by = c("CONCEPT_ID", "CONCEPT_NAME", "HERITAGE")
+    )
+
+  # Apply Bonferroni correction for multiple testing
+  n_tests <- nrow(comparison)
+  alpha_corrected <- alpha / n_tests
+  cli::cli_alert_info(paste0("Applying Bonferroni correction: alpha = ", alpha, " / ", n_tests, " = ", format(alpha_corrected, scientific = TRUE)))
+
+  # Perform one-sided proportion test for each concept
+  # H0: matched prevalence >= target prevalence (temporal bias)
+  # H1: target prevalence > matched prevalence (condition-specific)
+  # If we fail to reject H0 (p >= alpha_corrected), concept is flagged as temporal bias
+  comparison <- comparison %>%
+    dplyr::rowwise() %>%
+    dplyr::mutate(
+      P_VALUE = tryCatch({
+        test_result <- stats::prop.test(
+          x = c(.data$TARGET_SUBJECT_COUNT, .data$MATCHED_SUBJECT_COUNT),
+          n = c(n_target, n_matched),
+          alternative = "greater",
+          conf.level = 1 - alpha_corrected
+        )
+        test_result$p.value
+      }, error = function(e) NA_real_),
+      IS_TEMPORAL_BIAS = is.na(.data$P_VALUE) | .data$P_VALUE >= alpha_corrected | .data$MATCHED_PREVALENCE >= .data$TARGET_SUBJECT_PREVALENCE
+    ) %>%
+    dplyr::ungroup()
+
+  # Identify temporal bias concepts
+  temporal_bias_concepts <- comparison %>%
+    dplyr::filter(.data$IS_TEMPORAL_BIAS) %>%
+    dplyr::select(
+      .data$CONCEPT_ID,
+      .data$CONCEPT_NAME,
+      .data$HERITAGE,
+      .data$TARGET_SUBJECT_PREVALENCE,
+      .data$MATCHED_PREVALENCE,
+      .data$TARGET_SUBJECT_COUNT,
+      .data$MATCHED_SUBJECT_COUNT,
+      .data$P_VALUE
+    ) %>%
+    dplyr::arrange(dplyr::desc(.data$MATCHED_PREVALENCE))
+
+  n_temporal_bias <- nrow(temporal_bias_concepts)
+  cli::cli_alert_success(paste0("Identified ", n_temporal_bias, " concepts as potential temporal bias (matched >= target)."))
+
+  if (n_temporal_bias > 0) {
+    cli::cli_alert_info("Top temporal bias concepts (highest matched prevalence):")
+    print(utils::head(temporal_bias_concepts, 10))
+  }
+
+  # Optionally remove temporal bias concepts from data
+  result_data <- data
+  if (removeIdentified && n_temporal_bias > 0) {
+    cli::cli_alert_info("Removing temporal bias concepts from data...")
+    result_data <- filterTemporalBiasConcepts(data, temporal_bias_concepts)
+    cli::cli_alert_success("Temporal bias concepts removed from data.")
+  }
+
+  return(list(
+    temporal_bias_concepts = temporal_bias_concepts,
+    data = result_data,
+    matched_control_prevalences = comparison
+  ))
+}
+
+
+#' Query concept prevalences for matched control cohort
+#'
+#' @param cdm CDMConnector object
+#' @param matchedControl Matched control cohort table
+#' @param domainsIncluded List of domains to include
+#'
+#' @keywords internal
+queryMatchedControlPrevalences <- function(cdm, matchedControl, domainsIncluded) {
+  cli::cli_alert_info("Collecting concept table for matched control analysis.")
+  cdmConcepts <- cdm$concept %>% dplyr::collect()
+  matchedControl = CohortContrast:::resolveCohortTableOverlaps(cohortTable = matchedControl  %>% as.data.frame(), cdm = cdm)
+  # Insert matched control into CDM
+  cdm <- omopgenerics::insertTable(
+    cdm = cdm,
+    name = "temporal_bias_matched",
+    table = matchedControl,
+    overwrite = TRUE
+  )
+  cdm$temporal_bias_matched <- omopgenerics::newCohortTable(cdm$temporal_bias_matched)
+
+  # Initialize result
+  data_patients <- tibble::tibble(
+    PERSON_ID = integer(),
+    CONCEPT_ID = integer(),
+    CONCEPT_NAME = character(),
+    HERITAGE = character()
+  )
+
+  domains <- c("Drug", "Measurement", "Condition", "Observation", "Visit", "Visit detail", "Procedure", "Death")
+
+  for (domain in domains) {
+    if (domain %in% domainsIncluded) {
+      if (domain == "Drug") {
+        CohortContrast:::printCustomMessage("Querying drug exposure data for matched control...")
+        data_to_add <- cdm$temporal_bias_matched %>%
+          dplyr::inner_join(cdm$drug_exposure, by = c("subject_id" = "person_id")) %>%
+          dplyr::filter(
+            .data$drug_exposure_start_date >= .data$cohort_start_date &
+              .data$drug_exposure_start_date <= .data$cohort_end_date
+          ) %>%
+          dplyr::select(.data$subject_id, .data$drug_concept_id) %>%
+          dplyr::distinct() %>%
+          dplyr::collect() %>%
+          dplyr::left_join(cdmConcepts, by = c("drug_concept_id" = "concept_id")) %>%
+          dplyr::transmute(
+            PERSON_ID = .data$subject_id,
+            CONCEPT_ID = .data$drug_concept_id,
+            CONCEPT_NAME = .data$concept_name,
+            HERITAGE = "drug_exposure"
+          ) %>%
+          dplyr::filter(.data$CONCEPT_ID != 0)
+        data_patients <- dplyr::bind_rows(data_patients, data_to_add)
+      } else if (domain == "Condition") {
+        CohortContrast:::printCustomMessage("Querying condition occurrence data for matched control...")
+        data_to_add <- cdm$temporal_bias_matched %>%
+          dplyr::inner_join(cdm$condition_occurrence, by = c("subject_id" = "person_id")) %>%
+          dplyr::filter(
+            .data$condition_start_date >= .data$cohort_start_date &
+              .data$condition_start_date <= .data$cohort_end_date
+          ) %>%
+          dplyr::select(.data$subject_id, .data$condition_concept_id) %>%
+          dplyr::distinct() %>%
+          dplyr::collect() %>%
+          dplyr::left_join(cdmConcepts, by = c("condition_concept_id" = "concept_id")) %>%
+          dplyr::transmute(
+            PERSON_ID = .data$subject_id,
+            CONCEPT_ID = .data$condition_concept_id,
+            CONCEPT_NAME = .data$concept_name,
+            HERITAGE = "condition_occurrence"
+          ) %>%
+          dplyr::filter(.data$CONCEPT_ID != 0)
+        data_patients <- dplyr::bind_rows(data_patients, data_to_add)
+      } else if (domain == "Measurement") {
+        CohortContrast:::printCustomMessage("Querying measurement data for matched control...")
+        data_to_add <- cdm$temporal_bias_matched %>%
+          dplyr::inner_join(cdm$measurement, by = c("subject_id" = "person_id")) %>%
+          dplyr::filter(
+            .data$measurement_date >= .data$cohort_start_date &
+              .data$measurement_date <= .data$cohort_end_date
+          ) %>%
+          dplyr::select(.data$subject_id, .data$measurement_concept_id) %>%
+          dplyr::distinct() %>%
+          dplyr::collect() %>%
+          dplyr::left_join(cdmConcepts, by = c("measurement_concept_id" = "concept_id")) %>%
+          dplyr::transmute(
+            PERSON_ID = .data$subject_id,
+            CONCEPT_ID = .data$measurement_concept_id,
+            CONCEPT_NAME = .data$concept_name,
+            HERITAGE = "measurement"
+          ) %>%
+          dplyr::filter(.data$CONCEPT_ID != 0)
+        data_patients <- dplyr::bind_rows(data_patients, data_to_add)
+      } else if (domain == "Observation") {
+        CohortContrast:::printCustomMessage("Querying observation data for matched control...")
+        data_to_add <- cdm$temporal_bias_matched %>%
+          dplyr::inner_join(cdm$observation, by = c("subject_id" = "person_id")) %>%
+          dplyr::filter(
+            .data$observation_date >= .data$cohort_start_date &
+              .data$observation_date <= .data$cohort_end_date
+          ) %>%
+          dplyr::select(.data$subject_id, .data$observation_concept_id) %>%
+          dplyr::distinct() %>%
+          dplyr::collect() %>%
+          dplyr::left_join(cdmConcepts, by = c("observation_concept_id" = "concept_id")) %>%
+          dplyr::transmute(
+            PERSON_ID = .data$subject_id,
+            CONCEPT_ID = .data$observation_concept_id,
+            CONCEPT_NAME = .data$concept_name,
+            HERITAGE = "observation"
+          ) %>%
+          dplyr::filter(.data$CONCEPT_ID != 0)
+        data_patients <- dplyr::bind_rows(data_patients, data_to_add)
+      } else if (domain == "Procedure") {
+        CohortContrast:::printCustomMessage("Querying procedure occurrence data for matched control...")
+        data_to_add <- cdm$temporal_bias_matched %>%
+          dplyr::inner_join(cdm$procedure_occurrence, by = c("subject_id" = "person_id")) %>%
+          dplyr::filter(
+            .data$procedure_date >= .data$cohort_start_date &
+              .data$procedure_date <= .data$cohort_end_date
+          ) %>%
+          dplyr::select(.data$subject_id, .data$procedure_concept_id) %>%
+          dplyr::distinct() %>%
+          dplyr::collect() %>%
+          dplyr::left_join(cdmConcepts, by = c("procedure_concept_id" = "concept_id")) %>%
+          dplyr::transmute(
+            PERSON_ID = .data$subject_id,
+            CONCEPT_ID = .data$procedure_concept_id,
+            CONCEPT_NAME = .data$concept_name,
+            HERITAGE = "procedure_occurrence"
+          ) %>%
+          dplyr::filter(.data$CONCEPT_ID != 0)
+        data_patients <- dplyr::bind_rows(data_patients, data_to_add)
+      } else if (domain == "Visit") {
+        CohortContrast:::printCustomMessage("Querying visit occurrence data for matched control...")
+        data_to_add <- cdm$temporal_bias_matched %>%
+          dplyr::inner_join(cdm$visit_occurrence, by = c("subject_id" = "person_id")) %>%
+          dplyr::filter(
+            .data$visit_start_date >= .data$cohort_start_date &
+              .data$visit_start_date <= .data$cohort_end_date
+          ) %>%
+          dplyr::select(.data$subject_id, .data$visit_concept_id) %>%
+          dplyr::distinct() %>%
+          dplyr::collect() %>%
+          dplyr::left_join(cdmConcepts, by = c("visit_concept_id" = "concept_id")) %>%
+          dplyr::transmute(
+            PERSON_ID = .data$subject_id,
+            CONCEPT_ID = .data$visit_concept_id,
+            CONCEPT_NAME = .data$concept_name,
+            HERITAGE = "visit_occurrence"
+          ) %>%
+          dplyr::filter(.data$CONCEPT_ID != 0)
+        data_patients <- dplyr::bind_rows(data_patients, data_to_add)
+      } else if (domain == "Visit detail") {
+        CohortContrast:::printCustomMessage("Querying visit detail data for matched control...")
+        data_to_add <- cdm$temporal_bias_matched %>%
+          dplyr::inner_join(cdm$visit_detail, by = c("subject_id" = "person_id")) %>%
+          dplyr::filter(
+            .data$visit_detail_start_date >= .data$cohort_start_date &
+              .data$visit_detail_start_date <= .data$cohort_end_date
+          ) %>%
+          dplyr::select(.data$subject_id, .data$visit_detail_concept_id) %>%
+          dplyr::distinct() %>%
+          dplyr::collect() %>%
+          dplyr::left_join(cdmConcepts, by = c("visit_detail_concept_id" = "concept_id")) %>%
+          dplyr::transmute(
+            PERSON_ID = .data$subject_id,
+            CONCEPT_ID = .data$visit_detail_concept_id,
+            CONCEPT_NAME = .data$concept_name,
+            HERITAGE = "visit_detail"
+          ) %>%
+          dplyr::filter(.data$CONCEPT_ID != 0)
+        data_patients <- dplyr::bind_rows(data_patients, data_to_add)
+      } else if (domain == "Death") {
+        CohortContrast:::printCustomMessage("Querying death data for matched control...")
+        data_to_add <- cdm$temporal_bias_matched %>%
+          dplyr::inner_join(cdm$death, by = c("subject_id" = "person_id")) %>%
+          dplyr::filter(
+            .data$death_date >= .data$cohort_start_date &
+              .data$death_date <= .data$cohort_end_date
+          ) %>%
+          dplyr::select(.data$subject_id, .data$death_type_concept_id) %>%
+          dplyr::distinct() %>%
+          dplyr::collect() %>%
+          dplyr::left_join(cdmConcepts, by = c("death_type_concept_id" = "concept_id")) %>%
+          dplyr::transmute(
+            PERSON_ID = .data$subject_id,
+            CONCEPT_ID = .data$death_type_concept_id,
+            CONCEPT_NAME = .data$concept_name,
+            HERITAGE = "death"
+          ) %>%
+          dplyr::filter(.data$CONCEPT_ID != 0)
+        data_patients <- dplyr::bind_rows(data_patients, data_to_add)
+      }
+    }
+  }
+
+  return(data_patients)
+}
+
+
+#' Filter temporal bias concepts from CohortContrast data
+#'
+#' @param data CohortContrast result object
+#' @param temporalBiasConcepts Data frame of temporal bias concepts to remove
+#'
+#' @keywords internal
+filterTemporalBiasConcepts <- function(data, temporalBiasConcepts) {
+  concepts_to_remove <- temporalBiasConcepts %>%
+    dplyr::select(.data$CONCEPT_ID, .data$HERITAGE) %>%
+    dplyr::distinct()
+
+  # Filter data_features
+  if ("data_features" %in% names(data)) {
+    data$data_features <- dplyr::anti_join(
+      data$data_features,
+      concepts_to_remove,
+      by = c("CONCEPT_ID", "HERITAGE")
+    )
+  }
+
+  # Filter data_patients
+  if ("data_patients" %in% names(data)) {
+    data$data_patients <- dplyr::anti_join(
+      data$data_patients,
+      concepts_to_remove,
+      by = c("CONCEPT_ID", "HERITAGE")
+    )
+  }
+
+  # Update trajectoryDataList
+  if ("trajectoryDataList" %in% names(data) && "selectedFeatures" %in% names(data$trajectoryDataList)) {
+    data$trajectoryDataList$selectedFeatures <- dplyr::anti_join(
+      data$trajectoryDataList$selectedFeatures,
+      concepts_to_remove,
+      by = c("CONCEPT_ID", "HERITAGE")
+    )
+
+    data$trajectoryDataList$selectedFeatureNames <- data$trajectoryDataList$selectedFeatures$CONCEPT_NAME
+    data$trajectoryDataList$selectedFeatureIds <- data$trajectoryDataList$selectedFeatures$CONCEPT_ID
+  }
+
+  # Add info to config
+  data$config$temporalBiasRemoved <- TRUE
+  data$config$temporalBiasConceptsRemoved <- nrow(concepts_to_remove)
+
+  return(data)
+}
+
+
 #' Function for matching the control to target by age
 #'
 #' @param cdm Connection to the database (package CDMConnector)
