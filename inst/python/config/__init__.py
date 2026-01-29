@@ -1,0 +1,30 @@
+"""Configuration module for ContrastViewer."""
+
+from config.constants import (
+    HERITAGE_ORDER,
+    HERITAGE_COLORS,
+    MAX_ENRICHMENT_VALUE,
+    MAX_ENRICHMENT_LOG,
+    MIN_PLOT_HEIGHT,
+    PIXELS_PER_CONCEPT,
+    TOP_MARGIN,
+    BOTTOM_MARGIN,
+    SMALL_GAP,
+    TOP_MARGIN_COMBINED,
+    BOTTOM_MARGIN_COMBINED,
+)
+
+__all__ = [
+    'HERITAGE_ORDER',
+    'HERITAGE_COLORS',
+    'MAX_ENRICHMENT_VALUE',
+    'MAX_ENRICHMENT_LOG',
+    'MIN_PLOT_HEIGHT',
+    'PIXELS_PER_CONCEPT',
+    'TOP_MARGIN',
+    'BOTTOM_MARGIN',
+    'SMALL_GAP',
+    'TOP_MARGIN_COMBINED',
+    'BOTTOM_MARGIN_COMBINED',
+]
+
