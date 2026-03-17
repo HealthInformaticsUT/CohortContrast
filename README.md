@@ -146,12 +146,6 @@ The CohortContrast package generates the following outputs:
      dataDir = "inst/example/st"
     )
 
-## Demo
-
-Check out the
-[demo](https://drive.google.com/file/d/1GqoSYIljBB79J8LXBup8Q7T6lkUWEiUp/view?usp=sharing)
-on malignant neoplasm of breast cohort! 
-
 ### More information
 
 CohortContrast provides much more insight generation possibilities. See
