@@ -1,0 +1,154 @@
+# CohortContrast
+
+The goal of CohortContrast is to facilitate the comparison between
+cohorts in specified domains across all OMOP CDM datasets. It enables
+users to analyze and visualize the contrast between target and control
+cohorts effectively.
+
+## Installation
+
+The development version of the package from GitHub:
+
+``` r
+# install.packages("devtools")
+devtools::install_github("HealthInformaticsUT/CohortContrast")
+```
+
+## Usage
+
+To use CohortContrast, follow these steps to configure your environment
+and input data:
+
+1.  **Credentials**: Make sure you can create a connection to your OHDS
+    CDM instance using CDMConnector package.
+
+``` R
+pathToResults = getwd()
+
+################################################################################
+#
+# Initiate the database connection
+#
+#################################################################################
+
+user <- Sys.getenv("DB_USERNAME") #TODO
+pw <- Sys.getenv("DB_PASSWORD") #TODO
+server <- stringr::str_c(Sys.getenv("DB_HOST"), "/", Sys.getenv("DB_NAME")) #TODO
+port <- Sys.getenv("DB_PORT") #TODO
+
+cdmSchema <-
+  Sys.getenv("OHDSI_CDM") #TODO # Schema which contains the OHDSI Common Data Model
+cdmVocabSchema <-
+  Sys.getenv("OHDSI_VOCAB") #TODO # Schema which contains the OHDSI Common Data Model vocabulary tables.
+cdmResultsSchema <-
+  Sys.getenv("OHDSI_RESULTS") #TODO # Schema which contains "cohort" table (is not mandatory)
+writeSchema <-
+  Sys.getenv("OHDSI_WRITE") #TODO # Schema for temporary tables, will be deleted
+writePrefix <- "cc_"
+
+db = DBI::dbConnect(
+  RPostgres::Postgres(),
+  dbname = Sys.getenv("DB_NAME"),
+  host = Sys.getenv("DB_HOST"),
+  user = Sys.getenv("DB_USERNAME"),
+  password = Sys.getenv("DB_PASSWORD"),
+  port  = port
+)
+
+cdm <- CDMConnector::cdmFromCon(
+  con = db,
+  cdmSchema = cdmSchema,
+  achillesSchema = cdmResultsSchema,
+  writeSchema = c(schema = writeSchema, prefix = writePrefix),
+)
+```
+
+2.  **Create target and control tables**
+
+    - Use functions `cohortFromCohortTable`, `cohortFromDataTable`,
+      `cohortFromJSON` or `cohortFromCSV` for indicating your target and
+      control cohort tables.
+    - You can use `createControlCohortInverse` or
+      `cohortFromCohortTable` for generating control tables.
+
+``` R
+cohortsTableSchemaName = cdmResultsSchema
+cohortsTableName = 'cohort'
+targetCohortId = 568
+controlCohortId = 571
+
+################################################################################
+#
+# CDM target and control modula
+#
+################################################################################
+
+targetTable <- CohortContrast::cohortFromCohortTable(cdm = cdm, db = db,
+   tableName = cohortsTableName, schemaName = cdmResultsSchema, cohortId = targetCohortId)
+   
+ controlTable <- CohortContrast::cohortFromCohortTable(cdm = cdm, db = db,
+  tableName = cohortsTableName, schemaName = cdmResultsSchema, cohortId = controlCohortId)
+```
+
+3.  **Run the Study**: Execute the study by using the CohortContrast
+    functions.
+
+``` R
+################################################################################
+#
+# Execute
+#
+################################################################################
+
+data = CohortContrast::CohortContrast(
+  cdm,
+  targetTable = targetTable,
+  controlTable = controlTable,
+  pathToResults = getwd(),
+  domainsIncluded = c(
+    "Drug",
+    "Condition",
+    "Measurement",
+    "Observation",
+    "Procedure",
+    "Visit",
+    "Visit detail"
+  ),
+  prevalenceCutOff = 2.5,
+  topK = FALSE, # Number of features to export
+  presenceFilter = 0.2, # 0-1, percentage of people who must have the chosen feature present
+  complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
+  getSourceData = FALSE, # If true will generate summaries with source data as well
+  runChi2YTests = TRUE,
+  runLogitTests = FALSE,
+  createOutputFiles = TRUE,
+  complName = "CohortContrastStudy")
+```
+
+## Outputs
+
+The CohortContrast package generates the following outputs:
+
+1.  Running `CohortContrast` returns a list of tables (patient level
+    summarised data for target and control) and saves a study folder
+    with parquet files that can be analysed in the GUI directly.
+2.  Using viewer helpers with `runCohortContrastViewer` generates plots
+    from parquet-formatted results.
+3.  Example studies are available under `inst/example/st`.
+4.  Published studies can be explored at
+    <http://omop-apps.cloud.ut.ee/CohortContrast/>.
+
+``` R
+CohortContrast::runCohortContrastViewer(
+ dataDir = "inst/example/st"
+)
+```
+
+### More information
+
+CohortContrast provides much more insight generation possibilities. See
+the package wiki for more details
+[here](https://healthinformaticsut.github.io/CohortContrast/)
+
+For feature requests create issues on Github or contact Markus Haug
+(<markus.haug@ut.ee>) personally.

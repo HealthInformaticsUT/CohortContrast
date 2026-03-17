@@ -8,8 +8,8 @@
 <title>Setup • CohortContrast</title>
 <script src="../lightswitch.js"></script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.2.1/css/all.min.css" rel="stylesheet">
-<link href="../deps/font-awesome-6.2.1/css/v4-shims.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Setup">
 </head>
 <body>
@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">CohortContrast</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.900</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -30,19 +30,20 @@
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
-<li class="active nav-item dropdown">
+<li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/a00_introduction.html">Setup</a></li>
     <li><a class="dropdown-item" href="../articles/a01_execution.html">Execution</a></li>
-    <li><a class="dropdown-item" href="../articles/a02_interface.html">Graphical user interface</a></li>
-    <li><a class="dropdown-item" href="../articles/a03_prevalence_plot.html">Prevalence plot</a></li>
-    <li><a class="dropdown-item" href="../articles/a04_time_panel.html">Time panel</a></li>
-    <li><a class="dropdown-item" href="../articles/a05_heatmap_plot.html">Heatmap plot</a></li>
-    <li><a class="dropdown-item" href="../articles/a06_correlation_view.html">Correlation view</a></li>
-    <li><a class="dropdown-item" href="../articles/a07_Cohort2Trajectory.html">Cohort2Trajectory</a></li>
-    <li><a class="dropdown-item" href="../articles/a08_TrajectoryViz.html">TrajectoryViz</a></li>
-    <li><a class="dropdown-item" href="../articles/a09_interface_controls.html">Interface controls</a></li>
+    <li><a class="dropdown-item" href="../articles/a02_interface.html">Graphical User Interface</a></li>
+    <li><a class="dropdown-item" href="../articles/a03_dashboard_composite.html">Dashboard Composite Plot</a></li>
+    <li><a class="dropdown-item" href="../articles/a04_trajectories_tab.html">Trajectories Tab</a></li>
+    <li><a class="dropdown-item" href="../articles/a05_overlap_tab.html">Overlap Tab</a></li>
+    <li><a class="dropdown-item" href="../articles/a06_mappings_tab.html">Mappings Tab</a></li>
+    <li><a class="dropdown-item" href="../articles/a07_patient_vs_summary_mode.html">Patient vs Summary Mode</a></li>
+    <li><a class="dropdown-item" href="../articles/a08_demographics_tab.html">Demographics Tab</a></li>
+    <li><a class="dropdown-item" href="../articles/a09_sidepanel_controls.html">Sidepanel Filters and Controls</a></li>
+    <li><a class="dropdown-item" href="../articles/a10_air_gapped_server_setup.html">Air-gapped Server Setup</a></li>
   </ul>
 </li>
       </ul>
@@ -88,7 +89,18 @@ cohort exploration. It accepts a target cohort of any size from your
 OMOP CDM instance and allows you to provide a custom control cohort or
 generate one using matching or inverse controls. The package performs
 concept-level enrichment analysis and provides a handy GUI for
-visualization, mapping, and trajectory creation</p>
+visualization and concept mapping.</p>
+</div>
+<div class="section level2">
+<h2 id="load-packages">Load packages<a class="anchor" aria-label="anchor" href="#load-packages"></a>
+</h2>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://healthinformaticsut.github.io/CohortContrast/">CohortContrast</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://darwin-eu.github.io/CDMConnector/" class="external-link">CDMConnector</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://dbi.r-dbi.org" class="external-link">DBI</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://rpostgres.r-dbi.org" class="external-link">RPostgres</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://dplyr.tidyverse.org" class="external-link">dplyr</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tibble.tidyverse.org/" class="external-link">tibble</a></span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="initiating-database-connection">Initiating database connection<a class="anchor" aria-label="anchor" href="#initiating-database-connection"></a>
@@ -98,17 +110,14 @@ package is used to establish the database connection for running
 <code>CohortContrast</code>. You can configure the connection either by
 reading credentials from a <code>.Renviron</code> file or explicitly
 writing them in your script.</p>
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co">################################################################################</span></span>
 <span><span class="co">#</span></span>
 <span><span class="co"># Initiate the database connection</span></span>
 <span><span class="co">#</span></span>
 <span><span class="co">#################################################################################</span></span>
 <span></span>
-<span><span class="va">user</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"DB_USERNAME"</span><span class="op">)</span></span>
-<span><span class="va">pw</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"DB_PASSWORD"</span><span class="op">)</span></span>
-<span><span class="va">server</span> <span class="op">&lt;-</span> <span class="fu">stringr</span><span class="fu">::</span><span class="fu"><a href="https://stringr.tidyverse.org/reference/str_c.html" class="external-link">str_c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"DB_HOST"</span><span class="op">)</span>, <span class="st">"/"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"DB_NAME"</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">port</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"DB_PORT"</span><span class="op">)</span></span>
+<span><span class="va">port</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"DB_PORT"</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">cdmSchema</span> <span class="op">&lt;-</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"OHDSI_CDM"</span><span class="op">)</span> <span class="co"># Schema which contains the OHDSI Common Data Model</span></span>
@@ -129,24 +138,46 @@ writing them in your script.</p>
 <span>  port  <span class="op">=</span> <span class="va">port</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">cdm</span> <span class="op">&lt;-</span> <span class="fu">CDMConnector</span><span class="fu">::</span><span class="fu"><a href="https://darwin-eu.github.io/CDMConnector/reference/cdm_from_con.html" class="external-link">cdmFromCon</a></span><span class="op">(</span></span>
+<span><span class="va">cdm</span> <span class="op">&lt;-</span> <span class="fu">CDMConnector</span><span class="fu">::</span><span class="fu"><a href="https://darwin-eu.github.io/CDMConnector/reference/cdmFromCon.html" class="external-link">cdmFromCon</a></span><span class="op">(</span></span>
 <span>  con <span class="op">=</span> <span class="va">db</span>,</span>
 <span>  cdmSchema <span class="op">=</span> <span class="va">cdmSchema</span>,</span>
 <span>  achillesSchema <span class="op">=</span> <span class="va">cdmResultsSchema</span>,</span>
-<span>  writeSchema <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>schema <span class="op">=</span> <span class="va">writeSchema</span>, prefix <span class="op">=</span> <span class="va">writePrefix</span><span class="op">)</span>,</span>
+<span>  writeSchema <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>schema <span class="op">=</span> <span class="va">writeSchema</span>, prefix <span class="op">=</span> <span class="va">writePrefix</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="configuring-python-dependencies-for-gui-and-summary-precompute">Configuring Python dependencies (for GUI and summary
+precompute)<a class="anchor" aria-label="anchor" href="#configuring-python-dependencies-for-gui-and-summary-precompute"></a>
+</h2>
+<p>If you plan to use the interactive viewer
+(<code><a href="../reference/runCohortContrastViewer.html">runCohortContrastViewer()</a></code>) or summary precompute
+(<code><a href="../reference/precomputeSummary.html">precomputeSummary()</a></code>), configure Python and install
+required Python packages:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/configurePython.html">configurePython</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/installPythonDeps.html">installPythonDeps</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/checkPythonDeps.html">checkPythonDeps</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="air-gapped-server-setup">Air-gapped server setup<a class="anchor" aria-label="anchor" href="#air-gapped-server-setup"></a>
+</h2>
+<p>If you are deploying on an offline or air-gapped environment, see the
+supplementary article <strong>Air-gapped server setup</strong>:</p>
+<ul>
+<li><code><a href="../articles/a10_air_gapped_server_setup.html">vignette("a10_air_gapped_server_setup", package = "CohortContrast")</a></code></li>
+</ul>
 </div>
 <div class="section level2">
 <h2 id="building-a-target-cohort">Building a target cohort<a class="anchor" aria-label="anchor" href="#building-a-target-cohort"></a>
 </h2>
-<p>Let´s say we want to explore our cohort of breast cancer patients. We
+<p>Let´s say we want to explore our cohort of lung cancer patients. We
 can import this target cohort multiple ways:</p>
 <div class="section level3">
 <h3 id="target-cohort-from-ohdsi-omop-database-">1. Target cohort from OHDSI OMOP database.<a class="anchor" aria-label="anchor" href="#target-cohort-from-ohdsi-omop-database-"></a>
 </h3>
 <p>If your cohort is defined in ATLAS, you can use its unique cohort ID.
 Ensure the cohort is generated within ATLAS on the CDM instance.</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co">################################################################################</span></span>
 <span><span class="co">#</span></span>
 <span><span class="co"># Create target table from OMOP CDM instance (ATLAS's cohort id)</span></span>
@@ -163,15 +194,25 @@ Ensure the cohort is generated within ATLAS on the CDM instance.</p>
 <h3 id="target-cohort-from-json-description-file-">2. Target cohort from JSON description file.<a class="anchor" aria-label="anchor" href="#target-cohort-from-json-description-file-"></a>
 </h3>
 <p>If you have the JSON expression of the cohort (exportable from
-ATLAS), you can import the cohort directly.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+ATLAS), you can import the cohort directly. The package also ships an
+example JSON cohort in
+<code>inst/example/example_json/cohort.json</code> (installed path shown
+below).</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co">################################################################################</span></span>
 <span><span class="co">#</span></span>
 <span><span class="co"># Create target table from a JSON</span></span>
 <span><span class="co">#</span></span>
 <span><span class="co">#################################################################################</span></span>
-<span> <span class="va">pathToJSON</span> <span class="op">=</span> <span class="st">'/Users/markushaug/UT/R-packages/Develop/Git/CohortContrast/tests/testthat/inst/JSON'</span></span>
-<span> <span class="va">targetTable</span> <span class="op">&lt;-</span> <span class="fu">CohortContrast</span><span class="fu">::</span><span class="fu"><a href="../reference/cohortFromJSON.html">cohortFromJSON</a></span><span class="op">(</span>pathToJSON <span class="op">=</span> <span class="va">pathToJSON</span>, <span class="va">cdm</span><span class="op">)</span></span></code></pre></div>
+<span><span class="va">pathToJSON</span> <span class="op">=</span> <span class="st">'/path/to/atlas_json'</span></span>
+<span><span class="va">targetTable</span> <span class="op">&lt;-</span> <span class="fu">CohortContrast</span><span class="fu">::</span><span class="fu"><a href="../reference/cohortFromJSON.html">cohortFromJSON</a></span><span class="op">(</span>pathToJSON <span class="op">=</span> <span class="va">pathToJSON</span>, cdm <span class="op">=</span> <span class="va">cdm</span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Example bundled with CohortContrast:</span></span>
+<span><span class="va">exampleJsonDir</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"example/example_json"</span>, package <span class="op">=</span> <span class="st">"CohortContrast"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/list.files.html" class="external-link">list.files</a></span><span class="op">(</span><span class="va">exampleJsonDir</span>, pattern <span class="op">=</span> <span class="st">"\\\\.json$"</span>, full.names <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="co"># [1] ".../example_json/cohort.json"</span></span>
+<span></span>
+<span><span class="va">targetTable</span> <span class="op">&lt;-</span> <span class="fu">CohortContrast</span><span class="fu">::</span><span class="fu"><a href="../reference/cohortFromJSON.html">cohortFromJSON</a></span><span class="op">(</span>pathToJSON <span class="op">=</span> <span class="va">exampleJsonDir</span>, cdm <span class="op">=</span> <span class="va">cdm</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="target-cohort-from-a-csv-file-">3. Target cohort from a CSV file.<a class="anchor" aria-label="anchor" href="#target-cohort-from-a-csv-file-"></a>
@@ -179,41 +220,42 @@ ATLAS), you can import the cohort directly.</p>
 <p>We can import the target table from a CSV. The file should have the
 same columns as present inside a cohort table (cohort_definition_id,
 subject_id, cohort_start_date, cohort_end_date).</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co">################################################################################</span></span>
 <span><span class="co">#</span></span>
 <span><span class="co"># Create target table from a CSV</span></span>
 <span><span class="co">#</span></span>
 <span><span class="co">#################################################################################</span></span>
-<span><span class="va">pathToCsv</span> <span class="op">=</span> <span class="st">'/Users/markushaug/UT/R-packages/Develop/Git/CohortContrast/tests/testthat/inst/CSV/cohort/cohort.csv'</span></span>
+<span><span class="va">pathToCsv</span> <span class="op">=</span> <span class="st">'/path/to/cohort.csv'</span></span>
 <span><span class="va">targetTable</span> <span class="op">&lt;-</span> <span class="fu">CohortContrast</span><span class="fu">::</span><span class="fu"><a href="../reference/cohortFromCSV.html">cohortFromCSV</a></span><span class="op">(</span>pathToCsv <span class="op">=</span> <span class="va">pathToCsv</span>, cohortId <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="target-cohort-from-a-table">4. Target cohort from a table<a class="anchor" aria-label="anchor" href="#target-cohort-from-a-table"></a>
 </h3>
 <p>We can also use a table in our memory.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co">################################################################################</span></span>
 <span><span class="co">#</span></span>
 <span><span class="co"># Create target table</span></span>
 <span><span class="co">#</span></span>
 <span><span class="co">#################################################################################</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://tibble.tidyverse.org/" class="external-link">tibble</a></span><span class="op">)</span></span>
-<span><span class="co">#Create the dataframe</span></span>
-<span> <span class="va">data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/tribble.html" class="external-link">tribble</a></span><span class="op">(</span></span>
-<span>   <span class="op">~</span><span class="va">cohort_definition_id</span>, <span class="op">~</span><span class="va">subject_id</span>, <span class="op">~</span><span class="va">cohort_start_date</span>, <span class="op">~</span><span class="va">cohort_end_date</span>,</span>
-<span>   <span class="fl">1</span>, <span class="fl">4804</span>, <span class="st">'1997-03-23'</span>, <span class="st">'2018-10-29'</span>,</span>
-<span>   <span class="fl">1</span>, <span class="fl">4861</span>, <span class="st">'1982-06-02'</span>, <span class="st">'2019-05-23'</span>,</span>
-<span>   <span class="fl">1</span>, <span class="fl">1563</span>, <span class="st">'1977-06-25'</span>, <span class="st">'2019-04-20'</span>,</span>
-<span>   <span class="fl">1</span>, <span class="fl">2830</span>, <span class="st">'2006-08-11'</span>, <span class="st">'2019-01-14'</span>,</span>
-<span>   <span class="fl">1</span>, <span class="fl">1655</span>, <span class="st">'2004-09-29'</span>, <span class="st">'2019-05-24'</span>,</span>
-<span>   <span class="fl">2</span>, <span class="fl">5325</span>, <span class="st">'1982-06-02'</span>, <span class="st">'2019-03-17'</span>,</span>
-<span>   <span class="fl">2</span>, <span class="fl">3743</span>, <span class="st">'1997-03-23'</span>, <span class="st">'2018-10-07'</span>,</span>
-<span>   <span class="fl">2</span>, <span class="fl">2980</span>, <span class="st">'2004-09-29'</span>, <span class="st">'2018-04-01'</span>,</span>
-<span>   <span class="fl">2</span>, <span class="fl">1512</span>, <span class="st">'2006-08-11'</span>, <span class="st">'2017-11-29'</span>,</span>
-<span>   <span class="fl">2</span>, <span class="fl">2168</span>, <span class="st">'1977-06-25'</span>, <span class="st">'2018-11-22'</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">targetTable</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/cohortFromDataTable.html">cohortFromDataTable</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">data</span>, cohortId <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></code></pre></div>
+<span><span class="co"># Create a cohort table with a 1-year follow-up window after cohort start</span></span>
+<span><span class="va">data</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="fu">::</span><span class="fu"><a href="https://tibble.tidyverse.org/reference/tribble.html" class="external-link">tribble</a></span><span class="op">(</span></span>
+<span>  <span class="op">~</span><span class="va">cohort_definition_id</span>, <span class="op">~</span><span class="va">subject_id</span>, <span class="op">~</span><span class="va">cohort_start_date</span>,</span>
+<span>  <span class="fl">1</span>, <span class="fl">4804</span>, <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="st">'1997-03-23'</span><span class="op">)</span>,</span>
+<span>  <span class="fl">1</span>, <span class="fl">4861</span>, <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="st">'1982-06-02'</span><span class="op">)</span>,</span>
+<span>  <span class="fl">1</span>, <span class="fl">1563</span>, <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="st">'1977-06-25'</span><span class="op">)</span>,</span>
+<span>  <span class="fl">1</span>, <span class="fl">2830</span>, <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="st">'2006-08-11'</span><span class="op">)</span>,</span>
+<span>  <span class="fl">1</span>, <span class="fl">1655</span>, <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="st">'2004-09-29'</span><span class="op">)</span>,</span>
+<span>  <span class="fl">2</span>, <span class="fl">5325</span>, <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="st">'1982-06-02'</span><span class="op">)</span>,</span>
+<span>  <span class="fl">2</span>, <span class="fl">3743</span>, <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="st">'1997-03-23'</span><span class="op">)</span>,</span>
+<span>  <span class="fl">2</span>, <span class="fl">2980</span>, <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="st">'2004-09-29'</span><span class="op">)</span>,</span>
+<span>  <span class="fl">2</span>, <span class="fl">1512</span>, <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="st">'2006-08-11'</span><span class="op">)</span>,</span>
+<span>  <span class="fl">2</span>, <span class="fl">2168</span>, <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="st">'1977-06-25'</span><span class="op">)</span></span>
+<span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>cohort_end_date <span class="op">=</span> <span class="va">cohort_start_date</span> <span class="op">+</span> <span class="fl">365</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">targetTable</span> <span class="op">&lt;-</span> <span class="fu">CohortContrast</span><span class="fu">::</span><span class="fu"><a href="../reference/cohortFromDataTable.html">cohortFromDataTable</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">data</span>, cohortId <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></code></pre></div>
 <p>For cases 2-4 you do not have to specify the <code>cohortId</code>
 parameter inside the function call, but when multiple cohorts present it
 is advised.</p>
@@ -225,7 +267,7 @@ is advised.</p>
 <p>The control cohort is a cohort that the target cohort is compared
 against. This means we will check the proportions of each concept
 occurrence between the two cohorts. The result of the analysis is
-heavily dependant on both of them, therefore they should be selected
+heavily dependent on both of them, therefore they should be selected
 with care.</p>
 <p>The control cohort can be generated the same way the target cohort
 has been shown to be generated in examples 1-4. But there are a few
@@ -238,7 +280,7 @@ database (based on age and sex). There are parameters such as
 <code>ratio</code> which shown how many controls we want for each case.
 Also <code>min</code> (at least that many matches error otherwise) and
 <code>max</code> (at maximum n matches) parameters can be used.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co">################################################################################</span></span>
 <span><span class="co">#</span></span>
 <span><span class="co"># Create control cohort table based on matches</span></span>
@@ -253,7 +295,7 @@ Also <code>min</code> (at least that many matches error otherwise) and
 subjects during observation period not described in target cohort). This
 is the case for example if we want to see the contrast after a
 diagnosis.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co">################################################################################</span></span>
 <span><span class="co">#</span></span>
 <span><span class="co"># Create control cohort table based on inverse controls</span></span>
@@ -268,7 +310,7 @@ diagnosis.</p>
 <p>If you have constructed the cohorts by hand it is strongly advised to
 check and resolve overlap conflicts as well as conflicts with
 observation period inside the OMOP CDM.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co">################################################################################</span></span>
 <span><span class="co">#</span></span>
 <span><span class="co"># Resolve conflicts</span></span>
@@ -276,6 +318,9 @@ observation period inside the OMOP CDM.</p>
 <span><span class="co">#################################################################################</span></span>
 <span><span class="va">targetTable</span> <span class="op">=</span> <span class="fu">CohortContrast</span><span class="fu">::</span><span class="fu"><a href="../reference/resolveCohortTableOverlaps.html">resolveCohortTableOverlaps</a></span><span class="op">(</span>cdm <span class="op">=</span> <span class="va">cdm</span>, cohortTable <span class="op">=</span> <span class="va">targetTable</span><span class="op">)</span></span>
 <span><span class="va">controlTable</span> <span class="op">=</span> <span class="fu">CohortContrast</span><span class="fu">::</span><span class="fu"><a href="../reference/resolveCohortTableOverlaps.html">resolveCohortTableOverlaps</a></span><span class="op">(</span>cdm <span class="op">=</span> <span class="va">cdm</span>, cohortTable <span class="op">=</span> <span class="va">controlTable</span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Close DB connection when done</span></span>
+<span><span class="fu">DBI</span><span class="fu">::</span><span class="fu"><a href="https://dbi.r-dbi.org/reference/dbDisconnect.html" class="external-link">dbDisconnect</a></span><span class="op">(</span><span class="va">db</span><span class="op">)</span></span></code></pre></div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
@@ -288,7 +333,7 @@ observation period inside the OMOP CDM.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.1.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
 </div>
 
     </footer>

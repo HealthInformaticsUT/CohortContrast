@@ -1,0 +1,238 @@
+# CohortContrast
+
+The goal of CohortContrast is to facilitate the comparison between
+cohorts in specified domains across all OMOP CDM datasets. It enables
+users to analyze and visualize the contrast between target and control
+cohorts effectively.
+
+## Installation
+
+The development version of the package from GitHub:
+
+``` r
+# install.packages("devtools")
+devtools::install_github("HealthInformaticsUT/CohortContrast")
+```
+
+## Usage
+
+To use CohortContrast, follow these steps to configure your environment
+and input data:
+
+1.  **Credentials**: Make sure you can create a connection to your OHDS
+    CDM instance using CDMConnector package.
+
+``` R
+pathToResults = getwd()
+
+################################################################################
+#
+# Initiate the database connection
+#
+#################################################################################
+
+user <- Sys.getenv("DB_USERNAME") #TODO
+pw <- Sys.getenv("DB_PASSWORD") #TODO
+server <- stringr::str_c(Sys.getenv("DB_HOST"), "/", Sys.getenv("DB_NAME")) #TODO
+port <- Sys.getenv("DB_PORT") #TODO
+
+cdmSchema <-
+  Sys.getenv("OHDSI_CDM") #TODO # Schema which contains the OHDSI Common Data Model
+cdmVocabSchema <-
+  Sys.getenv("OHDSI_VOCAB") #TODO # Schema which contains the OHDSI Common Data Model vocabulary tables.
+cdmResultsSchema <-
+  Sys.getenv("OHDSI_RESULTS") #TODO # Schema which contains "cohort" table (is not mandatory)
+writeSchema <-
+  Sys.getenv("OHDSI_WRITE") #TODO # Schema for temporary tables, will be deleted
+writePrefix <- "cc_"
+
+db = DBI::dbConnect(
+  RPostgres::Postgres(),
+  dbname = Sys.getenv("DB_NAME"),
+  host = Sys.getenv("DB_HOST"),
+  user = Sys.getenv("DB_USERNAME"),
+  password = Sys.getenv("DB_PASSWORD"),
+  port  = port
+)
+
+cdm <- CDMConnector::cdmFromCon(
+  con = db,
+  cdmSchema = cdmSchema,
+  achillesSchema = cdmResultsSchema,
+  writeSchema = c(schema = writeSchema, prefix = writePrefix),
+)
+```
+
+2.  **Create target and control tables**
+
+    - Use functions `cohortFromCohortTable`, `cohortFromDataTable`,
+      `cohortFromJSON` or `cohortFromCSV` for indicating your target and
+      control cohort tables.
+    - You can use `createControlCohortInverse` or
+      `cohortFromCohortTable` for generating control tables.
+
+``` R
+cohortsTableSchemaName = cdmResultsSchema
+cohortsTableName = 'cohort'
+targetCohortId = 568
+controlCohortId = 571
+
+################################################################################
+#
+# CDM target and control modula
+#
+################################################################################
+
+targetTable <- CohortContrast::cohortFromCohortTable(cdm = cdm, db = db,
+   tableName = cohortsTableName, schemaName = cdmResultsSchema, cohortId = targetCohortId)
+   
+ controlTable <- CohortContrast::cohortFromCohortTable(cdm = cdm, db = db,
+  tableName = cohortsTableName, schemaName = cdmResultsSchema, cohortId = controlCohortId)
+```
+
+3.  **Run the Study**: Execute the study by using the CohortContrast
+    functions.
+
+``` R
+################################################################################
+#
+# Execute
+#
+################################################################################
+
+data = CohortContrast::CohortContrast(
+  cdm,
+  targetTable = targetTable,
+  controlTable = controlTable,
+  pathToResults = getwd(),
+  domainsIncluded = c(
+    "Drug",
+    "Condition",
+    "Measurement",
+    "Observation",
+    "Procedure",
+    "Visit",
+    "Visit detail"
+  ),
+  prevalenceCutOff = 2.5,
+  topK = FALSE, # Number of features to export
+  presenceFilter = 0.2, # 0-1, percentage of people who must have the chosen feature present
+  complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
+  getSourceData = FALSE, # If true will generate summaries with source data as well
+  runChi2YTests = TRUE,
+  runLogitTests = FALSE,
+  createOutputFiles = TRUE,
+  complName = "CohortContrastStudy")
+```
+
+## Outputs
+
+The CohortContrast package generates the following outputs:
+
+1.  Running `CohortContrast` returns a list of tables (patient level
+    summarised data for target and control) and saves a study folder
+    with parquet files that can be analysed in the GUI directly.
+2.  Using viewer helpers with `runCohortContrastViewer` generates plots
+    from parquet-formatted results.
+3.  Example studies are available under `inst/example/st`.
+4.  Published studies can be explored at
+    <http://omop-apps.cloud.ut.ee/CohortContrast/>.
+
+``` R
+CohortContrast::runCohortContrastViewer(
+ dataDir = "inst/example/st"
+)
+```
+
+### More information
+
+CohortContrast provides much more insight generation possibilities. See
+the package wiki for more details
+[here](https://healthinformaticsut.github.io/CohortContrast/)
+
+For feature requests create issues on Github or contact Markus Haug
+(<markus.haug@ut.ee>) personally.
+
+# Package index
+
+## All functions
+
+- [`CohortContrast()`](https://healthinformaticsut.github.io/CohortContrast/reference/CohortContrast.md)
+  : Run CohortContrast Analysis
+- [`CohortContrastViewer`](https://healthinformaticsut.github.io/CohortContrast/reference/CohortContrastViewer.md)
+  : CohortContrast Viewer - Interactive Disease Cohort Visualization
+- [`automaticCorrelationCombineConcepts()`](https://healthinformaticsut.github.io/CohortContrast/reference/automaticCorrelationCombineConcepts.md)
+  : Function for automatically combining concepts by hierarchy mapping
+- [`automaticHierarchyCombineConcepts()`](https://healthinformaticsut.github.io/CohortContrast/reference/automaticHierarchyCombineConcepts.md)
+  : Function for automatically combining concepts by hierarchy mapping
+- [`checkDataMode()`](https://healthinformaticsut.github.io/CohortContrast/reference/checkDataMode.md)
+  : Check if a Data Directory Contains Summary Mode Data
+- [`checkPythonDeps()`](https://healthinformaticsut.github.io/CohortContrast/reference/checkPythonDeps.md)
+  : Check Python Dependencies
+- [`cohortFromCSV()`](https://healthinformaticsut.github.io/CohortContrast/reference/cohortFromCSV.md)
+  : Read cohort from CSV
+- [`cohortFromCohortTable()`](https://healthinformaticsut.github.io/CohortContrast/reference/cohortFromCohortTable.md)
+  : Read cohort from database cohort table
+- [`cohortFromDataTable()`](https://healthinformaticsut.github.io/CohortContrast/reference/cohortFromDataTable.md)
+  : Read cohort from data.frame object
+- [`cohortFromJSON()`](https://healthinformaticsut.github.io/CohortContrast/reference/cohortFromJSON.md)
+  : Read cohort from JSON
+- [`configurePython()`](https://healthinformaticsut.github.io/CohortContrast/reference/configurePython.md)
+  : Configure Python Environment for CohortContrast Viewer
+- [`createControlCohortInverse()`](https://healthinformaticsut.github.io/CohortContrast/reference/createControlCohortInverse.md)
+  : Function for creating automatic matches based on inverse control
+  logic
+- [`createControlCohortMatching()`](https://healthinformaticsut.github.io/CohortContrast/reference/createControlCohortMatching.md)
+  : Function for creating automatic matches based on age and sex
+- [`generateMappingTable()`](https://healthinformaticsut.github.io/CohortContrast/reference/generateMappingTable.md)
+  : Create a mapping table with predefined maximum abstraction level
+- [`getPythonInfo()`](https://healthinformaticsut.github.io/CohortContrast/reference/getPythonInfo.md)
+  : Get Python Configuration Information
+- [`installPythonDeps()`](https://healthinformaticsut.github.io/CohortContrast/reference/installPythonDeps.md)
+  : Install Python Dependencies
+- [`installPythonDepsOffline()`](https://healthinformaticsut.github.io/CohortContrast/reference/installPythonDepsOffline.md)
+  : Install Python Dependencies Offline
+- [`loadCohortContrastStudy()`](https://healthinformaticsut.github.io/CohortContrast/reference/loadCohortContrastStudy.md)
+  : Load a Saved CohortContrast Study
+- [`matchCohortsByAge()`](https://healthinformaticsut.github.io/CohortContrast/reference/matchCohortsByAge.md)
+  : Function for matching the control to target by age
+- [`nGramClusterSummarization()`](https://healthinformaticsut.github.io/CohortContrast/reference/nGramClusterSummarization.md)
+  : Function for summarizing ngrams from nGramDiscovery output
+- [`nGramDiscovery()`](https://healthinformaticsut.github.io/CohortContrast/reference/nGramDiscovery.md)
+  : Function for discovering ngrams from the extracted data from
+  CohortContrast function
+- [`precomputeSummary()`](https://healthinformaticsut.github.io/CohortContrast/reference/precomputeSummary.md)
+  : Pre-compute Summary Data for a Study
+- [`removeTemporalBias()`](https://healthinformaticsut.github.io/CohortContrast/reference/removeTemporalBias.md)
+  : Remove Temporal Bias from CohortContrast Analysis
+- [`resolveCohortTableOverlaps()`](https://healthinformaticsut.github.io/CohortContrast/reference/resolveCohortTableOverlaps.md)
+  : Resolve overlaps inside the cohort table
+- [`runCohortContrastViewer()`](https://healthinformaticsut.github.io/CohortContrast/reference/runCohortContrastViewer.md)
+  : Run CohortContrast Viewer Dashboard
+- [`stopCohortContrastViewer()`](https://healthinformaticsut.github.io/CohortContrast/reference/stopCohortContrastViewer.md)
+  : Stop CohortContrast Viewer Dashboard
+
+# Articles
+
+### All vignettes
+
+- [Setup](https://healthinformaticsut.github.io/CohortContrast/articles/a00_introduction.md):
+- [Execution](https://healthinformaticsut.github.io/CohortContrast/articles/a01_execution.md):
+- [Graphical User
+  Interface](https://healthinformaticsut.github.io/CohortContrast/articles/a02_interface.md):
+- [Dashboard Composite
+  Plot](https://healthinformaticsut.github.io/CohortContrast/articles/a03_dashboard_composite.md):
+- [Trajectories
+  Tab](https://healthinformaticsut.github.io/CohortContrast/articles/a04_trajectories_tab.md):
+- [Overlap
+  Tab](https://healthinformaticsut.github.io/CohortContrast/articles/a05_overlap_tab.md):
+- [Mappings
+  Tab](https://healthinformaticsut.github.io/CohortContrast/articles/a06_mappings_tab.md):
+- [Patient vs Summary
+  Mode](https://healthinformaticsut.github.io/CohortContrast/articles/a07_patient_vs_summary_mode.md):
+- [Demographics
+  Tab](https://healthinformaticsut.github.io/CohortContrast/articles/a08_demographics_tab.md):
+- [Sidepanel Filters and
+  Controls](https://healthinformaticsut.github.io/CohortContrast/articles/a09_sidepanel_controls.md):
+- [Air-gapped Server
+  Setup](https://healthinformaticsut.github.io/CohortContrast/articles/a10_air_gapped_server_setup.md):

@@ -8,8 +8,8 @@
 <title>Execution • CohortContrast</title>
 <script src="../lightswitch.js"></script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.2.1/css/all.min.css" rel="stylesheet">
-<link href="../deps/font-awesome-6.2.1/css/v4-shims.min.css" rel="stylesheet">
+<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
 <script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Execution">
 </head>
 <body>
@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">CohortContrast</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.900</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -30,19 +30,20 @@
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
-<li class="active nav-item dropdown">
+<li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/a00_introduction.html">Setup</a></li>
     <li><a class="dropdown-item" href="../articles/a01_execution.html">Execution</a></li>
-    <li><a class="dropdown-item" href="../articles/a02_interface.html">Graphical user interface</a></li>
-    <li><a class="dropdown-item" href="../articles/a03_prevalence_plot.html">Prevalence plot</a></li>
-    <li><a class="dropdown-item" href="../articles/a04_time_panel.html">Time panel</a></li>
-    <li><a class="dropdown-item" href="../articles/a05_heatmap_plot.html">Heatmap plot</a></li>
-    <li><a class="dropdown-item" href="../articles/a06_correlation_view.html">Correlation view</a></li>
-    <li><a class="dropdown-item" href="../articles/a07_Cohort2Trajectory.html">Cohort2Trajectory</a></li>
-    <li><a class="dropdown-item" href="../articles/a08_TrajectoryViz.html">TrajectoryViz</a></li>
-    <li><a class="dropdown-item" href="../articles/a09_interface_controls.html">Interface controls</a></li>
+    <li><a class="dropdown-item" href="../articles/a02_interface.html">Graphical User Interface</a></li>
+    <li><a class="dropdown-item" href="../articles/a03_dashboard_composite.html">Dashboard Composite Plot</a></li>
+    <li><a class="dropdown-item" href="../articles/a04_trajectories_tab.html">Trajectories Tab</a></li>
+    <li><a class="dropdown-item" href="../articles/a05_overlap_tab.html">Overlap Tab</a></li>
+    <li><a class="dropdown-item" href="../articles/a06_mappings_tab.html">Mappings Tab</a></li>
+    <li><a class="dropdown-item" href="../articles/a07_patient_vs_summary_mode.html">Patient vs Summary Mode</a></li>
+    <li><a class="dropdown-item" href="../articles/a08_demographics_tab.html">Demographics Tab</a></li>
+    <li><a class="dropdown-item" href="../articles/a09_sidepanel_controls.html">Sidepanel Filters and Controls</a></li>
+    <li><a class="dropdown-item" href="../articles/a10_air_gapped_server_setup.html">Air-gapped Server Setup</a></li>
   </ul>
 </li>
       </ul>
@@ -85,8 +86,7 @@
 </h2>
 <p>Now as we have initiated <a href="https://healthinformaticsut.github.io/CohortContrast/articles/a00_introduction.html">database
 connection</a> and created the <code>targetTable</code> as well as the
-<code>cohortTable</code> we are ready to initiate the execution function
-for the study.</p>
+<code>controlTable</code> we are ready to execute the study.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span></span>
 <span><span class="co">################################################################################</span></span>
@@ -99,7 +99,7 @@ for the study.</p>
 <span>  <span class="va">cdm</span>,</span>
 <span>  targetTable <span class="op">=</span> <span class="va">targetTable</span>,</span>
 <span>  controlTable <span class="op">=</span> <span class="va">controlTable</span>,</span>
-<span>  pathToResults <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/getwd.html" class="external-link">getwd</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  pathToResults <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/getwd.html" class="external-link">getwd</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"studies"</span><span class="op">)</span>,</span>
 <span>  domainsIncluded <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>    <span class="st">"Drug"</span>,</span>
 <span>    <span class="st">"Condition"</span>,</span>
@@ -107,18 +107,18 @@ for the study.</p>
 <span>    <span class="st">"Observation"</span>,</span>
 <span>    <span class="st">"Procedure"</span>,</span>
 <span>    <span class="st">"Visit"</span>,</span>
-<span>    <span class="st">"Visit detail"</span></span>
+<span>    <span class="st">"Visit detail"</span>,</span>
+<span>    <span class="st">"Death"</span></span>
 <span>  <span class="op">)</span>,</span>
 <span>  prevalenceCutOff <span class="op">=</span> <span class="fl">2.5</span>,</span>
 <span>  topK <span class="op">=</span> <span class="cn">FALSE</span>, <span class="co"># Number of features to export</span></span>
 <span>  presenceFilter <span class="op">=</span> <span class="fl">0.2</span>, <span class="co"># 0-1, percentage of people who must have the chosen feature present</span></span>
-<span>  complementaryMappingTable <span class="op">=</span> <span class="cn">FALSE</span>, <span class="co"># A table for manual concept_id and concept_name mapping (merge)</span></span>
+<span>  complementaryMappingTable <span class="op">=</span> <span class="cn">NULL</span>, <span class="co"># Optional manual concept mapping table</span></span>
 <span>  getSourceData <span class="op">=</span> <span class="cn">FALSE</span>, <span class="co"># If true will generate summaries with source data as well</span></span>
-<span>  runZTests <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  runChi2YTests <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  runLogitTests <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  createOutputFiles <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  safeRun <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  complName <span class="op">=</span> <span class="st">"CohortContrastStudy"</span><span class="op">)</span></span></code></pre></div>
+<span>  complName <span class="op">=</span> <span class="st">"LungCancer_1Y"</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="the-parameters">The parameters<a class="anchor" aria-label="anchor" href="#the-parameters"></a>
@@ -135,19 +135,18 @@ outcomes:</p>
 project’s working directory</p>
 <p><code>domainsIncluded</code> list of CDM domains to include, choose
 from Drug, Condition, Measurement, Observation, Procedure, Visit, Visit
-detail</p>
-<p><code>complName</code> Name of the output file</p>
+detail, Death</p>
+<p><code>complName</code> Name of the output study directory</p>
 </div>
 <div class="section level3">
 <h3 id="customization">Customization:<a class="anchor" aria-label="anchor" href="#customization"></a>
 </h3>
-<p><code>runZTests</code> boolean for running Z-tests, tests is ran
-between the prevalence metrics</p>
+<p><code>runChi2YTests</code> boolean for running CHI2Y tests
+(chi-squared tests for two proportions with Yates continuity
+correction)</p>
 <p><code>runLogitTests</code> boolean for logit-tests on the prevalence,
 builds a model for predicting whether the patient is in target or
 control</p>
-<p><code>runKSTests</code> boolean for Kolmogorov-Smirnov tests on the
-occurrence time (vs uniform distribution)</p>
 <p><code>getAllAbstractions</code> boolean for creating abstractions’
 levels for the imported data, this is useful when using GUI and
 exploring data</p>
@@ -156,9 +155,6 @@ allowed, if <code>getAllAbstractions</code> is TRUE, for hierarchy the
 concept_hierarchy table is used</p>
 <p><code>getSourceData</code> boolean for fetching source data, the data
 abstraction level which is used to map to OMOP CDM</p>
-<p><code>lookbackDays</code> FALSE or an integer stating the look-back
-period for cohort index date. This can be used inside the GUI which has
-a slider for adding look-back data.</p>
 <p><code>prevalenceCutOff</code> numeric or FALSE, if set, removes all
 of the concepts which are not present (in target) more than
 <code>prevalenceCutOff</code> times. Eg if set to 2, only concepts
@@ -169,28 +165,42 @@ exported.</p>
 <p><code>presenceFilter</code> numeric or FALSE, if set, removes all
 features represented by fewer target cohort subjects than the given
 percentage</p>
-<p><code>complementaryMappingTable</code> data frame or FALSE.
-Mappingtable for mapping concept_ids if present, columns CONCEPT_ID,
-CONCEPT_ID.new, CONCEPT_NAME.new,</p>
+<p><code>complementaryMappingTable</code> data frame or NULL. Mapping
+table for concept merges. Columns: CONCEPT_ID, CONCEPT_NAME,
+NEW_CONCEPT_ID, NEW_CONCEPT_NAME, ABSTRACTION_LEVEL, TYPE</p>
 <p><code>numCores</code> Number of cores to allocate to parallel
 processing, by default max number of cores - 1</p>
 <p><code>createOutputFiles</code> Boolean for creating output files, the
 default value is TRUE</p>
-<p><code>safeRun</code> boolean for only returning summarized data</p>
+<p><code>runRemoveTemporalBias</code> boolean for optional temporal-bias
+reduction step after main workflow</p>
+<p><code>runAutomaticHierarchyCombineConcepts</code> boolean for
+optional hierarchy-based post-processing</p>
+<p><code>runAutomaticCorrelationCombineConcepts</code> boolean for
+optional correlation-based post-processing</p>
 </div>
 <div class="section level3">
 <h3 id="notes">Notes:<a class="anchor" aria-label="anchor" href="#notes"></a>
 </h3>
 <p>When using the GUI <code>prevalenceCutOff</code>,
 <code>presenceFilter</code> can be changed on a slider.</p>
-<p>The effect of <code>runZTests</code> and <code>runLogitTests</code>
-can be toggled as a filter.</p>
-<p>The function will output a file with <code>complName</code>, in this
-case <code>CohortContrastStudy.rds</code> to the pathToResults path. The
-function also outputs a metadata file
-<code>CohortContrastStudy.csv</code> for quicker overview inside the
-GUI.</p>
+<p>The effect of <code>runChi2YTests</code> and
+<code>runLogitTests</code> can be toggled as a filter.</p>
+<p>The function will output a study directory with
+<code>complName</code>, in this case <code>LungCancer_1Y</code>, inside
+<code>pathToResults</code>. The study directory contains parquet files
+(for example <code>data_patients.parquet</code>) and a metadata file
+<code>metadata.json</code>.</p>
 </div>
+</div>
+<div class="section level2">
+<h2 id="reloading-a-saved-study">Reloading a saved study<a class="anchor" aria-label="anchor" href="#reloading-a-saved-study"></a>
+</h2>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">reloaded</span> <span class="op">&lt;-</span> <span class="fu">CohortContrast</span><span class="fu">::</span><span class="fu"><a href="../reference/loadCohortContrastStudy.html">loadCohortContrastStudy</a></span><span class="op">(</span></span>
+<span>  studyName <span class="op">=</span> <span class="st">"LungCancer_1Y"</span>,</span>
+<span>  pathToResults <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/getwd.html" class="external-link">getwd</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"studies"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
@@ -203,7 +213,7 @@ GUI.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.1.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
 </div>
 
     </footer>

@@ -1,0 +1,132 @@
+# Execution
+
+## Executing the study
+
+Now as we have initiated [database
+connection](https://healthinformaticsut.github.io/CohortContrast/articles/a00_introduction.html)
+and created the `targetTable` as well as the `controlTable` we are ready
+to execute the study.
+
+``` r
+
+################################################################################
+#
+# Execute
+#
+################################################################################
+
+data = CohortContrast::CohortContrast(
+  cdm,
+  targetTable = targetTable,
+  controlTable = controlTable,
+  pathToResults = file.path(getwd(), "studies"),
+  domainsIncluded = c(
+    "Drug",
+    "Condition",
+    "Measurement",
+    "Observation",
+    "Procedure",
+    "Visit",
+    "Visit detail",
+    "Death"
+  ),
+  prevalenceCutOff = 2.5,
+  topK = FALSE, # Number of features to export
+  presenceFilter = 0.2, # 0-1, percentage of people who must have the chosen feature present
+  complementaryMappingTable = NULL, # Optional manual concept mapping table
+  getSourceData = FALSE, # If true will generate summaries with source data as well
+  runChi2YTests = TRUE,
+  runLogitTests = FALSE,
+  createOutputFiles = TRUE,
+  complName = "LungCancer_1Y")
+```
+
+## The parameters
+
+There are multiple parameters we can tweak for different outcomes:
+
+### Mandatory:
+
+`cdm` Connection to the database
+
+`targetTable` Table for target cohort
+
+`controlTable` Table for control cohort
+
+`pathToResults` Path to the results folder, can be project’s working
+directory
+
+`domainsIncluded` list of CDM domains to include, choose from Drug,
+Condition, Measurement, Observation, Procedure, Visit, Visit detail,
+Death
+
+`complName` Name of the output study directory
+
+### Customization:
+
+`runChi2YTests` boolean for running CHI2Y tests (chi-squared tests for
+two proportions with Yates continuity correction)
+
+`runLogitTests` boolean for logit-tests on the prevalence, builds a
+model for predicting whether the patient is in target or control
+
+`getAllAbstractions` boolean for creating abstractions’ levels for the
+imported data, this is useful when using GUI and exploring data
+
+`maximumAbstractionLevel` Maximum level of abstraction allowed, if
+`getAllAbstractions` is TRUE, for hierarchy the concept_hierarchy table
+is used
+
+`getSourceData` boolean for fetching source data, the data abstraction
+level which is used to map to OMOP CDM
+
+`prevalenceCutOff` numeric or FALSE, if set, removes all of the concepts
+which are not present (in target) more than `prevalenceCutOff` times. Eg
+if set to 2, only concepts present double in target are exported.
+
+`topK` numeric or FALSE, if set, keeps at maximum this number of
+features in the analysis. Maximum number of features exported.
+
+`presenceFilter` numeric or FALSE, if set, removes all features
+represented by fewer target cohort subjects than the given percentage
+
+`complementaryMappingTable` data frame or NULL. Mapping table for
+concept merges. Columns: CONCEPT_ID, CONCEPT_NAME, NEW_CONCEPT_ID,
+NEW_CONCEPT_NAME, ABSTRACTION_LEVEL, TYPE
+
+`numCores` Number of cores to allocate to parallel processing, by
+default max number of cores - 1
+
+`createOutputFiles` Boolean for creating output files, the default value
+is TRUE
+
+`runRemoveTemporalBias` boolean for optional temporal-bias reduction
+step after main workflow
+
+`runAutomaticHierarchyCombineConcepts` boolean for optional
+hierarchy-based post-processing
+
+`runAutomaticCorrelationCombineConcepts` boolean for optional
+correlation-based post-processing
+
+### Notes:
+
+When using the GUI `prevalenceCutOff`, `presenceFilter` can be changed
+on a slider.
+
+The effect of `runChi2YTests` and `runLogitTests` can be toggled as a
+filter.
+
+The function will output a study directory with `complName`, in this
+case `LungCancer_1Y`, inside `pathToResults`. The study directory
+contains parquet files (for example `data_patients.parquet`) and a
+metadata file `metadata.json`.
+
+## Reloading a saved study
+
+``` r
+reloaded <- CohortContrast::loadCohortContrastStudy(
+  studyName = "LungCancer_1Y",
+  pathToResults = file.path(getwd(), "studies")
+)
+```

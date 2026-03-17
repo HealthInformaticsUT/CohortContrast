@@ -1,0 +1,72 @@
+# Insert cohort tables to CDM instance, preparing them from CohortContrast analysis
+
+Insert cohort tables to CDM instance, preparing them from CohortContrast
+analysis
+
+## Usage
+
+``` r
+createCohortContrastCdm(cdm, targetTable = NULL, controlTable = NULL)
+```
+
+## Arguments
+
+- cdm:
+
+  CDMConnector object
+
+- targetTable:
+
+  Table for target cohort (tbl)
+
+- controlTable:
+
+  Table for control cohort (tbl)
+
+## Value
+
+object of dataframes and updated cdm object
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+user <- Sys.getenv("DB_USERNAME") #TODO
+pw <- Sys.getenv("DB_PASSWORD") #TODO
+server <- stringr::str_c(Sys.getenv("DB_HOST"), "/", Sys.getenv("DB_NAME")) #TODO
+port <- Sys.getenv("DB_PORT") #TODO
+cdmSchema <-
+  Sys.getenv("OHDSI_CDM")
+cdmVocabSchema <-
+  Sys.getenv("OHDSI_VOCAB")
+cdmResultsSchema <-
+  Sys.getenv("OHDSI_RESULTS")
+writeSchema <-
+  Sys.getenv("OHDSI_WRITE")
+writePrefix <- "cc_"
+
+db = DBI::dbConnect(
+  RPostgres::Postgres(),
+  dbname = Sys.getenv("DB_NAME"),
+  host = Sys.getenv("DB_HOST"),
+  user = Sys.getenv("DB_USERNAME"),
+  password = Sys.getenv("DB_PASSWORD"),
+  port  = port
+)
+
+cdm <- CDMConnector::cdmFromCon(
+  con = db,
+  cdmSchema = cdmSchema,
+  achillesSchema = cdmResultsSchema,
+  writeSchema = c(schema = writeSchema, prefix = writePrefix),
+)
+
+
+targetTable <- cohortFromCohortTable(cdm = cdm, db = db,
+ tableName = "cohort", schemaName = cdmResultsSchema, cohortId = 1)
+controlTable <- cohortFromCohortTable(cdm = cdm, db = db,
+ tableName = "cohort", schemaName = cdmResultsSchema, cohortId = 2)
+
+cdm <- createCohortContrastCdm(cdm = cdm, targetTable = targetTable, controlTable = controlTable)
+} # }
+```

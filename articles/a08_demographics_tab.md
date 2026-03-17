@@ -1,0 +1,60 @@
+# Demographics Tab
+
+## Introduction
+
+The **Demographics** tab summarizes cohort composition and concept-level
+demographic shifts.
+
+![Demographics
+overview](../reference/figures/a08_demographics_overview.png)
+
+Demographics overview
+
+## Components
+
+- **KPI cards**: cohort-level snapshot (patient count, age, sex
+  proportions).
+- **Age distribution chart**: cohort age profile with autoscaled axis
+  range.
+- **Cluster Demographics table**: per-cluster patient count and age/sex
+  metrics.
+- **Demographics by Concept**:
+  - age-delta ranking table,
+  - sex-skew ranking table,
+  - filters for minimum patients and data source.
+- **Ordinal Progression**: concept-specific age and sex patterns across
+  ordinal events.
+
+![Demographics tables](../reference/figures/a08_demographics_tables.png)
+
+Demographics tables
+
+## Controls
+
+- **Minimum patients**: excludes low-support concepts from rankings.
+- **Data source**: switches between overall and cluster-specific
+  demographic summaries.
+- **Ordinal concept selector**: chooses the concept for ordinal
+  progression charts.
+
+![Ordinal progression
+panel](../reference/figures/a08_demographics_ordinal.png)
+
+Ordinal progression panel
+
+## Patient vs Summary mode behavior
+
+- **Patient mode**: metrics are computed from patient-level event data.
+- **Summary mode**: metrics are read from precomputed summary artifacts.
+
+Both modes use the same tab layout and output structure to keep
+interpretation consistent.
+
+## Interpretation
+
+- Large age deltas highlight concepts concentrated in younger/older
+  subgroups.
+- Male/female skew can reveal cohort heterogeneity by intervention or
+  diagnosis context.
+- Ordinal progression helps distinguish early vs late events in
+  longitudinal patterns.

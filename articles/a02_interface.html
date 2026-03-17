@@ -5,12 +5,12 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Graphical user interface • CohortContrast</title>
+<title>Graphical User Interface • CohortContrast</title>
 <script src="../lightswitch.js"></script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
-<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.2.1/css/all.min.css" rel="stylesheet">
-<link href="../deps/font-awesome-6.2.1/css/v4-shims.min.css" rel="stylesheet">
-<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Graphical user interface">
+<script src="../deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="../deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
+<link href="../deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
+<script src="../deps/headroom-0.11.0/headroom.min.js"></script><script src="../deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="../deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="../deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="../deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="../deps/search-1.0.0/fuse.min.js"></script><script src="../deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="../pkgdown.js"></script><meta property="og:title" content="Graphical User Interface">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">CohortContrast</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.900</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -30,19 +30,20 @@
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
-<li class="active nav-item dropdown">
+<li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/a00_introduction.html">Setup</a></li>
     <li><a class="dropdown-item" href="../articles/a01_execution.html">Execution</a></li>
-    <li><a class="dropdown-item" href="../articles/a02_interface.html">Graphical user interface</a></li>
-    <li><a class="dropdown-item" href="../articles/a03_prevalence_plot.html">Prevalence plot</a></li>
-    <li><a class="dropdown-item" href="../articles/a04_time_panel.html">Time panel</a></li>
-    <li><a class="dropdown-item" href="../articles/a05_heatmap_plot.html">Heatmap plot</a></li>
-    <li><a class="dropdown-item" href="../articles/a06_correlation_view.html">Correlation view</a></li>
-    <li><a class="dropdown-item" href="../articles/a07_Cohort2Trajectory.html">Cohort2Trajectory</a></li>
-    <li><a class="dropdown-item" href="../articles/a08_TrajectoryViz.html">TrajectoryViz</a></li>
-    <li><a class="dropdown-item" href="../articles/a09_interface_controls.html">Interface controls</a></li>
+    <li><a class="dropdown-item" href="../articles/a02_interface.html">Graphical User Interface</a></li>
+    <li><a class="dropdown-item" href="../articles/a03_dashboard_composite.html">Dashboard Composite Plot</a></li>
+    <li><a class="dropdown-item" href="../articles/a04_trajectories_tab.html">Trajectories Tab</a></li>
+    <li><a class="dropdown-item" href="../articles/a05_overlap_tab.html">Overlap Tab</a></li>
+    <li><a class="dropdown-item" href="../articles/a06_mappings_tab.html">Mappings Tab</a></li>
+    <li><a class="dropdown-item" href="../articles/a07_patient_vs_summary_mode.html">Patient vs Summary Mode</a></li>
+    <li><a class="dropdown-item" href="../articles/a08_demographics_tab.html">Demographics Tab</a></li>
+    <li><a class="dropdown-item" href="../articles/a09_sidepanel_controls.html">Sidepanel Filters and Controls</a></li>
+    <li><a class="dropdown-item" href="../articles/a10_air_gapped_server_setup.html">Air-gapped Server Setup</a></li>
   </ul>
 </li>
       </ul>
@@ -71,7 +72,7 @@
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
 
-      <h1>Graphical user interface</h1>
+      <h1>Graphical User Interface</h1>
             
       
 
@@ -83,80 +84,112 @@
 <div class="section level2">
 <h2 id="introduction">Introduction<a class="anchor" aria-label="anchor" href="#introduction"></a>
 </h2>
-<p>If you have successfully <a href="https://healthinformaticsut.github.io/CohortContrast/articles/a01_execution.html">executed
-the study</a> on your target cohort you can explore the results inside
-the graphical user interface!</p>
+<p>After running a study with <code>createOutputFiles = TRUE</code> (or
+generating summaries with <code><a href="../reference/precomputeSummary.html">precomputeSummary()</a></code>), launch the
+viewer:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co">################################################################################</span></span>
-<span><span class="co">#</span></span>
-<span><span class="co"># Run the interface</span></span>
-<span><span class="co">#</span></span>
-<span><span class="co">#################################################################################</span></span>
-<span><span class="fu">CohortContrast</span><span class="fu">::</span><span class="fu"><a href="../reference/runCohortContrastGUI.html">runCohortContrastGUI</a></span><span class="op">(</span>pathToResults <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/getwd.html" class="external-link">getwd</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p>In this example we have two studies in our <code>pathToResults</code>
-designated folder.</p>
-<div class="figure">
-<img src="../reference/figures/a02_1.png" alt=""><p class="caption">First view of the GUI</p>
+<code class="sourceCode R"><span><span class="fu">CohortContrast</span><span class="fu">::</span><span class="fu"><a href="../reference/runCohortContrastViewer.html">runCohortContrastViewer</a></span><span class="op">(</span></span>
+<span>  dataDir <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/getwd.html" class="external-link">getwd</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"studies"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
 </div>
-<p>To activate a study, you <strong><em>must click on it’s
-name</em></strong>. Let’s activate the breast cancer study view.</p>
-<div class="figure">
-<img src="../reference/figures/a02_2.png" alt=""><p class="caption">Selected study</p>
+<div class="section level2">
+<h2 id="select-a-study-and-mode">Select a study and mode<a class="anchor" aria-label="anchor" href="#select-a-study-and-mode"></a>
+</h2>
+<p>Use the <strong>Studies</strong> panel to pick a study. The badge
+next to the title confirms whether the data is loaded in <strong>Patient
+Level Data</strong> mode or <strong>Summary Mode</strong>.</p>
+<div class="float">
+<img src="../reference/figures/a02_study_selection.png" alt="Studies panel and data mode badge"><div class="figcaption">Studies panel and data mode badge</div>
 </div>
 </div>
 <div class="section level2">
-<h2 id="plots">Plots<a class="anchor" aria-label="anchor" href="#plots"></a>
+<h2 id="main-workflow-in-the-ui">Main workflow in the UI<a class="anchor" aria-label="anchor" href="#main-workflow-in-the-ui"></a>
 </h2>
-<p>Descriptions of the different plots can be found in:</p>
+<p>Recommended order:</p>
+<ol style="list-style-type: decimal">
+<li>Select study and confirm data mode.</li>
+<li>Set filters in the sidebar and click <strong>Apply
+Filters</strong>.</li>
+<li>Review the composite chart and table in
+<strong>Dashboard</strong>.</li>
+<li>Optionally refine visibility using the table <strong>Show</strong>
+column and click <strong>Apply Table Selection</strong>.</li>
+<li>Inspect <strong>Trajectories</strong>, <strong>Overlap</strong>, and
+<strong>Demographics</strong>.</li>
+<li>Use <strong>Mappings</strong> (patient mode) for concept merges and
+review mapping history.</li>
+</ol>
+</div>
+<div class="section level2">
+<h2 id="tabs">Tabs<a class="anchor" aria-label="anchor" href="#tabs"></a>
+</h2>
 <ul>
-<li><a href="https://healthinformaticsut.github.io/CohortContrast/articles/a03_prevalence_plot.html">Prevalence
-plot</a></li>
-<li><a href="https://healthinformaticsut.github.io/CohortContrast/articles/a04_time_panel.html">Time
-panel</a></li>
-<li><a href="https://healthinformaticsut.github.io/CohortContrast/articles/a05_heatmap_plot.html">Heatmap
-plot</a></li>
-<li><a href="https://healthinformaticsut.github.io/CohortContrast/articles/a06_correlation_view.html">Correlation
-view</a></li>
+<li>
+<strong>Dashboard</strong>: central composite view with
+enrichment/prevalence, time-to-event, age, sex, and cluster prevalence
+columns.</li>
+<li>
+<strong>Trajectories</strong>: concept ordering shifts across
+clusters.</li>
+<li>
+<strong>Overlap</strong>: concept co-occurrence matrix and pairwise
+relationship table.</li>
+<li>
+<strong>Demographics</strong>: cohort, cluster, and concept-level
+age/sex summaries.</li>
+<li>
+<strong>Mappings</strong>: manual and suggestion-based concept
+merges (patient mode), plus mapping history.</li>
+<li>
+<strong>Help</strong>: in-app methods and control reference.</li>
 </ul>
-<p>The controls are described in:</p>
+<p>See also:</p>
 <ul>
-<li><a href="https://healthinformaticsut.github.io/CohortContrast/articles/a09_interface_controls.html">Interface
-controls</a></li>
+<li><a href="https://healthinformaticsut.github.io/CohortContrast/articles/a03_dashboard_composite.html">Dashboard
+Composite Plot</a></li>
+<li><a href="https://healthinformaticsut.github.io/CohortContrast/articles/a04_trajectories_tab.html">Trajectories
+Tab</a></li>
+<li><a href="https://healthinformaticsut.github.io/CohortContrast/articles/a05_overlap_tab.html">Overlap
+Tab</a></li>
+<li><a href="https://healthinformaticsut.github.io/CohortContrast/articles/a06_mappings_tab.html">Mappings
+Tab</a></li>
+<li><a href="https://healthinformaticsut.github.io/CohortContrast/articles/a07_patient_vs_summary_mode.html">Patient
+vs Summary Mode</a></li>
+<li><a href="https://healthinformaticsut.github.io/CohortContrast/articles/a08_demographics_tab.html">Demographics
+Tab</a></li>
+<li><a href="https://healthinformaticsut.github.io/CohortContrast/articles/a09_sidepanel_controls.html">Sidepanel
+Filters and Controls</a></li>
+<li><a href="https://healthinformaticsut.github.io/CohortContrast/articles/a10_air_gapped_server_setup.html">Air-gapped
+Server Setup</a></li>
 </ul>
 </div>
 <div class="section level2">
-<h2 id="mapping">Mapping<a class="anchor" aria-label="anchor" href="#mapping"></a>
+<h2 id="mappings-overview">Mappings overview<a class="anchor" aria-label="anchor" href="#mappings-overview"></a>
 </h2>
-<p>You may want to map some concepts together. The ‘Correlation view’
-toggle helps you to find concept groups which are highly correlated.</p>
+<p>In patient mode, the <strong>Mappings</strong> tab includes:</p>
 <ul>
-<li>Concepts might be highly correlated because they have a very similar
-meaning (eg metoclopramide as ingredient and as a drug)</li>
-<li>Concepts might be highly correlated because they are part of the
-same treatment arm (eg diagnostic biopsy and evaluation of the
-biopsy)</li>
+<li>
+<strong>Manual Merge</strong>: select main concepts in the
+<strong>Map</strong> column, create a merged concept, and apply.</li>
+<li>
+<strong>Hierarchy Suggestions</strong>: tune hierarchy parameters,
+click <strong>Update Hierarchy Suggestions</strong>, then merge selected
+rows.</li>
+<li>
+<strong>Correlation Suggestions</strong>: tune correlation
+parameters, click <strong>Update Correlation Suggestions</strong>, then
+merge selected rows.</li>
+<li>
+<strong>Mapping History</strong>: audited list of applied
+mappings.</li>
 </ul>
-<div class="figure">
-<img src="../reference/figures/a02_3.png" alt=""><p class="caption">Correlated groups’ heatmap</p>
+<div class="float">
+<img src="../reference/figures/a02_mappings_manual.png" alt="Mappings tab with manual merge"><div class="figcaption">Mappings tab with manual merge</div>
 </div>
-<p>Changing the correlation threshold slider will cluster together
-groups of concepts (in all plots) which have internal correlation of
-atleast the threshold. Then you can select a group and combine it.</p>
-<p><img src="../reference/figures/a02_4.png" alt="Selection of the group">
-In this example we combine the tamoxifen derivatives. You can select any
-name, but a unique one is advised.</p>
-<div class="figure">
-<img src="../reference/figures/a02_5.png" alt=""><p class="caption">Selection of the group</p>
+<div class="float">
+<img src="../reference/figures/a02_mappings_suggestions.png" alt="Mappings tab with hierarchy and correlation suggestions"><div class="figcaption">Mappings tab with hierarchy and correlation
+suggestions</div>
 </div>
-<p>You can manually do the same thing under the ‘Mapping’ tab. Search
-for concepts you want to combine and click on them to be selected, then
-press ‘Combine Selected’.</p>
-<div class="figure">
-<img src="../reference/figures/a02_6.png" alt=""><p class="caption">Combining manually</p>
-</div>
-<p>You can always press the ‘Reset’ button to undo your changes. When
-creating the ‘Snapshot’ the mappings are also as a table as well as all
-the underlying data.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
@@ -169,7 +202,7 @@ the underlying data.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.1.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
 </div>
 
     </footer>

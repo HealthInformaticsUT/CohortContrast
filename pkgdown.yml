@@ -1,18 +1,19 @@
-pandoc: 2.19.2
-pkgdown: 2.1.1
+pandoc: 3.6.3
+pkgdown: 2.2.0
 pkgdown_sha: ~
 articles:
   a00_introduction: a00_introduction.html
   a01_execution: a01_execution.html
   a02_interface: a02_interface.html
-  a03_prevalence_plot: a03_prevalence_plot.html
-  a04_time_panel: a04_time_panel.html
-  a05_heatmap_plot: a05_heatmap_plot.html
-  a06_correlation_view: a06_correlation_view.html
-  a07_Cohort2Trajectory: a07_Cohort2Trajectory.html
-  a08_TrajectoryViz: a08_TrajectoryViz.html
-  a09_interface_controls: a09_interface_controls.html
-last_built: 2025-01-15T11:45Z
+  a03_dashboard_composite: a03_dashboard_composite.html
+  a04_trajectories_tab: a04_trajectories_tab.html
+  a05_overlap_tab: a05_overlap_tab.html
+  a06_mappings_tab: a06_mappings_tab.html
+  a07_patient_vs_summary_mode: a07_patient_vs_summary_mode.html
+  a08_demographics_tab: a08_demographics_tab.html
+  a09_sidepanel_controls: a09_sidepanel_controls.html
+  a10_air_gapped_server_setup: a10_air_gapped_server_setup.html
+last_built: 2026-03-17T07:27Z
 urls:
   reference: https://healthinformaticsut.github.io/CohortContrast/reference
   article: https://healthinformaticsut.github.io/CohortContrast/articles
