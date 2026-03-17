@@ -81,9 +81,7 @@ checkPythonDeps()
 
 ## Air-gapped server setup
 
-If you are deploying on an offline or air-gapped environment, see the supplementary article **Air-gapped server setup**:
-
-- `vignette("a10_air_gapped_server_setup", package = "CohortContrast")`
+If you are running CohortContrast on an air-gapped server, see the wiki article [here](https://healthinformaticsut.github.io/CohortContrast/articles/a10_air_gapped_server_setup.html).
 
 ## Building a target cohort
 
