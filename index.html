@@ -83,107 +83,16 @@
 <div class="section level2">
 <h2 id="usage">Usage<a class="anchor" aria-label="anchor" href="#usage"></a>
 </h2>
-<p>To use CohortContrast, follow these steps to configure your environment and input data:</p>
+<p>For full setup and execution code, use the project documentation:</p>
 <ol style="list-style-type: decimal">
 <li>
-<strong>Credentials</strong>: Make sure you can create a connection to your OHDS CDM instance using CDMConnector package.</li>
-</ol>
-<!-- --><div class="sourceCode" id="cb2"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>pathToResults <span class="ot">=</span> <span class="fu">getwd</span>()</span>
-<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a></span>
-<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a><span class="do">################################################################################</span></span>
-<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="co">#</span></span>
-<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="co"># Initiate the database connection</span></span>
-<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="co">#</span></span>
-<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="do">#################################################################################</span></span>
-<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a></span>
-<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>user <span class="ot">&lt;-</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_USERNAME"</span>) <span class="co">#TODO</span></span>
-<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>pw <span class="ot">&lt;-</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_PASSWORD"</span>) <span class="co">#TODO</span></span>
-<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>server <span class="ot">&lt;-</span> stringr<span class="sc">::</span><span class="fu">str_c</span>(<span class="fu">Sys.getenv</span>(<span class="st">"DB_HOST"</span>), <span class="st">"/"</span>, <span class="fu">Sys.getenv</span>(<span class="st">"DB_NAME"</span>)) <span class="co">#TODO</span></span>
-<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>port <span class="ot">&lt;-</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_PORT"</span>) <span class="co">#TODO</span></span>
-<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a></span>
-<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a>cdmSchema <span class="ot">&lt;-</span></span>
-<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a>  <span class="fu">Sys.getenv</span>(<span class="st">"OHDSI_CDM"</span>) <span class="co">#TODO # Schema which contains the OHDSI Common Data Model</span></span>
-<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>cdmVocabSchema <span class="ot">&lt;-</span></span>
-<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a>  <span class="fu">Sys.getenv</span>(<span class="st">"OHDSI_VOCAB"</span>) <span class="co">#TODO # Schema which contains the OHDSI Common Data Model vocabulary tables.</span></span>
-<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a>cdmResultsSchema <span class="ot">&lt;-</span></span>
-<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a>  <span class="fu">Sys.getenv</span>(<span class="st">"OHDSI_RESULTS"</span>) <span class="co">#TODO # Schema which contains "cohort" table (is not mandatory)</span></span>
-<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a>writeSchema <span class="ot">&lt;-</span></span>
-<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a>  <span class="fu">Sys.getenv</span>(<span class="st">"OHDSI_WRITE"</span>) <span class="co">#TODO # Schema for temporary tables, will be deleted</span></span>
-<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a>writePrefix <span class="ot">&lt;-</span> <span class="st">"cc_"</span></span>
-<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a></span>
-<span id="cb2-24"><a href="#cb2-24" tabindex="-1"></a>db <span class="ot">=</span> DBI<span class="sc">::</span><span class="fu">dbConnect</span>(</span>
-<span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a>  RPostgres<span class="sc">::</span><span class="fu">Postgres</span>(),</span>
-<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a>  <span class="at">dbname =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_NAME"</span>),</span>
-<span id="cb2-27"><a href="#cb2-27" tabindex="-1"></a>  <span class="at">host =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_HOST"</span>),</span>
-<span id="cb2-28"><a href="#cb2-28" tabindex="-1"></a>  <span class="at">user =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_USERNAME"</span>),</span>
-<span id="cb2-29"><a href="#cb2-29" tabindex="-1"></a>  <span class="at">password =</span> <span class="fu">Sys.getenv</span>(<span class="st">"DB_PASSWORD"</span>),</span>
-<span id="cb2-30"><a href="#cb2-30" tabindex="-1"></a>  <span class="at">port  =</span> port</span>
-<span id="cb2-31"><a href="#cb2-31" tabindex="-1"></a>)</span>
-<span id="cb2-32"><a href="#cb2-32" tabindex="-1"></a></span>
-<span id="cb2-33"><a href="#cb2-33" tabindex="-1"></a>cdm <span class="ot">&lt;-</span> CDMConnector<span class="sc">::</span><span class="fu">cdmFromCon</span>(</span>
-<span id="cb2-34"><a href="#cb2-34" tabindex="-1"></a>  <span class="at">con =</span> db,</span>
-<span id="cb2-35"><a href="#cb2-35" tabindex="-1"></a>  <span class="at">cdmSchema =</span> cdmSchema,</span>
-<span id="cb2-36"><a href="#cb2-36" tabindex="-1"></a>  <span class="at">achillesSchema =</span> cdmResultsSchema,</span>
-<span id="cb2-37"><a href="#cb2-37" tabindex="-1"></a>  <span class="at">writeSchema =</span> <span class="fu">c</span>(<span class="at">schema =</span> writeSchema, <span class="at">prefix =</span> writePrefix),</span>
-<span id="cb2-38"><a href="#cb2-38" tabindex="-1"></a>)</span></code></pre></div>
-<ol start="2" style="list-style-type: decimal">
+<strong>Project wiki (setup + workflow)</strong>: <a href="https://github.com/HealthInformaticsUT/CohortContrast/wiki" class="external-link uri">https://github.com/HealthInformaticsUT/CohortContrast/wiki</a>
+</li>
 <li>
-<p><strong>Create target and control tables</strong></p>
-<ul>
-<li>Use functions <code>cohortFromCohortTable</code>, <code>cohortFromDataTable</code>, <code>cohortFromJSON</code> or <code>cohortFromCSV</code> for indicating your target and control cohort tables.</li>
-<li>You can use <code>createControlCohortInverse</code> or <code>cohortFromCohortTable</code> for generating control tables.</li>
-</ul>
+<strong>Package site (reference + vignettes)</strong>: <a href="https://healthinformaticsut.github.io/CohortContrast/" class="uri">https://healthinformaticsut.github.io/CohortContrast/</a>
 </li>
 </ol>
-<!-- --><div class="sourceCode" id="cb3"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>cohortsTableSchemaName <span class="ot">=</span> cdmResultsSchema</span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>cohortsTableName <span class="ot">=</span> <span class="st">'cohort'</span></span>
-<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>targetCohortId <span class="ot">=</span> <span class="dv">568</span></span>
-<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>controlCohortId <span class="ot">=</span> <span class="dv">571</span></span>
-<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a></span>
-<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="do">################################################################################</span></span>
-<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co">#</span></span>
-<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co"># CDM target and control modula</span></span>
-<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co">#</span></span>
-<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="do">################################################################################</span></span>
-<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a></span>
-<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a>targetTable <span class="ot">&lt;-</span> CohortContrast<span class="sc">::</span><span class="fu">cohortFromCohortTable</span>(<span class="at">cdm =</span> cdm, <span class="at">db =</span> db,</span>
-<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a>   <span class="at">tableName =</span> cohortsTableName, <span class="at">schemaName =</span> cdmResultsSchema, <span class="at">cohortId =</span> targetCohortId)</span>
-<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a>   </span>
-<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a> controlTable <span class="ot">&lt;-</span> CohortContrast<span class="sc">::</span><span class="fu">cohortFromCohortTable</span>(<span class="at">cdm =</span> cdm, <span class="at">db =</span> db,</span>
-<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a>  <span class="at">tableName =</span> cohortsTableName, <span class="at">schemaName =</span> cdmResultsSchema, <span class="at">cohortId =</span> controlCohortId)</span></code></pre></div>
-<ol start="3" style="list-style-type: decimal">
-<li>
-<strong>Run the Study</strong>: Execute the study by using the CohortContrast functions.</li>
-</ol>
-<!-- --><div class="sourceCode" id="cb4"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="do">################################################################################</span></span>
-<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="co">#</span></span>
-<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="co"># Execute</span></span>
-<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="co">#</span></span>
-<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="do">################################################################################</span></span>
-<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a></span>
-<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>data <span class="ot">=</span> CohortContrast<span class="sc">::</span><span class="fu">CohortContrast</span>(</span>
-<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>  cdm,</span>
-<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a>  <span class="at">targetTable =</span> targetTable,</span>
-<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a>  <span class="at">controlTable =</span> controlTable,</span>
-<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a>  <span class="at">pathToResults =</span> <span class="fu">getwd</span>(),</span>
-<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a>  <span class="at">domainsIncluded =</span> <span class="fu">c</span>(</span>
-<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a>    <span class="st">"Drug"</span>,</span>
-<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a>    <span class="st">"Condition"</span>,</span>
-<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a>    <span class="st">"Measurement"</span>,</span>
-<span id="cb4-16"><a href="#cb4-16" tabindex="-1"></a>    <span class="st">"Observation"</span>,</span>
-<span id="cb4-17"><a href="#cb4-17" tabindex="-1"></a>    <span class="st">"Procedure"</span>,</span>
-<span id="cb4-18"><a href="#cb4-18" tabindex="-1"></a>    <span class="st">"Visit"</span>,</span>
-<span id="cb4-19"><a href="#cb4-19" tabindex="-1"></a>    <span class="st">"Visit detail"</span></span>
-<span id="cb4-20"><a href="#cb4-20" tabindex="-1"></a>  ),</span>
-<span id="cb4-21"><a href="#cb4-21" tabindex="-1"></a>  <span class="at">prevalenceCutOff =</span> <span class="fl">2.5</span>,</span>
-<span id="cb4-22"><a href="#cb4-22" tabindex="-1"></a>  <span class="at">topK =</span> <span class="cn">FALSE</span>, <span class="co"># Number of features to export</span></span>
-<span id="cb4-23"><a href="#cb4-23" tabindex="-1"></a>  <span class="at">presenceFilter =</span> <span class="fl">0.2</span>, <span class="co"># 0-1, percentage of people who must have the chosen feature present</span></span>
-<span id="cb4-24"><a href="#cb4-24" tabindex="-1"></a>  <span class="at">complementaryMappingTable =</span> <span class="cn">FALSE</span>, <span class="co"># A table for manual concept_id and concept_name mapping (merge)</span></span>
-<span id="cb4-25"><a href="#cb4-25" tabindex="-1"></a>  <span class="at">getSourceData =</span> <span class="cn">FALSE</span>, <span class="co"># If true will generate summaries with source data as well</span></span>
-<span id="cb4-26"><a href="#cb4-26" tabindex="-1"></a>  <span class="at">runChi2YTests =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb4-27"><a href="#cb4-27" tabindex="-1"></a>  <span class="at">runLogitTests =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb4-28"><a href="#cb4-28" tabindex="-1"></a>  <span class="at">createOutputFiles =</span> <span class="cn">TRUE</span>,</span>
-<span id="cb4-29"><a href="#cb4-29" tabindex="-1"></a>  <span class="at">complName =</span> <span class="st">"CohortContrastStudy"</span>)</span></code></pre></div>
+<p>This README intentionally keeps only a concise overview to avoid duplicating setup instructions in multiple places.</p>
 </div>
 <div class="section level2">
 <h2 id="outputs">Outputs<a class="anchor" aria-label="anchor" href="#outputs"></a>
@@ -195,13 +104,10 @@
 <li>Example studies are available under <code>inst/example/st</code>.</li>
 <li>Published studies can be explored at <a href="http://omop-apps.cloud.ut.ee/CohortContrast/" class="external-link uri">http://omop-apps.cloud.ut.ee/CohortContrast/</a>.</li>
 </ol>
-<!-- --><div class="sourceCode" id="cb5"><pre class="sourceCode R"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>CohortContrast<span class="sc">::</span><span class="fu">runCohortContrastViewer</span>(</span>
-<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a> <span class="at">dataDir =</span> <span class="st">"inst/example/st"</span></span>
-<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>)</span></code></pre></div>
 <div class="section level3">
 <h3 id="more-information">More information<a class="anchor" aria-label="anchor" href="#more-information"></a>
 </h3>
-<p>CohortContrast provides much more insight generation possibilities. See the package wiki for more details <a href="https://healthinformaticsut.github.io/CohortContrast/">here</a></p>
+<p>CohortContrast provides much more insight generation possibilities. See the documentation site for details: <a href="https://healthinformaticsut.github.io/CohortContrast/" class="uri">https://healthinformaticsut.github.io/CohortContrast/</a></p>
 <p>For feature requests create issues on Github or contact Markus Haug (<a href="mailto:markus.haug@ut.ee" class="email">markus.haug@ut.ee</a>) personally.</p>
 </div>
 </div>

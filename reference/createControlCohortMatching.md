@@ -37,3 +37,7 @@ createControlCohortMatching(
   Minimum ratio to use
 
 ## Examples
+
+``` r
+if (FALSE) createControlCohortMatching(cdm = cdm, targetTable = targetTable, ratio = 2) # \dontrun{}
+```
