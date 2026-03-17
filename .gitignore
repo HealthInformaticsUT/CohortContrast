@@ -13,3 +13,21 @@ inst/doc
 /news/
 *.rds
 README.Rmd
+/inst/example/parquet/
+/inst/example/RDS/
+/cache/
+
+# Build and check artifacts
+*.tar.gz
+*.Rcheck/
+..Rcheck/
+CohortContrast.Rcheck/
+
+# OS/editor artifacts
+.DS_Store
+**/.DS_Store
+
+# Python runtime artifacts
+*.pyc
+__pycache__/
+/inst/python/cache/
