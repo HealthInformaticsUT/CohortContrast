@@ -1,14 +1,9 @@
 """Layout module for ContrastViewer."""
 
-from layout.components import (
-    create_loading_overlay,
-    create_sidebar,
-    create_main_content,
-)
+from layout.app_shell import build_app_layout
+from layout.help_tab import build_help_tab_content
 
 __all__ = [
-    'create_loading_overlay',
-    'create_sidebar',
-    'create_main_content',
+    'build_app_layout',
+    'build_help_tab_content',
 ]
-

@@ -1,0 +1,35 @@
+---
+title: "Overlap Tab"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{a05_overlap_tab}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Introduction
+
+The **Overlap** tab shows how often active concepts co-occur in the same patients.
+
+![Overlap matrix](../man/figures/a05_overlap_matrix.png)
+
+## Components
+
+- **Group selector**: inspect `Overall` behavior or a specific cluster.
+- **Overlap visualization**: pairwise concept relationships among currently active concepts.
+- **Pairwise table**: sortable/filterable table with metrics such as correlation, Jaccard, and co-occurrence counts.
+
+![Pairwise overlap table](../man/figures/a05_overlap_table.png)
+
+## Interpretation
+
+- High overlap suggests concepts often appear together in the same patients.
+- Compare `Overall` versus cluster-specific overlap to identify cluster-specific treatment or diagnosis bundles.
+- Use overlap findings to guide concept merge decisions in the **Mappings** tab.

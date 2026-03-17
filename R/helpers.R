@@ -4,29 +4,13 @@
 #
 ################################################################################
 
-#' Function for saving summary tables to path
+#' Build study metadata for CSV/JSON sidecar files
 #'
 #' @param object Object to save
-#' @param path Path to the file saved
+#' @param studyName Optional study name override
 #' @keywords internal
 
-save_object <- function(object, path) {
-  if (is.data.frame(object)) {
-    utils::write.csv(object, path, row.names = FALSE)
-  }
-  else {
-    base::saveRDS(object, file = path)
-  }
-}
-
-
-#' Function for saving metadata table to path
-#'
-#' @param object Object to save
-#' @param path Path to the file saved
-#' @keywords internal
-
-save_object_metadata <- function(object, path, studyName = NULL) {
+build_study_metadata <- function(object, studyName = NULL) {
 
   # Calculate the number of unique patients in target and control cohorts
   rows_target <- object$data_initial %>%
@@ -37,22 +21,221 @@ save_object_metadata <- function(object, path, studyName = NULL) {
     dplyr::filter(.data$COHORT_DEFINITION_ID == "control") %>%
     dplyr::summarise(unique_patients = dplyr::n_distinct(.data$SUBJECT_ID)) %>%
     dplyr::pull(.data$unique_patients)
-  # Calculate the number of significant differences in Z-Test
-  ztest_significant <- object$data_features %>%
-    dplyr::filter(.data$ZTEST == TRUE & .data$ABSTRACTION_LEVEL == -1)
-  ztest_significant_count <- nrow(ztest_significant)
+  # Calculate the number of significant differences in CHI2Y test
+  chi2y_significant <- object$data_features %>%
+    dplyr::filter(.data$CHI2Y == TRUE & .data$ABSTRACTION_LEVEL == -1)
+  chi2y_significant_count <- nrow(chi2y_significant)
   # Prepare the metadata summary data frame
-  temp <- data.frame(
+  list(
     study = if(is.null(studyName)) object$config$complName else studyName,
     target_patients = rows_target,
     control_patients = rows_control,
-    z_count = ztest_significant_count,
-    stringsAsFactors = FALSE
+    chi2y_count = chi2y_significant_count
   )
+}
+
+#' Save study metadata to CSV
+#'
+#' @param object Object to save
+#' @param path Path to CSV file
+#' @param studyName Optional study name override
+#' @keywords internal
+save_object_metadata <- function(object, path, studyName = NULL) {
+  metadata <- build_study_metadata(object = object, studyName = studyName)
+  temp <- as.data.frame(metadata, stringsAsFactors = FALSE)
   # Mutate file
   path <- sub("\\.rds$", ".csv", path)
   # Save the updated metadata back to the specified path
   utils::write.csv(temp, path, row.names = F)
+  invisible(metadata)
+}
+
+#' Save study metadata to JSON
+#'
+#' @param object Object to save
+#' @param path Path to JSON file
+#' @param studyName Optional study name override
+#' @keywords internal
+save_object_metadata_json <- function(object, path, studyName = NULL) {
+  metadata <- build_study_metadata(object = object, studyName = studyName)
+  jsonlite::write_json(metadata, path = path, auto_unbox = TRUE, pretty = TRUE)
+  invisible(metadata)
+}
+
+#' @keywords internal
+writeStudyStateArtifacts <- function(data, studyPath, studyName = NULL) {
+  if (is.null(studyName) || !nzchar(studyName)) {
+    if (is.list(data$config) && !is.null(data$config$complName) && nzchar(data$config$complName)) {
+      studyName <- data$config$complName
+    } else {
+      studyName <- basename(normalizePath(studyPath, mustWork = FALSE))
+    }
+  }
+
+  save_object_metadata_json(
+    object = data,
+    path = file.path(studyPath, "metadata.json"),
+    studyName = studyName
+  )
+
+  if (is.list(data$config)) {
+    jsonlite::write_json(
+      data$config,
+      path = file.path(studyPath, "config.json"),
+      auto_unbox = TRUE,
+      pretty = TRUE,
+      null = "null"
+    )
+  }
+
+  selectedFeatureData <- data$selectedFeatureData
+  if (is.null(selectedFeatureData) && !is.null(data$trajectoryDataList)) {
+    selectedFeatureData <- data$trajectoryDataList
+  }
+
+  if (!is.list(selectedFeatureData)) {
+    return(invisible(NULL))
+  }
+
+  selectedFeaturePayload <- list(
+    selectedFeatureNames = unname(as.character(selectedFeatureData$selectedFeatureNames)),
+    selectedFeatureIds = selectedFeatureData$selectedFeatureIds
+  )
+
+  jsonlite::write_json(
+    selectedFeaturePayload,
+    path = file.path(studyPath, "selected_feature_data.json"),
+    auto_unbox = FALSE,
+    pretty = TRUE,
+    null = "null"
+  )
+
+  if (is.data.frame(selectedFeatureData$selectedFeatures)) {
+    if (!requireNamespace("nanoparquet", quietly = TRUE)) {
+      stop(
+        "Package 'nanoparquet' is required for writing parquet output.\n",
+        "Install it with: install.packages('nanoparquet')"
+      )
+    }
+    selectedFeaturesPrepared <- prepareForNanoparquet(selectedFeatureData$selectedFeatures)
+    nanoparquet::write_parquet(
+      selectedFeaturesPrepared,
+      file.path(studyPath, "selected_features.parquet")
+    )
+  }
+
+  if (is.list(data$conceptsData)) {
+    if (is.data.frame(data$conceptsData$concept_ancestor)) {
+      conceptAncestorPrepared <- prepareForNanoparquet(data$conceptsData$concept_ancestor)
+      nanoparquet::write_parquet(
+        conceptAncestorPrepared,
+        file.path(studyPath, "concepts_concept_ancestor.parquet")
+      )
+    }
+    if (is.data.frame(data$conceptsData$concept)) {
+      conceptPrepared <- prepareForNanoparquet(data$conceptsData$concept)
+      nanoparquet::write_parquet(
+        conceptPrepared,
+        file.path(studyPath, "concepts_concept.parquet")
+      )
+    }
+  }
+
+  invisible(NULL)
+}
+
+#' @keywords internal
+getParquetComponents <- function() {
+  c(
+    "data_patients",
+    "data_initial",
+    "data_person",
+    "data_features",
+    "complementaryMappingTable"
+  )
+}
+
+#' @keywords internal
+prepareForNanoparquet <- function(df) {
+  # Check if any column is integer64 and load bit64 if needed
+  hasInteger64 <- any(vapply(df, inherits, logical(1), "integer64"))
+  if (hasInteger64 && requireNamespace("bit64", quietly = TRUE) && !isNamespaceLoaded("bit64")) {
+    loadNamespace("bit64")
+  }
+
+  for (colName in names(df)) {
+    col <- df[[colName]]
+
+    # Convert list columns to JSON strings for parquet compatibility
+    if (is.list(col) && !is.data.frame(col)) {
+      df[[colName]] <- vapply(col, function(x) {
+        if (is.null(x) || (length(x) == 1 && is.na(x))) {
+          return(NA_character_)
+        }
+        jsonlite::toJSON(x, auto_unbox = FALSE)
+      }, character(1))
+      next
+    }
+
+    # nanoparquet does not reliably handle integer64 columns
+    if (inherits(col, "integer64")) {
+      if (isNamespaceLoaded("bit64")) {
+        df[[colName]] <- bit64::as.double.integer64(col)
+      } else {
+        df[[colName]] <- as.numeric(as.character(col))
+      }
+    }
+  }
+
+  df
+}
+
+#' @keywords internal
+writeParquetComponents <- function(data, outputDir, verbose = FALSE) {
+  if (!requireNamespace("nanoparquet", quietly = TRUE)) {
+    stop(
+      "Package 'nanoparquet' is required for writing parquet output.\n",
+      "Install it with: install.packages('nanoparquet')"
+    )
+  }
+
+  components <- getParquetComponents()
+  written <- character(0)
+
+  for (component in components) {
+    if (!(component %in% names(data))) {
+      if (isTRUE(verbose)) {
+        message("  [WARN] ", component, " not found, skipping")
+      }
+      next
+    }
+
+    df <- data[[component]]
+    if (!is.data.frame(df)) {
+      if (isTRUE(verbose)) {
+        message("  [WARN] ", component, " is not a data frame, skipping")
+      }
+      next
+    }
+
+    if (nrow(df) == 0) {
+      if (isTRUE(verbose)) {
+        message("  [WARN] ", component, " has 0 rows, skipping")
+      }
+      next
+    }
+
+    parquetPath <- file.path(outputDir, paste0(component, ".parquet"))
+    dfPrepared <- prepareForNanoparquet(df)
+    nanoparquet::write_parquet(dfPrepared, parquetPath)
+    written <- c(written, parquetPath)
+
+    if (isTRUE(verbose)) {
+      message("  [OK] ", component, ".parquet (", nrow(df), " rows)")
+    }
+  }
+
+  invisible(written)
 }
 
 #' Function to ensure that the path to results exists, creating mandatory subdirectories if necessary
@@ -130,7 +313,12 @@ assertRequiredCohortTable <- function(data) {
 }
 
 #' @keywords internal
-create_CohortContrast_object <- function(data) {
+createCohortContrastObject <- function(data) {
+  selectedFeatureData <- data$selectedFeatureData
+  if (is.null(selectedFeatureData) && !is.null(data$trajectoryDataList)) {
+    selectedFeatureData <- data$trajectoryDataList
+  }
+
   obj <- list(
     data_patients = data$data_patients,
     data_initial = data$data_initial,
@@ -138,7 +326,8 @@ create_CohortContrast_object <- function(data) {
     data_features = data$data_features,
     conceptsData = data$conceptsData,
     complementaryMappingTable = data$complementaryMappingTable,
-    trajectoryDataList = data$trajectoryDataList,
+    selectedFeatureData = selectedFeatureData,
+    trajectoryDataList = selectedFeatureData,
     config = data$config
   )
 
@@ -146,6 +335,11 @@ create_CohortContrast_object <- function(data) {
   class(obj) <- "CohortContrastObject"
 
   return(obj)
+}
+
+#' @keywords internal
+create_CohortContrast_object <- function(data) {
+  createCohortContrastObject(data)
 }
 
 #' @export
@@ -176,12 +370,17 @@ print.CohortContrastObject <- function(x, ...) {
     cat("\n---\n")
   }
 
-  if (!is.null(x$trajectoryDataList)) {
-    cat("trajectoryDataList (List): Data that can be used for Cohort2Trajectory analysis\n")
-    for (name in names(x$trajectoryDataList)) {
+  selectedFeatureData <- x$selectedFeatureData
+  if (is.null(selectedFeatureData) && !is.null(x$trajectoryDataList)) {
+    selectedFeatureData <- x$trajectoryDataList
+  }
+
+  if (!is.null(selectedFeatureData)) {
+    cat("selectedFeatureData (List): Feature selection outputs from the workflow\n")
+    for (name in names(selectedFeatureData)) {
       cat(paste0(name, ":\n"))
 
-      item <- x$trajectoryDataList[[name]]
+      item <- selectedFeatureData[[name]]
 
       if (name == "selectedFeatureNames") {
         cat("  Selected Feature Names (Character Vector):\n")
@@ -192,9 +391,6 @@ print.CohortContrastObject <- function(x, ...) {
      }
        else if (name == "selectedFeatures") {
         cat("  Selected Features (Data Frame):\n")
-        print(utils::head(item))
-      } else if (name == "trajectoryData") {
-        cat("  Trajectory Data (Data Frame or List):\n")
         print(utils::head(item))
       }
       cat("\n---\n")
@@ -230,14 +426,3 @@ convertToAbsolutePath <- function(path) {
   absolute_path <- normalizePath(path, winslash = "/", mustWork = TRUE)
   return(absolute_path)
 }
-
-#' Convert int64 to integer
-#' @keywords internal
-  convert_int64 <- function(x) {
-    if (inherits(x, "integer64")) {
-      return(as.integer(bit64::as.integer64(x)))
-    } else if (inherits(x, "integer") || inherits(x, "numeric")) {
-      return(as.integer(x))
-    }
-    return(x)  # If not an integer/numeric, return as is
-  }

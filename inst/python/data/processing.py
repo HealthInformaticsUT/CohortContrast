@@ -1,143 +1,13 @@
 """
 Data processing functions for ContrastViewer.
 
-This module contains functions for calculating metrics, medians,
-and creating ordinal concepts from patient data.
+This module contains functions for concept metrics and
+ordinal concept construction from patient data.
 """
 
-from typing import Dict, List, Optional, Tuple
-import warnings
-
 import pandas as pd
-import numpy as np
 
-from utils.helpers import normalize_concept_id, get_unique_occurrences
-
-
-def calculate_median_first_occurrence(data_patients: pd.DataFrame) -> pd.DataFrame:
-    """
-    Calculate the median first occurrence time for each concept in the target cohort.
-    
-    For each concept and person in the target cohort:
-    1. Find the minimum TIME_TO_EVENT (first occurrence)
-    2. Calculate the median of these minimum times across all persons
-    
-    Groups by both CONCEPT_ID and HERITAGE since the pair is unique.
-    
-    Args:
-        data_patients: DataFrame with columns COHORT_DEFINITION_ID, PERSON_ID, 
-                      CONCEPT_ID, HERITAGE, TIME_TO_EVENT
-        
-    Returns:
-        DataFrame with columns CONCEPT_ID, HERITAGE, and MEDIAN_FIRST_OCCURRENCE (in days)
-    """
-    # Filter for target cohort only
-    df_target = data_patients[data_patients["COHORT_DEFINITION_ID"] == "target"].copy()
-    
-    if df_target.empty:
-        return pd.DataFrame(columns=["CONCEPT_ID", "HERITAGE", "MEDIAN_FIRST_OCCURRENCE"])
-    
-    # Ensure HERITAGE column exists
-    has_heritage = "HERITAGE" in df_target.columns and df_target["HERITAGE"].notna().any()
-    
-    # Calculate first occurrence (minimum time) for each person-concept combination
-    def get_min_time(time_list):
-        """Get minimum time from possibly nested time values."""
-        if time_list is None:
-            return None
-        if isinstance(time_list, np.ndarray):
-            if time_list.size == 0:
-                return None
-            valid_times = time_list[~np.isnan(time_list)]
-            return float(np.min(valid_times)) if len(valid_times) > 0 else None
-        if isinstance(time_list, (list, tuple)):
-            valid_times = [t for t in time_list if t is not None and not pd.isna(t)]
-            return min(valid_times) if valid_times else None
-        if pd.isna(time_list):
-            return None
-        return float(time_list)
-    
-    df_target["FIRST_OCCURRENCE"] = df_target["TIME_TO_EVENT"].apply(get_min_time)
-    df_target = df_target[df_target["FIRST_OCCURRENCE"].notna()].copy()
-    
-    if df_target.empty:
-        return pd.DataFrame(columns=["CONCEPT_ID", "HERITAGE", "MEDIAN_FIRST_OCCURRENCE"])
-    
-    # Group by both CONCEPT_ID and HERITAGE (the pair is unique)
-    if has_heritage:
-        median_df = df_target.groupby(["CONCEPT_ID", "HERITAGE"])["FIRST_OCCURRENCE"].median().reset_index()
-        median_df.columns = ["CONCEPT_ID", "HERITAGE", "MEDIAN_FIRST_OCCURRENCE"]
-    else:
-        median_df = df_target.groupby("CONCEPT_ID")["FIRST_OCCURRENCE"].median().reset_index()
-        median_df.columns = ["CONCEPT_ID", "MEDIAN_FIRST_OCCURRENCE"]
-        median_df["HERITAGE"] = None
-    
-    return median_df
-
-
-def calculate_ordinal_medians(
-    data_patients: pd.DataFrame, 
-    ordinal_concepts_df: pd.DataFrame
-) -> pd.DataFrame:
-    """
-    Calculate median TIME_TO_EVENT for ordinal concepts (1st, 2nd, 3rd occurrences).
-    
-    Args:
-        data_patients: DataFrame with TIME_TO_EVENT arrays per patient
-        ordinal_concepts_df: DataFrame with ordinal concept definitions
-        
-    Returns:
-        DataFrame with ordinal medians added
-    """
-    if ordinal_concepts_df.empty:
-        return pd.DataFrame()
-    
-    # Filter to target cohort
-    target_df = data_patients[data_patients['COHORT_DEFINITION_ID'] == 'target'].copy()
-    
-    if target_df.empty:
-        return ordinal_concepts_df
-    
-    ordinal_medians = []
-    
-    for _, ordinal_row in ordinal_concepts_df.iterrows():
-        original_concept_id = ordinal_row.get('ORIGINAL_CONCEPT_ID')
-        ordinal_num = ordinal_row.get('ORDINAL', 1)
-        
-        if original_concept_id is None or ordinal_num < 1:
-            continue
-        
-        # Get patients with this concept
-        concept_patients = target_df[target_df['CONCEPT_ID'] == original_concept_id]
-        
-        occurrence_times = []
-        for _, patient_row in concept_patients.iterrows():
-            time_values = patient_row.get('TIME_TO_EVENT', [])
-            
-            # Handle different data types
-            if time_values is None:
-                continue
-            if isinstance(time_values, (int, float)):
-                time_values = [time_values]
-            elif isinstance(time_values, np.ndarray):
-                time_values = time_values.tolist()
-            elif not isinstance(time_values, list):
-                continue
-            
-            # Sort and get the nth occurrence
-            time_values = [t for t in time_values if t is not None and not pd.isna(t)]
-            time_values.sort()
-            
-            if len(time_values) >= ordinal_num:
-                occurrence_times.append(time_values[ordinal_num - 1])
-        
-        median_time = np.median(occurrence_times) if occurrence_times else None
-        
-        ordinal_row_copy = ordinal_row.to_dict()
-        ordinal_row_copy['MEDIAN_FIRST_OCCURRENCE'] = median_time
-        ordinal_medians.append(ordinal_row_copy)
-    
-    return pd.DataFrame(ordinal_medians) if ordinal_medians else ordinal_concepts_df
+from utils.helpers import get_unique_occurrences, normalize_concept_id
 
 
 def expand_time_to_event_column(data_patients: pd.DataFrame) -> pd.DataFrame:
@@ -434,10 +304,10 @@ def create_ordinal_concepts(data_patients: pd.DataFrame, df_features: pd.DataFra
     
     # Calculate occurrence statistics per concept using vectorized groupby
     # For each concept, count how many people have >= N occurrences for N = 1, 2, 3, ...
-    def calculate_max_ordinal(group):
+    def calculate_max_ordinal_from_series(num_occurrences: pd.Series):
         """Calculate max ordinal for a concept group using 50% threshold."""
-        num_people = len(group)
-        occurrence_counts = group["NUM_OCCURRENCES"].value_counts().to_dict()
+        num_people = len(num_occurrences)
+        occurrence_counts = num_occurrences.value_counts().to_dict()
         
         max_ordinal = 0
         people_with_prev = num_people
@@ -457,10 +327,25 @@ def create_ordinal_concepts(data_patients: pd.DataFrame, df_features: pd.DataFra
                 break
         
         return max_ordinal
+
+    def make_ordinal_concept_id(base_concept_id, ordinal: int):
+        """
+        Build a unique ordinal concept id robustly for numeric-like and string concept IDs.
+        Falls back to a string id when integer casting is not possible.
+        """
+        concept_norm = normalize_concept_id(base_concept_id)
+        try:
+            base_int = int(float(concept_norm))
+            return base_int * 1000 + int(ordinal)
+        except (TypeError, ValueError):
+            return f"{concept_norm}_{int(ordinal)}"
     
     # Get max ordinal for each concept
-    ordinal_stats = df_target.groupby(grouping_cols).apply(calculate_max_ordinal).reset_index()
-    ordinal_stats.columns = list(grouping_cols) + ["MAX_ORDINAL"]
+    ordinal_stats = (
+        df_target.groupby(grouping_cols)["NUM_OCCURRENCES"]
+        .apply(calculate_max_ordinal_from_series)
+        .reset_index(name="MAX_ORDINAL")
+    )
     
     # Filter to concepts that need ordinal variants (max_ordinal > 1)
     concepts_with_ordinals = ordinal_stats[ordinal_stats["MAX_ORDINAL"] > 1].copy()
@@ -497,7 +382,7 @@ def create_ordinal_concepts(data_patients: pd.DataFrame, df_features: pd.DataFra
                 ordinal_name = f"{concept_name} {ordinal}{ordinal_suffix}"
                 
                 ordinal_row = main_row_dict.copy()
-                ordinal_row["CONCEPT_ID"] = int(concept_id) * 1000 + ordinal
+                ordinal_row["CONCEPT_ID"] = make_ordinal_concept_id(concept_id, ordinal)
                 ordinal_row["CONCEPT_NAME"] = ordinal_name
                 ordinal_row["ORIGINAL_CONCEPT_ID"] = concept_id
                 ordinal_row["ORDINAL"] = ordinal

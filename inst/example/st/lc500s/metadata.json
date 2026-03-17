@@ -1,0 +1,299 @@
+{
+  "study_name": "lc500s",
+  "original_study_name": "lc500",
+  "source_path": "inst/example/st/lc500",
+  "mode": "summary",
+  "demographics": {
+    "target_patients": 500,
+    "control_patients": 346,
+    "age_mean": 66.986,
+    "age_median": 66.0,
+    "age_std": 10.38564042580467,
+    "male_proportion": 0.562,
+    "distributions": {
+      "overall": {
+        "age_histogram": {
+          "bins": [
+            "0-10",
+            "10-20",
+            "20-30",
+            "30-40",
+            "40-50",
+            "50-60",
+            "60-70",
+            "70-80",
+            "80-90",
+            "90-100"
+          ],
+          "counts": [
+            0,
+            0,
+            0,
+            0,
+            23,
+            108,
+            160,
+            144,
+            65,
+            0
+          ],
+          "mean": 66.986,
+          "median": 66.0,
+          "std": 10.375249587359333,
+          "q1": 59.0,
+          "q3": 74.0,
+          "n": 500
+        },
+        "sex_distribution": {
+          "male": 281,
+          "female": 219,
+          "total": 500
+        }
+      },
+      "clusters": {
+        "C1": {
+          "patient_count": 170,
+          "age_mean": 56.641176470588235,
+          "age_median": 56.0,
+          "age_std": 5.50139648832906,
+          "age_q1": 52.0,
+          "age_q3": 62.0,
+          "n": 170,
+          "male_proportion": 0.5823529411764706
+        },
+        "C2": {
+          "patient_count": 160,
+          "age_mean": 78.24375,
+          "age_median": 78.0,
+          "age_std": 6.0205345225735565,
+          "age_q1": 73.0,
+          "age_q3": 84.0,
+          "n": 160,
+          "male_proportion": 0.5125
+        },
+        "C3": {
+          "patient_count": 170,
+          "age_mean": 66.73529411764706,
+          "age_median": 67.0,
+          "age_std": 5.085786557996197,
+          "age_q1": 63.0,
+          "age_q3": 71.0,
+          "n": 170,
+          "male_proportion": 0.5882352941176471
+        }
+      },
+      "clusters_by_k": {
+        "2": {
+          "C1": {
+            "patient_count": 336,
+            "age_mean": 61.62202380952381,
+            "age_median": 62.0,
+            "age_std": 7.32595618328646,
+            "age_q1": 56.0,
+            "age_q3": 67.0,
+            "n": 336,
+            "male_proportion": 0.5833333333333334
+          },
+          "C2": {
+            "patient_count": 164,
+            "age_mean": 77.97560975609755,
+            "age_median": 78.0,
+            "age_std": 6.205771526406173,
+            "age_q1": 73.0,
+            "age_q3": 83.25,
+            "n": 164,
+            "male_proportion": 0.5182926829268293
+          }
+        },
+        "3": {
+          "C1": {
+            "patient_count": 170,
+            "age_mean": 56.641176470588235,
+            "age_median": 56.0,
+            "age_std": 5.50139648832906,
+            "age_q1": 52.0,
+            "age_q3": 62.0,
+            "n": 170,
+            "male_proportion": 0.5823529411764706
+          },
+          "C2": {
+            "patient_count": 160,
+            "age_mean": 78.24375,
+            "age_median": 78.0,
+            "age_std": 6.0205345225735565,
+            "age_q1": 73.0,
+            "age_q3": 84.0,
+            "n": 160,
+            "male_proportion": 0.5125
+          },
+          "C3": {
+            "patient_count": 170,
+            "age_mean": 66.73529411764706,
+            "age_median": 67.0,
+            "age_std": 5.085786557996197,
+            "age_q1": 63.0,
+            "age_q3": 71.0,
+            "n": 170,
+            "male_proportion": 0.5882352941176471
+          }
+        },
+        "4": {
+          "C1": {
+            "patient_count": 51,
+            "age_mean": 65.98039215686275,
+            "age_median": 66.0,
+            "age_std": 5.3559210265174215,
+            "age_q1": 61.5,
+            "age_q3": 70.5,
+            "n": 51,
+            "male_proportion": 0.6666666666666666
+          },
+          "C2": {
+            "patient_count": 170,
+            "age_mean": 56.641176470588235,
+            "age_median": 56.0,
+            "age_std": 5.50139648832906,
+            "age_q1": 52.0,
+            "age_q3": 62.0,
+            "n": 170,
+            "male_proportion": 0.5823529411764706
+          },
+          "C3": {
+            "patient_count": 119,
+            "age_mean": 67.05882352941177,
+            "age_median": 67.0,
+            "age_std": 4.9302600501530796,
+            "age_q1": 63.0,
+            "age_q3": 71.0,
+            "n": 119,
+            "male_proportion": 0.5546218487394958
+          },
+          "C4": {
+            "patient_count": 160,
+            "age_mean": 78.24375,
+            "age_median": 78.0,
+            "age_std": 6.0205345225735565,
+            "age_q1": 73.0,
+            "age_q3": 84.0,
+            "n": 160,
+            "male_proportion": 0.5125
+          }
+        },
+        "5": {
+          "C1": {
+            "patient_count": 126,
+            "age_mean": 56.46031746031746,
+            "age_median": 55.5,
+            "age_std": 5.542978961915228,
+            "age_q1": 52.0,
+            "age_q3": 62.0,
+            "n": 126,
+            "male_proportion": 0.5873015873015873
+          },
+          "C2": {
+            "patient_count": 119,
+            "age_mean": 67.05882352941177,
+            "age_median": 67.0,
+            "age_std": 4.9302600501530796,
+            "age_q1": 63.0,
+            "age_q3": 71.0,
+            "n": 119,
+            "male_proportion": 0.5546218487394958
+          },
+          "C3": {
+            "patient_count": 44,
+            "age_mean": 57.15909090909091,
+            "age_median": 57.0,
+            "age_std": 5.34680525606469,
+            "age_q1": 53.0,
+            "age_q3": 62.25,
+            "n": 44,
+            "male_proportion": 0.5681818181818182
+          },
+          "C4": {
+            "patient_count": 160,
+            "age_mean": 78.24375,
+            "age_median": 78.0,
+            "age_std": 6.0205345225735565,
+            "age_q1": 73.0,
+            "age_q3": 84.0,
+            "n": 160,
+            "male_proportion": 0.5125
+          },
+          "C5": {
+            "patient_count": 51,
+            "age_mean": 65.98039215686275,
+            "age_median": 66.0,
+            "age_std": 5.3559210265174215,
+            "age_q1": 61.5,
+            "age_q3": 70.5,
+            "n": 51,
+            "male_proportion": 0.6666666666666666
+          }
+        }
+      },
+      "clusters_best_k": 3
+    }
+  },
+  "clustering": {
+    "2": {
+      "silhouette_score": 0.29798319935798645,
+      "cluster_sizes": {
+        "C1": 336,
+        "C2": 164
+      },
+      "total_patients": 500,
+      "concepts_used_count": 16,
+      "sampled": false
+    },
+    "3": {
+      "silhouette_score": 0.4183668792247772,
+      "cluster_sizes": {
+        "C1": 170,
+        "C3": 170,
+        "C2": 160
+      },
+      "total_patients": 500,
+      "concepts_used_count": 16,
+      "sampled": false
+    },
+    "4": {
+      "silhouette_score": 0.32818716764450073,
+      "cluster_sizes": {
+        "C2": 170,
+        "C4": 160,
+        "C3": 119,
+        "C1": 51
+      },
+      "total_patients": 500,
+      "concepts_used_count": 16,
+      "sampled": false
+    },
+    "5": {
+      "silhouette_score": 0.2505047917366028,
+      "cluster_sizes": {
+        "C4": 160,
+        "C1": 126,
+        "C2": 119,
+        "C5": 51,
+        "C3": 44
+      },
+      "total_patients": 500,
+      "concepts_used_count": 16,
+      "sampled": false
+    }
+  },
+  "cluster_k_values": [
+    2,
+    3,
+    4,
+    5
+  ],
+  "concept_limit": 60,
+  "min_cell_count": 5,
+  "significant_concepts": 16,
+  "clustering_guardrails": {
+    "cluster_feature_matrix_cell_threshold": 50000000,
+    "pairwise_overlap_max_concepts": 500
+  }
+}

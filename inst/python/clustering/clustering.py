@@ -14,7 +14,6 @@ from sklearn.metrics import silhouette_score
 
 from config.constants import CLUSTER_COLORS
 from utils.helpers import normalize_concept_id, get_unique_occurrences
-from models.registry import concept_registry
 
 
 # =============================================================================
@@ -23,6 +22,11 @@ from models.registry import concept_registry
 
 _clustering_cache: Dict[str, Dict] = {}
 _MAX_CACHE_SIZE = 10  # Keep last 10 clustering results
+_LARGE_COHORT_PATIENT_THRESHOLD = 20000
+_LARGE_COHORT_MATRIX_THRESHOLD = 50000000
+_MIN_SAMPLED_CLUSTERING_SAMPLE_SIZE = 3000
+_CLUSTER_ASSIGN_BATCH_SIZE = 5000
+_CLUSTERING_RANDOM_STATE = 42
 
 
 def _compute_cache_key(
@@ -72,6 +76,7 @@ def _compute_cache_key(
     hash_parts.append(f"range:{cluster_range}")
     hash_parts.append(f"window:{time_window}")
     hash_parts.append(f"k:{k_value}")
+    hash_parts.append("sampling:v1")
     
     # Compute hash
     hash_string = "|".join(hash_parts)
@@ -82,6 +87,243 @@ def clear_clustering_cache():
     """Clear the clustering cache."""
     global _clustering_cache
     _clustering_cache.clear()
+
+
+def build_patient_feature_matrix(
+    events_df: pd.DataFrame,
+    all_patients: List[int],
+    time_col: str = "TIME_OFFSET",
+) -> pd.DataFrame:
+    """Build unweighted clustering features from patient event data.
+
+    For each concept, this produces three patient-level features:
+    presence, log-count, and earliness based on first occurrence time.
+    """
+    if events_df.empty:
+        return pd.DataFrame(index=pd.Index(all_patients, name="PERSON_ID"))
+
+    grouped = events_df.groupby(["PERSON_ID", "CONCEPT_ID"])
+
+    count_df = grouped.size().reset_index(name="count")
+    first_time_df = grouped[time_col].min().reset_index(name="first_time")
+    stats_df = count_df.merge(first_time_df, on=["PERSON_ID", "CONCEPT_ID"])
+
+    stats_df["presence"] = 1.0
+    stats_df["log_count"] = np.log1p(stats_df["count"])
+    stats_df["earliness"] = 1.0 / (1.0 + stats_df["first_time"] / 30.0)
+
+    presence_pivot = stats_df.pivot_table(
+        index="PERSON_ID",
+        columns="CONCEPT_ID",
+        values="presence",
+        fill_value=0.0,
+    )
+    presence_pivot.columns = [f"presence_{c}" for c in presence_pivot.columns]
+
+    logcount_pivot = stats_df.pivot_table(
+        index="PERSON_ID",
+        columns="CONCEPT_ID",
+        values="log_count",
+        fill_value=0.0,
+    )
+    logcount_pivot.columns = [f"logcount_{c}" for c in logcount_pivot.columns]
+
+    earliness_pivot = stats_df.pivot_table(
+        index="PERSON_ID",
+        columns="CONCEPT_ID",
+        values="earliness",
+        fill_value=0.0,
+    )
+    earliness_pivot.columns = [f"earliness_{c}" for c in earliness_pivot.columns]
+
+    feature_df = pd.concat([presence_pivot, logcount_pivot, earliness_pivot], axis=1)
+    all_patients_index = pd.Index(all_patients, name="PERSON_ID")
+    feature_df = feature_df.reindex(all_patients_index, fill_value=0.0)
+
+    feature_df = feature_df.loc[:, feature_df.std() > 1e-10]
+    return feature_df.astype(np.float32)
+
+
+def _should_use_sampled_clustering(num_patients: int, num_features: int) -> bool:
+    """Detect cohorts that are too large for full PAM clustering."""
+    return (
+        num_patients > _LARGE_COHORT_PATIENT_THRESHOLD
+        or (num_patients * max(num_features, 1)) > _LARGE_COHORT_MATRIX_THRESHOLD
+    )
+
+
+def _compute_sample_size(num_patients: int, num_features: int) -> int:
+    """Choose the largest sample that stays within the matrix-size threshold."""
+    if num_features <= 0:
+        return min(num_patients, _MIN_SAMPLED_CLUSTERING_SAMPLE_SIZE)
+
+    max_threshold_sample = max(2, _LARGE_COHORT_MATRIX_THRESHOLD // num_features)
+    return min(
+        num_patients,
+        max(_MIN_SAMPLED_CLUSTERING_SAMPLE_SIZE, int(max_threshold_sample)),
+    )
+
+
+def _select_training_indices(num_patients: int, num_features: int, sampled: bool) -> np.ndarray:
+    """Select the patient indices used to fit the clustering model."""
+    sample_size = _compute_sample_size(num_patients, num_features)
+    if not sampled or num_patients <= sample_size:
+        return np.arange(num_patients)
+
+    rng = np.random.default_rng(_CLUSTERING_RANDOM_STATE)
+    return np.sort(rng.choice(num_patients, size=sample_size, replace=False))
+
+
+def _nearest_representative_labels(points: np.ndarray, representatives: np.ndarray) -> np.ndarray:
+    """Assign rows to the nearest representative in Euclidean PCA space."""
+    deltas = points[:, None, :] - representatives[None, :, :]
+    distances = np.sum(deltas * deltas, axis=2)
+    return np.argmin(distances, axis=1)
+
+
+def _assign_sampled_clusters_to_full_cohort(
+    feature_df: pd.DataFrame,
+    scaler: StandardScaler,
+    pca: PCA,
+    representatives: np.ndarray,
+    batch_size: int = _CLUSTER_ASSIGN_BATCH_SIZE,
+) -> np.ndarray:
+    """Transform the full cohort in batches and assign to learned representatives."""
+    labels = []
+
+    for start in range(0, len(feature_df), batch_size):
+        batch = feature_df.iloc[start:start + batch_size].to_numpy(dtype=np.float32, copy=False)
+        batch_scaled = scaler.transform(batch)
+        batch_pca = pca.transform(batch_scaled)
+        labels.append(_nearest_representative_labels(batch_pca, representatives))
+
+    return np.concatenate(labels) if labels else np.array([], dtype=int)
+
+
+def _cluster_feature_matrix_once(
+    feature_df: pd.DataFrame,
+    cluster_range: Tuple[int, int],
+    pca_components: int,
+    k_value: Optional[int],
+    sampled: bool,
+) -> Dict:
+    """Cluster a feature matrix, optionally training on a sampled subset only."""
+    num_patients = len(feature_df)
+    if num_patients < 2:
+        raise ValueError("Need at least two patients for clustering")
+
+    train_indices = _select_training_indices(num_patients, len(feature_df.columns), sampled)
+    train_df = feature_df.iloc[train_indices]
+    X_train = train_df.to_numpy(dtype=np.float32, copy=False)
+
+    scaler = StandardScaler()
+    X_scaled_train = scaler.fit_transform(X_train)
+
+    n_components = min(pca_components, X_scaled_train.shape[1], X_scaled_train.shape[0] - 1)
+    if n_components < 1:
+        raise ValueError("Need at least one PCA component for clustering")
+
+    pca = PCA(n_components=n_components)
+    X_pca_train = pca.fit_transform(X_scaled_train)
+
+    if k_value is not None:
+        optimal_k = k_value
+        best_silhouette = None
+    else:
+        min_k, max_k = cluster_range
+        silhouette_scores = []
+
+        for k in range(min_k, max_k + 1):
+            if k >= len(train_indices):
+                break
+            try:
+                model = KMedoids(n_clusters=k, random_state=_CLUSTERING_RANDOM_STATE, method="pam")
+                labels = model.fit_predict(X_pca_train)
+                if len(set(labels)) > 1:
+                    silhouette_scores.append((k, float(silhouette_score(X_pca_train, labels))))
+            except Exception:
+                continue
+
+        if silhouette_scores:
+            optimal_k, best_silhouette = max(silhouette_scores, key=lambda x: x[1])
+        else:
+            optimal_k = min_k
+            best_silhouette = 0.0
+
+    if optimal_k >= len(train_indices):
+        optimal_k = max(2, len(train_indices) - 1)
+    if optimal_k < 2:
+        raise ValueError("Need at least two training patients for clustering")
+
+    kmedoids = KMedoids(n_clusters=optimal_k, random_state=_CLUSTERING_RANDOM_STATE, method="pam")
+
+    if sampled:
+        kmedoids.fit(X_pca_train)
+        training_labels = kmedoids.labels_
+        representatives = getattr(kmedoids, "cluster_centers_", None)
+        if representatives is None:
+            representatives = X_pca_train[kmedoids.medoid_indices_]
+        full_labels = _assign_sampled_clusters_to_full_cohort(feature_df, scaler, pca, np.asarray(representatives))
+    else:
+        full_labels = kmedoids.fit_predict(X_pca_train)
+        training_labels = full_labels
+
+    if best_silhouette is None:
+        if len(set(training_labels)) > 1 and len(X_pca_train) > len(set(training_labels)):
+            best_silhouette = float(silhouette_score(X_pca_train, training_labels))
+        else:
+            best_silhouette = 0.0
+
+    return {
+        "cluster_labels": full_labels,
+        "best_silhouette_score": best_silhouette,
+        "optimal_cluster_count": optimal_k,
+        "sampled": sampled,
+    }
+
+
+def cluster_patient_features(
+    feature_df: pd.DataFrame,
+    cluster_range: Tuple[int, int] = (2, 5),
+    pca_components: int = 20,
+    k_value: Optional[int] = None,
+) -> Dict:
+    """Cluster patient features with an automatic sampled fallback for large cohorts."""
+    if feature_df.empty or len(feature_df.columns) == 0:
+        return {
+            "cluster_labels": np.array([], dtype=int),
+            "best_silhouette_score": 0.0,
+            "optimal_cluster_count": 2,
+            "sampled": False,
+        }
+
+    prefer_sampled = _should_use_sampled_clustering(len(feature_df), len(feature_df.columns))
+    mode_candidates = [True] if prefer_sampled else [False, True]
+    last_error = None
+
+    for sampled in mode_candidates:
+        try:
+            return _cluster_feature_matrix_once(
+                feature_df,
+                cluster_range=cluster_range,
+                pca_components=pca_components,
+                k_value=k_value,
+                sampled=sampled,
+            )
+        except Exception as exc:
+            last_error = exc
+            if sampled:
+                raise
+
+    if last_error is not None:
+        raise last_error
+
+    return {
+        "cluster_labels": np.array([], dtype=int),
+        "best_silhouette_score": 0.0,
+        "optimal_cluster_count": 2,
+        "sampled": False,
+    }
 
 
 def perform_patient_clustering(
@@ -215,88 +457,10 @@ def perform_patient_clustering(
     # Step 3: Build patient × concept feature matrix (vectorized)
     all_patients = sorted(events_df['PERSON_ID'].unique())
     
-    # Get concept weights from dashboard_data
-    concept_weights = {}
-    for item in dashboard_data:
-        concept_id = str(item.get('CONCEPT_ID') or item.get('_concept_id', ''))
-        if concept_id:
-            target_prev = item.get('TARGET_SUBJECT_PREVALENCE', 0) / 100.0 if item.get('TARGET_SUBJECT_PREVALENCE') else 0
-            ratio = item.get('PREVALENCE_DIFFERENCE_RATIO', 1.0) if item.get('PREVALENCE_DIFFERENCE_RATIO') else 1.0
-            
-            # Normalize ratio
-            if ratio < 1:
-                norm_ratio = 0
-            elif ratio > 100:
-                norm_ratio = 2
-            else:
-                norm_ratio = np.log10(ratio) if ratio > 0 else 0
-            
-            weight = target_prev * (1 + norm_ratio) if target_prev > 0 else 1.0
-            concept_weights[concept_id] = weight
-    
     # Filter events to top concepts only
     top_concepts_set = set(top_concepts)
     events_top = events_df[events_df['CONCEPT_ID'].isin(top_concepts_set)].copy()
-    
-    # Calculate aggregates using groupby (vectorized)
-    # Group by patient and concept
-    grouped = events_top.groupby(['PERSON_ID', 'CONCEPT_ID'])
-    
-    # Count: number of events
-    count_df = grouped.size().reset_index(name='count')
-    
-    # First time: minimum TIME_OFFSET
-    first_time_df = grouped['TIME_OFFSET'].min().reset_index(name='first_time')
-    
-    # Merge counts and first times
-    stats_df = count_df.merge(first_time_df, on=['PERSON_ID', 'CONCEPT_ID'])
-    
-    # Calculate derived features
-    stats_df['log_count'] = np.log1p(stats_df['count'])
-    stats_df['earliness'] = 1.0 / (1.0 + stats_df['first_time'] / 30.0)
-    stats_df['presence'] = 1.0
-    
-    # Apply concept weights
-    stats_df['weight'] = stats_df['CONCEPT_ID'].map(concept_weights).fillna(1.0)
-    stats_df['presence_weighted'] = stats_df['presence'] * stats_df['weight']
-    stats_df['log_count_weighted'] = stats_df['log_count'] * stats_df['weight']
-    stats_df['earliness_weighted'] = stats_df['earliness'] * stats_df['weight']
-    
-    # Pivot to create feature matrix
-    # Create separate pivots for each feature type
-    presence_pivot = stats_df.pivot_table(
-        index='PERSON_ID', 
-        columns='CONCEPT_ID', 
-        values='presence_weighted',
-        fill_value=0.0
-    )
-    presence_pivot.columns = [f'presence_{c}' for c in presence_pivot.columns]
-    
-    logcount_pivot = stats_df.pivot_table(
-        index='PERSON_ID', 
-        columns='CONCEPT_ID', 
-        values='log_count_weighted',
-        fill_value=0.0
-    )
-    logcount_pivot.columns = [f'logcount_{c}' for c in logcount_pivot.columns]
-    
-    earliness_pivot = stats_df.pivot_table(
-        index='PERSON_ID', 
-        columns='CONCEPT_ID', 
-        values='earliness_weighted',
-        fill_value=0.0
-    )
-    earliness_pivot.columns = [f'earliness_{c}' for c in earliness_pivot.columns]
-    
-    # Combine all features
-    feature_df = pd.concat([presence_pivot, logcount_pivot, earliness_pivot], axis=1)
-    
-    # Ensure all patients are included (fill missing with 0)
-    all_patients_index = pd.Index(all_patients, name='PERSON_ID')
-    feature_df = feature_df.reindex(all_patients_index, fill_value=0.0)
-    
-    # Remove constant/zero-variance columns
-    feature_df = feature_df.loc[:, feature_df.std() > 1e-10]
+    feature_df = build_patient_feature_matrix(events_top, all_patients, time_col="TIME_OFFSET")
     
     if feature_df.empty or len(feature_df.columns) == 0:
         return {
@@ -306,49 +470,15 @@ def perform_patient_clustering(
             'optimal_cluster_count': 2
         }
     
-    # Step 4: PCA dimensionality reduction
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(feature_df)
-    
-    n_components = min(pca_components, len(feature_df.columns), len(feature_df) - 1)
-    if n_components < 1:
-        n_components = 1
-    
-    pca = PCA(n_components=n_components)
-    X_pca = pca.fit_transform(X_scaled)
-    
-    # Step 5: Find optimal k or use provided k
-    if k_value is not None:
-        optimal_k = k_value
-        best_silhouette = None
-    else:
-        min_k, max_k = cluster_range
-        silhouette_scores = []
-        
-        for k in range(min_k, max_k + 1):
-            if k >= len(all_patients):
-                break
-            try:
-                kmedoids = KMedoids(n_clusters=k, random_state=42, method='pam')
-                labels = kmedoids.fit_predict(X_pca)
-                if len(set(labels)) > 1:  # Need at least 2 clusters
-                    sil_score = silhouette_score(X_pca, labels)
-                    silhouette_scores.append((k, sil_score))
-            except Exception:
-                continue
-        
-        if silhouette_scores:
-            optimal_k, best_silhouette = max(silhouette_scores, key=lambda x: x[1])
-        else:
-            optimal_k = min_k
-            best_silhouette = 0.0
-    
-    # Step 6: Final clustering
-    if optimal_k >= len(all_patients):
-        optimal_k = max(2, len(all_patients) - 1)
-    
-    kmedoids = KMedoids(n_clusters=optimal_k, random_state=42, method='pam')
-    cluster_labels = kmedoids.fit_predict(X_pca)
+    clustering_result = cluster_patient_features(
+        feature_df,
+        cluster_range=cluster_range,
+        pca_components=pca_components,
+        k_value=k_value,
+    )
+    cluster_labels = clustering_result["cluster_labels"]
+    best_silhouette = clustering_result["best_silhouette_score"]
+    optimal_k = clustering_result["optimal_cluster_count"]
     
     # Create patient assignments
     patient_assignments = pd.DataFrame({
@@ -520,15 +650,12 @@ def perform_patient_clustering(
             additional_df = pd.DataFrame(additional_rows)
             summary_matrix = pd.concat([summary_matrix, additional_df], ignore_index=True)
     
-    # Populate the global concept registry with cluster data
-    if not summary_matrix.empty:
-        concept_registry.populate_cluster_data_from_matrix(summary_matrix.to_dict('records'))
-    
     result = {
         'summary_matrix': summary_matrix,
         'patient_assignments': patient_assignments,
         'best_silhouette_score': best_silhouette if best_silhouette is not None else 0.0,
-        'optimal_cluster_count': optimal_k
+        'optimal_cluster_count': optimal_k,
+        'sampled': clustering_result.get('sampled', False),
     }
     
     # Store in cache (with size limit)
@@ -540,5 +667,3 @@ def perform_patient_clustering(
     _clustering_cache[cache_key] = result
     
     return result
-
-

@@ -1,0 +1,6 @@
+{
+  "study": "lc500",
+  "target_patients": 500,
+  "control_patients": 500,
+  "chi2y_count": 16
+}

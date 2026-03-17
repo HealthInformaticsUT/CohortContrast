@@ -1,0 +1,6 @@
+Synthetic lung cancer study with 500 target and 500 control patients.
+Target cohort contains three designed trajectories:
+0) Diagnostic pathway (bronchoscopy + lung biopsy + diagnosis)
+1) Radiotherapy + chemotherapy
+2) Partial lung resection
+3) End-of-life / dying pathway

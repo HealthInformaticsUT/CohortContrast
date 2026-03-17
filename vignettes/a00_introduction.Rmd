@@ -16,7 +16,18 @@ knitr::opts_chunk$set(
 
 ## Introduction
 
-The **CohortContrast** package is designed to facilitate cohort exploration. It accepts a target cohort of any size from your OMOP CDM instance and allows you to provide a custom control cohort or generate one using matching or inverse controls. The package performs concept-level enrichment analysis and provides a handy GUI for visualization, mapping, and trajectory creation
+The **CohortContrast** package is designed to facilitate cohort exploration. It accepts a target cohort of any size from your OMOP CDM instance and allows you to provide a custom control cohort or generate one using matching or inverse controls. The package performs concept-level enrichment analysis and provides a handy GUI for visualization and concept mapping.
+
+## Load packages
+
+```{r, include = TRUE, eval=FALSE, echo=TRUE}
+library(CohortContrast)
+library(CDMConnector)
+library(DBI)
+library(RPostgres)
+library(dplyr)
+library(tibble)
+```
 
 ## Initiating database connection
 
@@ -29,10 +40,7 @@ The [CDMConnector](https://cran.r-project.org/web/packages/CDMConnector/index.ht
 #
 #################################################################################
 
-user <- Sys.getenv("DB_USERNAME")
-pw <- Sys.getenv("DB_PASSWORD")
-server <- stringr::str_c(Sys.getenv("DB_HOST"), "/", Sys.getenv("DB_NAME"))
-port <- Sys.getenv("DB_PORT")
+port <- as.integer(Sys.getenv("DB_PORT"))
 
 cdmSchema <-
   Sys.getenv("OHDSI_CDM") # Schema which contains the OHDSI Common Data Model
@@ -57,13 +65,29 @@ cdm <- CDMConnector::cdmFromCon(
   con = db,
   cdmSchema = cdmSchema,
   achillesSchema = cdmResultsSchema,
-  writeSchema = c(schema = writeSchema, prefix = writePrefix),
+  writeSchema = c(schema = writeSchema, prefix = writePrefix)
 )
 ```
 
+## Configuring Python dependencies (for GUI and summary precompute)
+
+If you plan to use the interactive viewer (`runCohortContrastViewer()`) or summary precompute (`precomputeSummary()`), configure Python and install required Python packages:
+
+```{r, include = TRUE, eval=FALSE, echo=TRUE}
+configurePython()
+installPythonDeps()
+checkPythonDeps()
+```
+
+## Air-gapped server setup
+
+If you are deploying on an offline or air-gapped environment, see the supplementary article **Air-gapped server setup**:
+
+- `vignette("a10_air_gapped_server_setup", package = "CohortContrast")`
+
 ## Building a target cohort
 
-Let´s say we want to explore our cohort of breast cancer patients. We can import this target cohort multiple ways:
+Let´s say we want to explore our cohort of lung cancer patients. We can import this target cohort multiple ways:
 
 ### 1. Target cohort from OHDSI OMOP database.
 
@@ -86,6 +110,7 @@ targetTable <- CohortContrast::cohortFromCohortTable(cdm = cdm, db = db,
 ### 2. Target cohort from JSON description file.
 
 If you have the JSON expression of the cohort (exportable from ATLAS), you can import the cohort directly.
+The package also ships an example JSON cohort in `inst/example/example_json/cohort.json` (installed path shown below).
 
 
 ```{r, include = TRUE, eval=FALSE, echo=TRUE}
@@ -94,8 +119,17 @@ If you have the JSON expression of the cohort (exportable from ATLAS), you can i
 # Create target table from a JSON
 #
 #################################################################################
- pathToJSON = '/Users/markushaug/UT/R-packages/Develop/Git/CohortContrast/tests/testthat/inst/JSON'
- targetTable <- CohortContrast::cohortFromJSON(pathToJSON = pathToJSON, cdm)
+pathToJSON = '/path/to/atlas_json'
+targetTable <- CohortContrast::cohortFromJSON(pathToJSON = pathToJSON, cdm = cdm)
+```
+
+```{r, include = TRUE, eval=FALSE, echo=TRUE}
+# Example bundled with CohortContrast:
+exampleJsonDir <- system.file("example/example_json", package = "CohortContrast")
+list.files(exampleJsonDir, pattern = "\\\\.json$", full.names = TRUE)
+# [1] ".../example_json/cohort.json"
+
+targetTable <- CohortContrast::cohortFromJSON(pathToJSON = exampleJsonDir, cdm = cdm)
 ```
 
 ### 3. Target cohort from a CSV file.
@@ -108,7 +142,7 @@ We can import the target table from a CSV. The file should have the same columns
 # Create target table from a CSV
 #
 #################################################################################
-pathToCsv = '/Users/markushaug/UT/R-packages/Develop/Git/CohortContrast/tests/testthat/inst/CSV/cohort/cohort.csv'
+pathToCsv = '/path/to/cohort.csv'
 targetTable <- CohortContrast::cohortFromCSV(pathToCsv = pathToCsv, cohortId = 2)
 ```
 
@@ -122,29 +156,30 @@ We can also use a table in our memory.
 # Create target table
 #
 #################################################################################
-library(tibble)
-#Create the dataframe
- data <- tribble(
-   ~cohort_definition_id, ~subject_id, ~cohort_start_date, ~cohort_end_date,
-   1, 4804, '1997-03-23', '2018-10-29',
-   1, 4861, '1982-06-02', '2019-05-23',
-   1, 1563, '1977-06-25', '2019-04-20',
-   1, 2830, '2006-08-11', '2019-01-14',
-   1, 1655, '2004-09-29', '2019-05-24',
-   2, 5325, '1982-06-02', '2019-03-17',
-   2, 3743, '1997-03-23', '2018-10-07',
-   2, 2980, '2004-09-29', '2018-04-01',
-   2, 1512, '2006-08-11', '2017-11-29',
-   2, 2168, '1977-06-25', '2018-11-22'
-)
-targetTable <- cohortFromDataTable(data = data, cohortId = 2)
+# Create a cohort table with a 1-year follow-up window after cohort start
+data <- tibble::tribble(
+  ~cohort_definition_id, ~subject_id, ~cohort_start_date,
+  1, 4804, as.Date('1997-03-23'),
+  1, 4861, as.Date('1982-06-02'),
+  1, 1563, as.Date('1977-06-25'),
+  1, 2830, as.Date('2006-08-11'),
+  1, 1655, as.Date('2004-09-29'),
+  2, 5325, as.Date('1982-06-02'),
+  2, 3743, as.Date('1997-03-23'),
+  2, 2980, as.Date('2004-09-29'),
+  2, 1512, as.Date('2006-08-11'),
+  2, 2168, as.Date('1977-06-25')
+) |>
+  dplyr::mutate(cohort_end_date = cohort_start_date + 365)
+
+targetTable <- CohortContrast::cohortFromDataTable(data = data, cohortId = 2)
 ```
 
 For cases 2-4 you do not have to specify the `cohortId` parameter inside the function call, but when multiple cohorts present it is advised.
 
 ## Building a control cohort
 
-The control cohort is a cohort that the target cohort is compared against. This means we will check the proportions of each concept occurrence between the two cohorts. The result of the analysis is heavily dependant on both of them, therefore they should be selected with care.
+The control cohort is a cohort that the target cohort is compared against. This means we will check the proportions of each concept occurrence between the two cohorts. The result of the analysis is heavily dependent on both of them, therefore they should be selected with care.
 
 The control cohort can be generated the same way the target cohort has been shown to be generated in examples 1-4. But there are a few automatic ways the package  `CohortContrast` provides:
 
@@ -188,3 +223,7 @@ targetTable = CohortContrast::resolveCohortTableOverlaps(cdm = cdm, cohortTable 
 controlTable = CohortContrast::resolveCohortTableOverlaps(cdm = cdm, cohortTable = controlTable)
 ```
 
+```{r, include = TRUE, eval=FALSE, echo=TRUE}
+# Close DB connection when done
+DBI::dbDisconnect(db)
+```

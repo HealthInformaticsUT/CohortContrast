@@ -41,6 +41,8 @@ def calculate_age_stats(
     
     # Filter to target cohort only (same patient can be in both target and control)
     data_patients_target = data_patients[data_patients["COHORT_DEFINITION_ID"] == "target"].copy()
+    if "CONCEPT_ID" not in data_patients_target.columns:
+        return age_stats
     
     # If filter_patient_ids provided, further filter to those patients
     if filter_patient_ids is not None:
@@ -48,15 +50,19 @@ def calculate_age_stats(
             data_patients_target["PERSON_ID"].isin(filter_patient_ids)
         ].copy()
     
-    # Helper function to normalize concept ID
+    # Normalize concept IDs as strings so comparisons are robust to mixed int/str dtypes.
     def _normalize_concept_id(concept_id):
         if concept_id is None:
             return None
-        concept_id_str = str(concept_id).replace(".0", "")
-        try:
-            return int(float(concept_id_str))
-        except (ValueError, TypeError):
-            return concept_id_str
+        concept_id_str = str(concept_id).strip().replace(".0", "")
+        return concept_id_str if concept_id_str and concept_id_str.lower() != "nan" else None
+
+    data_patients_target["__CONCEPT_ID_NORM"] = (
+        data_patients_target["CONCEPT_ID"]
+        .astype(str)
+        .str.strip()
+        .str.replace(".0", "", regex=False)
+    )
     
     # Create a mapping from SUBJECT_ID to COHORT_START_DATE
     # IMPORTANT: Filter to target cohort first to avoid using control cohort dates
@@ -113,7 +119,7 @@ def calculate_age_stats(
                 # For ordinals, filter to people who have at least ordinal_num occurrences
                 # Use target cohort only
                 concept_data = data_patients_target[
-                    (data_patients_target['CONCEPT_ID'] == concept_id) &
+                    (data_patients_target['__CONCEPT_ID_NORM'] == concept_id) &
                     (data_patients_target['PREVALENCE'] > 0)
                 ].copy()
                 
@@ -153,7 +159,7 @@ def calculate_age_stats(
                 # For main concepts, get all people with the concept
                 # Use target cohort only
                 concept_patients = data_patients_target[
-                    (data_patients_target['CONCEPT_ID'] == concept_id) &
+                    (data_patients_target['__CONCEPT_ID_NORM'] == concept_id) &
                     (data_patients_target['PREVALENCE'] > 0)
                 ]['PERSON_ID'].unique()
             
@@ -224,7 +230,7 @@ def calculate_age_stats(
                 ci_high = mean_age
             
             # Store statistics
-            key = (heritage or "unknown", concept_id, item.get("ordinal", 0))
+            key = (heritage or "unknown", str(concept_id), item.get("ordinal", 0))
             age_stats[key] = {
                 "mean_age": mean_age,
                 "ci_low": ci_low,
@@ -277,7 +283,9 @@ def create_age_plot(
     def _normalize_concept_id(concept_id):
         if concept_id is None:
             return None
-        concept_id_str = str(concept_id).replace(".0", "")
+        concept_id_str = str(concept_id).strip().replace(".0", "")
+        if not concept_id_str or concept_id_str.lower() == "nan":
+            return None
         try:
             return int(float(concept_id_str))
         except (ValueError, TypeError):
@@ -303,8 +311,9 @@ def create_age_plot(
                     item.get("concept_id") or item.get("_concept_id")
                 )
             
-            lookup_key = (heritage_key, concept_id_key, item.get("ordinal", 0))
-            stats = age_stats.get(lookup_key)
+            lookup_key_int = (heritage_key, concept_id_key, item.get("ordinal", 0))
+            lookup_key_str = (heritage_key, str(concept_id_key), item.get("ordinal", 0))
+            stats = age_stats.get(lookup_key_int) or age_stats.get(lookup_key_str)
             
             if stats:
                 all_ages.append(stats["mean_age"])
@@ -376,8 +385,9 @@ def create_age_plot(
             ordinal_raw = item_from_order.get("ordinal")
             ordinal_val = int(ordinal_raw) if ordinal_raw is not None and not pd.isna(ordinal_raw) else 0
             
-            lookup_key = (heritage_key, concept_id_key, ordinal_val)
-            stats = age_stats.get(lookup_key)
+            lookup_key_int = (heritage_key, concept_id_key, ordinal_val)
+            lookup_key_str = (heritage_key, str(concept_id_key), ordinal_val)
+            stats = age_stats.get(lookup_key_int) or age_stats.get(lookup_key_str)
             
             if not stats:
                 continue
@@ -459,7 +469,7 @@ def create_age_plot(
             
             # Add cluster overlay point if available
             if show_cluster_overlay and cluster_age_stats:
-                cluster_stats = cluster_age_stats.get(lookup_key)
+                cluster_stats = cluster_age_stats.get(lookup_key_int) or cluster_age_stats.get(lookup_key_str)
                 if cluster_stats:
                     cluster_mean = cluster_stats["mean_age"]
                     cluster_ci_low = cluster_stats["ci_low"]
@@ -559,5 +569,3 @@ def create_age_plot(
         )
     
     return fig
-
-

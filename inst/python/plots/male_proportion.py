@@ -41,6 +41,8 @@ def calculate_male_prop_stats(
     
     # Filter to target cohort only (same patient can be in both target and control)
     data_patients_target = data_patients[data_patients["COHORT_DEFINITION_ID"] == "target"].copy()
+    if "CONCEPT_ID" not in data_patients_target.columns:
+        return male_prop_stats
     
     # If filter_patient_ids provided, further filter to those patients
     if filter_patient_ids is not None:
@@ -48,16 +50,19 @@ def calculate_male_prop_stats(
             data_patients_target["PERSON_ID"].isin(filter_patient_ids)
         ].copy()
     
-    # Helper function to normalize concept ID - same as in calculate_age_stats
-    # Returns int when possible, string otherwise (to match DataFrame CONCEPT_ID type)
+    # Normalize concept IDs as strings so comparisons are robust to mixed int/str dtypes.
     def _normalize_concept_id_local(concept_id):
         if concept_id is None:
             return None
-        concept_id_str = str(concept_id).replace(".0", "")
-        try:
-            return int(float(concept_id_str))
-        except (ValueError, TypeError):
-            return concept_id_str
+        concept_id_str = str(concept_id).strip().replace(".0", "")
+        return concept_id_str if concept_id_str and concept_id_str.lower() != "nan" else None
+
+    data_patients_target["__CONCEPT_ID_NORM"] = (
+        data_patients_target["CONCEPT_ID"]
+        .astype(str)
+        .str.strip()
+        .str.replace(".0", "", regex=False)
+    )
     
     # Create a mapping from PERSON_ID to GENDER_CONCEPT_ID with multiple key types
     # 8507 = male, 8532 = female
@@ -98,7 +103,7 @@ def calculate_male_prop_stats(
                 # Direct comparison (concept_id is normalized to match DataFrame type)
                 # Use target cohort only
                 concept_data = data_patients_target[
-                    (data_patients_target['CONCEPT_ID'] == concept_id) &
+                    (data_patients_target['__CONCEPT_ID_NORM'] == concept_id) &
                     (data_patients_target['PREVALENCE'] > 0)
                 ].copy()
                 
@@ -137,7 +142,7 @@ def calculate_male_prop_stats(
                 # Direct comparison (concept_id is normalized to match DataFrame type)
                 # Use target cohort only
                 concept_patients = data_patients_target[
-                    (data_patients_target['CONCEPT_ID'] == concept_id) &
+                    (data_patients_target['__CONCEPT_ID_NORM'] == concept_id) &
                     (data_patients_target['PREVALENCE'] > 0)
                 ]['PERSON_ID'].unique()
             
@@ -528,5 +533,4 @@ def create_male_prop_plot(
         )
     
     return fig, x_min, x_max, overall_avg_male_prop
-
 

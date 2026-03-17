@@ -1,6 +1,9 @@
 library(testthat)
 library(CohortContrast)
 
+testthat::skip_on_cran()
+skip_if_no_integration()
+
 test_that("Created features table is correct with JSON & patient matching", {
   pathToResults <<- getwd() #pathToResults = paste(getwd(), "/tests",sep="")
   pathToResults = pathToResults = paste(getwd(), "/tests/testthat",sep="")
@@ -35,14 +38,14 @@ test_that("Created features table is correct with JSON & patient matching", {
     topK = 15, # Number of features to export
     presenceFilter = FALSE, # 0-1, percentage of people who must have the chosen feature present
     complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
-    runZTests = FALSE,
+    runChi2YTests = FALSE,
     runLogitTests = FALSE,
    createOutputFiles = FALSE,
    numCores = 1)
 
-  expect_equal(length(data$trajectoryDataList$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
+  expect_equal(length(data$selectedFeatureData$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
 #  expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 3]) == 2, TRUE)
-#  expect_equal(nrow(data$trajectoryDataList$trajectoryData) == 73, TRUE)
+#  expect_equal(nrow(data$selectedFeatureData$trajectoryData) == 73, TRUE)
   expect_equal(nrow(data$data_initial) == nrow(targetTable) + nrow(controlTable), TRUE)
   expect_equal(nrow(data$data_person) == nrow(targetTable) + nrow(controlTable), TRUE)
 #  expect_equal(nrow(data$data_patients) == 60, TRUE)
@@ -89,14 +92,14 @@ test_that("Created features table is correct with Cohorts table & patient matchi
     topK = 15, # Number of features to export
     presenceFilter = FALSE, # 0-1, percentage of people who must have the chosen feature present
     complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
-    runZTests = FALSE,
+    runChi2YTests = FALSE,
     runLogitTests = FALSE,
     createOutputFiles = FALSE,
     numCores = 1)
 
-  expect_equal(length(data$trajectoryDataList$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
+  expect_equal(length(data$selectedFeatureData$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
   #  expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 3]) == 2, TRUE)
-  #  expect_equal(nrow(data$trajectoryDataList$trajectoryData) == 70, TRUE)
+  #  expect_equal(nrow(data$selectedFeatureData$trajectoryData) == 70, TRUE)
   expect_equal(nrow(data$data_initial) == nrow(targetTable) + nrow(controlTable), TRUE)
   expect_equal(nrow(data$data_person) == nrow(targetTable) + nrow(controlTable), TRUE)
   #  expect_equal(nrow(data$data_patients) == 57, TRUE)
@@ -143,14 +146,14 @@ test_that("Test patient matching with min and max values", {
     topK = 15, # Number of features to export
     presenceFilter = FALSE, # 0-1, percentage of people who must have the chosen feature present
     complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
-    runZTests = FALSE,
+    runChi2YTests = FALSE,
     runLogitTests = FALSE,
     createOutputFiles = FALSE,
     numCores = 1)
 
-  expect_equal(length(data$trajectoryDataList$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
+  expect_equal(length(data$selectedFeatureData$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
   #  expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 3]) == 2, TRUE)
-  #  expect_equal(nrow(data$trajectoryDataList$trajectoryData) == 70, TRUE)
+  #  expect_equal(nrow(data$selectedFeatureData$trajectoryData) == 70, TRUE)
   expect_equal(nrow(data$data_initial) == nrow(targetTable) + nrow(controlTable), TRUE)
   expect_equal(nrow(data$data_person) == nrow(targetTable) + nrow(controlTable), TRUE)
   #  expect_equal(nrow(data$data_patients) == 57, TRUE)

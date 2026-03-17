@@ -4,6 +4,9 @@ Composite plot - Event occurrences visualization.
 
 from typing import Dict, List, Optional, Tuple
 import logging
+import json
+import hashlib
+from collections import OrderedDict
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -21,6 +24,90 @@ from config.constants import (
 from utils.helpers import format_heritage_label, get_unique_occurrences
 
 logger = logging.getLogger('ContrastViewer.composite')
+
+# Cache for parsed KDE data to avoid repeated JSON parsing
+# Key: hash of (concept_id, heritage, raw_json_string) or (concept_id, heritage)
+# Value: tuple of (kde_x, kde_y) lists
+_kde_data_cache: OrderedDict[str, Tuple[List, List]] = OrderedDict()
+MAX_KDE_CACHE_SIZE = 1000  # Maximum number of cached KDE parsing results
+
+
+def _parse_kde_with_cache(
+    concept_id: str,
+    heritage: Optional[str],
+    time_kde_x: Optional[str],
+    time_kde_y: Optional[str]
+) -> Tuple[List, List]:
+    """
+    Parse KDE data with caching to avoid repeated JSON parsing.
+    
+    Args:
+        concept_id: Concept ID (normalized string)
+        heritage: Heritage string or None
+        time_kde_x: JSON string or already-parsed list for KDE x-coordinates
+        time_kde_y: JSON string or already-parsed list for KDE y-coordinates
+    
+    Returns:
+        Tuple of (kde_x, kde_y) lists
+    """
+    global _kde_data_cache
+    
+    # Create cache key from concept_id, heritage, and raw JSON strings
+    # Use hash of the JSON strings to handle large data efficiently
+    heritage_str = str(heritage) if heritage and pd.notna(heritage) else "None"
+    kde_x_str = str(time_kde_x) if time_kde_x is not None else ""
+    kde_y_str = str(time_kde_y) if time_kde_y is not None else ""
+    
+    # Create deterministic cache key
+    cache_key_parts = [concept_id, heritage_str, kde_x_str, kde_y_str]
+    cache_key = hashlib.md5("|".join(cache_key_parts).encode()).hexdigest()
+    
+    # Check cache first
+    if cache_key in _kde_data_cache:
+        # Move to end (most recently used) for LRU behavior
+        _kde_data_cache.move_to_end(cache_key)
+        return _kde_data_cache[cache_key]
+    
+    # Parse JSON if needed
+    kde_x = []
+    kde_y = []
+    try:
+        # Check if time_kde_x exists and is not empty (handles both strings and numpy arrays)
+        if time_kde_x is not None:
+            if isinstance(time_kde_x, str):
+                if len(time_kde_x) > 0:
+                    kde_x = json.loads(time_kde_x)
+            else:
+                # Already parsed (numpy array or list) - check length safely
+                try:
+                    if len(time_kde_x) > 0:
+                        kde_x = time_kde_x
+                except (TypeError, ValueError):
+                    pass
+        # Check if time_kde_y exists and is not empty (handles both strings and numpy arrays)
+        if time_kde_y is not None:
+            if isinstance(time_kde_y, str):
+                if len(time_kde_y) > 0:
+                    kde_y = json.loads(time_kde_y)
+            else:
+                # Already parsed (numpy array or list) - check length safely
+                try:
+                    if len(time_kde_y) > 0:
+                        kde_y = time_kde_y
+                except (TypeError, ValueError):
+                    pass
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
+        logger.debug(f"Error parsing KDE data for concept {concept_id}: {e}")
+        pass
+    
+    # Store in cache (LRU eviction)
+    if len(_kde_data_cache) >= MAX_KDE_CACHE_SIZE:
+        _kde_data_cache.popitem(last=False)  # Remove oldest (first) item
+    
+    _kde_data_cache[cache_key] = (kde_x, kde_y)
+    _kde_data_cache.move_to_end(cache_key)
+    
+    return kde_x, kde_y
 
 
 def wrap_text(text: str, max_chars: int = 45) -> str:
@@ -74,7 +161,7 @@ def create_composite_plot(
     # Build mapping lookup: concept_id -> list of source concept names that mapped to it
     concept_mappings = {}
     if mapping_data is not None and not mapping_data.empty:
-        # OPTIMIZED: Use to_dict instead of iterrows
+        # Convert DataFrame to list of dicts for efficient iteration
         for row in mapping_data.to_dict('records'):
             target_id = row.get("NEW_CONCEPT_ID")
             source_name = row.get("CONCEPT_NAME")
@@ -227,7 +314,7 @@ def create_composite_plot(
             all_times = []
             patient_ids = set()
             patient_time_map = {}
-            # OPTIMIZED: Use to_dict instead of iterrows
+            # Convert DataFrame to list of dicts for efficient iteration
             for row in concept_data.to_dict('records'):
                 pid = row.get("PERSON_ID")
                 time_list = row.get("TIME_TO_EVENT")
@@ -721,7 +808,7 @@ def create_composite_plot(
         y_labels = []
         for item in items:
             # Wrap long concept names for display
-            y_labels.append(wrap_text(item["concept_name"], max_chars=45))
+            y_labels.append(wrap_text(item["concept_name"], max_chars=60))
         
         # Use numeric y-axis with custom tick labels
         # Set domain to use full range for uniform spacing (30px per concept)
@@ -768,13 +855,11 @@ def create_composite_plot_from_summary(
     Returns:
         Tuple of (figure, y_labels, heritage_groups)
     """
-    import json
-    
     # Build mapping lookup: concept_id -> list of source concept names that mapped to it
     # Same as patient mode
     concept_mappings = {}
     if mapping_data is not None and not mapping_data.empty:
-        # OPTIMIZED: Use to_dict instead of iterrows
+        # Convert DataFrame to list of dicts for efficient iteration
         for row in mapping_data.to_dict('records'):
             target_id = row.get("NEW_CONCEPT_ID")
             source_name = row.get("CONCEPT_NAME")
@@ -807,34 +892,169 @@ def create_composite_plot_from_summary(
         if concept_id is not None:
             concept_map[str(concept_id).replace(".0", "")] = row
     
-    # OPTIMIZED: Build summary lookup using to_dict instead of iterrows
-    summary_lookup = {}
-    for row in concept_summaries.to_dict('records'):
-        cid = str(row.get("CONCEPT_ID", "")).replace(".0", "")
-        heritage = row.get("HERITAGE")
-        key = (cid, str(heritage) if heritage and pd.notna(heritage) else None)
-        summary_lookup[key] = row
+    # Filter active_concepts to remove ordinals whose main concept is not active
+    # This matches the logic in create_composite_plot (patient mode)
+    def normalize_id(cid):
+        return str(cid).replace(".0", "") if cid is not None else None
     
-    # Add ordinal summaries if available
+    # Build a set of active main concept IDs (for filtering ordinals)
+    active_main_concept_keys = set()
+    for concept_row in active_concepts:
+        is_ordinal = concept_row.get("IS_ORDINAL", False)
+        if not is_ordinal:
+            # This is a main concept
+            concept_id = concept_row.get("_concept_id") or concept_row.get("CONCEPT_ID")
+            heritage = concept_row.get("HERITAGE")
+            if concept_id is not None:
+                key = (normalize_id(concept_id), str(heritage) if heritage is not None and pd.notna(heritage) else None)
+                active_main_concept_keys.add(key)
+    
+    # Filter active_concepts to remove ordinals whose main concept is not active
+    filtered_active_concepts = []
+    for concept_row in active_concepts:
+        is_ordinal = concept_row.get("IS_ORDINAL", False)
+        if is_ordinal:
+            # Check if the main concept is active
+            original_concept_id = concept_row.get("ORIGINAL_CONCEPT_ID")
+            heritage = concept_row.get("HERITAGE")
+            if original_concept_id is not None:
+                key = (normalize_id(original_concept_id), str(heritage) if heritage is not None and pd.notna(heritage) else None)
+                if key not in active_main_concept_keys:
+                    # Main concept is not active, skip this ordinal
+                    continue
+        filtered_active_concepts.append(concept_row)
+    
+    active_concepts = filtered_active_concepts
+    
+    if not active_concepts:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No active concepts selected after filtering ordinals.",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=16, color="#666")
+        )
+        fig.update_layout(
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+            plot_bgcolor="white"
+        )
+        return fig, [], {}
+    
+    # Extract active concept keys first, then filter DataFrames before building lookup.
+    # This avoids processing all concepts when only a subset is active (especially with strict filters).
+    active_keys = set()
+    # Initialize summary_lookup_df for DataFrame-based lookups (replaces dict lookup)
+    summary_lookup_df = pd.DataFrame()
+    for concept_row in active_concepts:
+        concept_id = concept_row.get("_concept_id") or concept_row.get("CONCEPT_ID")
+        heritage = concept_row.get("HERITAGE")
+        if concept_id is not None:
+            cid = normalize_id(concept_id)
+            heritage_str = str(heritage) if heritage is not None and pd.notna(heritage) else None
+            key = (cid, heritage_str)
+            active_keys.add(key)
+    
+    # Filter concept_summaries to only active concepts using vectorized operations
+    # This is much faster when M (total concepts) >> N (active concepts)
+    # Note: summary_lookup_df is initialized above, will be populated here
+    
+    if not concept_summaries.empty:
+        # Create normalized CONCEPT_ID and HERITAGE columns for efficient filtering
+        # Use vectorized operations where possible
+        concept_summaries_filtered = concept_summaries.copy()
+        
+        # Normalize CONCEPT_ID: convert to string and remove ".0" suffix
+        concept_summaries_filtered['_cid_norm'] = concept_summaries_filtered['CONCEPT_ID'].astype(str).str.replace('.0', '', regex=False)
+        # Handle NaN values
+        concept_summaries_filtered.loc[concept_summaries_filtered['CONCEPT_ID'].isna(), '_cid_norm'] = None
+        
+        # Normalize HERITAGE: convert to string, handle NaN
+        concept_summaries_filtered['_heritage_str'] = concept_summaries_filtered['HERITAGE'].astype(str)
+        concept_summaries_filtered.loc[concept_summaries_filtered['HERITAGE'].isna(), '_heritage_str'] = None
+        # Replace "nan" string with None
+        concept_summaries_filtered.loc[concept_summaries_filtered['_heritage_str'] == 'nan', '_heritage_str'] = None
+        
+        # Create key tuples for filtering
+        concept_summaries_filtered['_key'] = list(zip(
+            concept_summaries_filtered['_cid_norm'],
+            concept_summaries_filtered['_heritage_str']
+        ))
+        
+        # Filter to only active concepts using vectorized isin()
+        concept_summaries_filtered = concept_summaries_filtered[
+            concept_summaries_filtered['_key'].isin(active_keys)
+        ]
+        
+        # Use DataFrame indexing with multi-index for efficient lookups.
+        # This avoids converting the entire DataFrame to a dictionary.
+        if not concept_summaries_filtered.empty:
+            concept_summaries_filtered = concept_summaries_filtered.set_index(['_cid_norm', '_heritage_str']).sort_index()
+            # Store indexed DataFrame for lookups (will be merged with ordinal summaries)
+            summary_lookup_df = concept_summaries_filtered.copy()
+    
+    # Filter ordinal_summaries to only active ordinals
     if ordinal_summaries is not None and not ordinal_summaries.empty:
-        for row in ordinal_summaries.to_dict('records'):
-            cid = str(row.get("CONCEPT_ID", "")).replace(".0", "")
-            heritage = row.get("HERITAGE")
-            key = (cid, str(heritage) if heritage and pd.notna(heritage) else None)
-            summary_lookup[key] = row
+        # Create normalized columns for filtering (same approach as above)
+        ordinal_summaries_filtered = ordinal_summaries.copy()
+        
+        # Normalize CONCEPT_ID
+        ordinal_summaries_filtered['_cid_norm'] = ordinal_summaries_filtered['CONCEPT_ID'].astype(str).str.replace('.0', '', regex=False)
+        ordinal_summaries_filtered.loc[ordinal_summaries_filtered['CONCEPT_ID'].isna(), '_cid_norm'] = None
+        
+        # Normalize HERITAGE
+        ordinal_summaries_filtered['_heritage_str'] = ordinal_summaries_filtered['HERITAGE'].astype(str)
+        ordinal_summaries_filtered.loc[ordinal_summaries_filtered['HERITAGE'].isna(), '_heritage_str'] = None
+        ordinal_summaries_filtered.loc[ordinal_summaries_filtered['_heritage_str'] == 'nan', '_heritage_str'] = None
+        
+        # Create key tuples
+        ordinal_summaries_filtered['_key'] = list(zip(
+            ordinal_summaries_filtered['_cid_norm'],
+            ordinal_summaries_filtered['_heritage_str']
+        ))
+        
+        # Filter to only active ordinals
+        ordinal_summaries_filtered = ordinal_summaries_filtered[
+            ordinal_summaries_filtered['_key'].isin(active_keys)
+        ]
+        
+        # Use DataFrame indexing with multi-index and combine with concept summaries.
+        # This avoids converting the entire DataFrame to a dictionary.
+        if not ordinal_summaries_filtered.empty:
+            ordinal_summaries_filtered = ordinal_summaries_filtered.set_index(['_cid_norm', '_heritage_str']).sort_index()
+            # Combine with concept summaries (if any)
+            if summary_lookup_df.empty:
+                summary_lookup_df = ordinal_summaries_filtered.copy()
+            else:
+                summary_lookup_df = pd.concat([summary_lookup_df, ordinal_summaries_filtered]).sort_index()
     
     # Build cluster summary lookup if we have cluster data
+    # Always build lookup when clustering data exists (for stats display)
+    # Only show overlay when a specific cluster is selected (not "all")
     show_cluster_overlay = selected_cluster is not None and selected_cluster != "all" and clustering_summary_matrix is not None
-    cluster_summary_lookup = {}
-    if show_cluster_overlay and not clustering_summary_matrix.empty:
-        # OPTIMIZED: Filter upfront and use to_dict
-        filtered_cluster = clustering_summary_matrix[clustering_summary_matrix['cluster'] == selected_cluster]
-        for row in filtered_cluster.to_dict('records'):
-            cid = str(row.get("CONCEPT_ID", "")).replace(".0", "")
-            ordinal_raw = row.get("ORDINAL")
-            ordinal = int(ordinal_raw) if ordinal_raw is not None and not pd.isna(ordinal_raw) else 0
-            key = (cid, ordinal)
-            cluster_summary_lookup[key] = row
+    # Initialize cluster_summary_lookup_df for DataFrame-based lookups
+    cluster_summary_lookup_df = pd.DataFrame()
+    if clustering_summary_matrix is not None and not clustering_summary_matrix.empty:
+        # If a specific cluster is selected, filter to that cluster
+        # If "all" is selected, include all clusters (for stats, but no overlay)
+        if show_cluster_overlay:
+            # Filter to selected cluster before indexing
+            filtered_cluster = clustering_summary_matrix[clustering_summary_matrix['cluster'] == selected_cluster]
+        else:
+            # For "all", include all clusters (but won't show overlay)
+            filtered_cluster = clustering_summary_matrix
+        
+        # Use DataFrame indexing with multi-index for efficient lookups.
+        # This avoids converting the entire DataFrame to a dictionary.
+        if not filtered_cluster.empty:
+            # Normalize CONCEPT_ID and create index
+            filtered_cluster = filtered_cluster.copy()
+            filtered_cluster['_cid_norm'] = filtered_cluster['CONCEPT_ID'].astype(str).str.replace('.0', '', regex=False)
+            filtered_cluster.loc[filtered_cluster['CONCEPT_ID'].isna(), '_cid_norm'] = None
+            # Handle ORDINAL - convert to int, default to 0
+            filtered_cluster['_ordinal_int'] = filtered_cluster['ORDINAL'].fillna(0).astype(int)
+            # Set multi-index for fast lookups (sort to avoid PerformanceWarning)
+            cluster_summary_lookup_df = filtered_cluster.set_index(['_cid_norm', '_ordinal_int']).sort_index()
     
     # Group by heritage - use HERITAGE_ORDER for consistency with patient mode
     has_heritage = "HERITAGE" in concept_summaries.columns
@@ -850,48 +1070,91 @@ def create_composite_plot_from_summary(
     else:
         heritages = ["ALL"]
     
-    # Prepare data for plotting
-    plot_data = []
+    # Pre-compute common operations before loop to reduce per-iteration overhead.
+    # Pre-compute ordinal suffix dictionary (used in loop).
+    ordinal_suffix_map = {1: "1st", 2: "2nd", 3: "3rd"}
     
+    # Pre-compute normalized concept data to avoid repeated operations in loop
+    normalized_concepts = []
     for concept_row in active_concepts:
         concept_id = concept_row.get("_concept_id") or concept_row.get("CONCEPT_ID")
-        heritage = concept_row.get("HERITAGE")
-        concept_name = concept_row.get("CONCEPT_NAME", f"Concept {concept_id}")
-        
         if concept_id is None:
             continue
         
+        # Pre-normalize concept ID (avoid repeated string operations)
         cid = str(concept_id).replace(".0", "")
-        key = (cid, str(heritage) if heritage and pd.notna(heritage) else None)
         
-        summary = summary_lookup.get(key)
-        if not summary:
-            continue
+        # Pre-extract and normalize heritage
+        heritage = concept_row.get("HERITAGE")
+        heritage_str = str(heritage) if heritage and pd.notna(heritage) else None
         
-        # Parse KDE data
-        kde_x = []
-        kde_y = []
-        try:
-            if summary.get("time_kde_x"):
-                kde_x = json.loads(summary["time_kde_x"]) if isinstance(summary["time_kde_x"], str) else summary["time_kde_x"]
-            if summary.get("time_kde_y"):
-                kde_y = json.loads(summary["time_kde_y"]) if isinstance(summary["time_kde_y"], str) else summary["time_kde_y"]
-        except:
-            pass
+        # Pre-build lookup key
+        key = (cid, heritage_str)
         
-        # Get original concept ID for ordinals
-        # Handle NaN values from concat (concept_summaries rows get nan for IS_ORDINAL/ORDINAL)
+        # Pre-extract concept name
+        concept_name = concept_row.get("CONCEPT_NAME", f"Concept {concept_id}")
+        
+        # Pre-compute ordinal flags (avoid repeated type conversions)
         is_ordinal_raw = concept_row.get("IS_ORDINAL")
         is_ordinal = bool(is_ordinal_raw) if is_ordinal_raw is not None and not pd.isna(is_ordinal_raw) else False
         
         ordinal_raw = concept_row.get("ORDINAL")
         ordinal = int(ordinal_raw) if ordinal_raw is not None and not pd.isna(ordinal_raw) else 0
         
+        # Pre-compute original concept ID
         original_concept_id = concept_row.get("ORIGINAL_CONCEPT_ID") if is_ordinal else concept_id
         
-        # For ordinals, use just the ordinal suffix (like patient mode)
+        # Store pre-computed data
+        normalized_concepts.append({
+            'concept_id': concept_id,
+            'cid': cid,
+            'key': key,
+            'heritage': heritage,
+            'heritage_str': heritage_str,
+            'concept_name': concept_name,
+            'is_ordinal': is_ordinal,
+            'ordinal': ordinal,
+            'original_concept_id': original_concept_id
+        })
+    
+    # Prepare data for plotting
+    plot_data = []
+    
+    # Cache has_heritage check (doesn't change in loop)
+    heritage_default = "ALL"
+    
+    for norm_concept in normalized_concepts:
+        concept_id = norm_concept['concept_id']
+        cid = norm_concept['cid']
+        key = norm_concept['key']
+        heritage = norm_concept['heritage']
+        concept_name = norm_concept['concept_name']
+        is_ordinal = norm_concept['is_ordinal']
+        ordinal = norm_concept['ordinal']
+        original_concept_id = norm_concept['original_concept_id']
+        
+        # Use DataFrame indexing for efficient lookup
+        try:
+            if summary_lookup_df.empty or key not in summary_lookup_df.index:
+                continue
+            summary_row = summary_lookup_df.loc[key]
+            # Convert Series to dict for compatibility with existing code
+            summary = summary_row.to_dict()
+        except (KeyError, IndexError):
+            continue
+        
+        # Parse KDE data with caching to avoid repeated JSON parsing
+        kde_x, kde_y = _parse_kde_with_cache(
+            concept_id=cid,
+            heritage=heritage,
+            time_kde_x=summary.get("time_kde_x"),
+            time_kde_y=summary.get("time_kde_y")
+        )
+        
+        # For ordinals, use just the ordinal suffix (like patient mode).
+        # Use pre-computed ordinal suffix map for efficiency.
         if is_ordinal and ordinal > 0:
-            ordinal_suffix = {1: "1st", 2: "2nd", 3: "3rd"}.get(ordinal, f"{ordinal}th")
+            ordinal_suffix = ordinal_suffix_map.get(ordinal, f"{ordinal}th")
             display_name = ordinal_suffix  # Just show ordinal for axis label
             # concept_name already contains the full name with ordinal (e.g., "Pneumonia 1st")
             full_concept_name = concept_name
@@ -900,11 +1163,19 @@ def create_composite_plot_from_summary(
             full_concept_name = concept_name
         
         # Get cluster-specific stats if available
+        # Always get cluster stats when clustering data exists (for display in tooltips/stats)
+        # Only show overlay when a specific cluster is selected
         cluster_stats = None
-        if show_cluster_overlay:
-            # For cluster lookup, use the concept_id + ordinal
+        if not cluster_summary_lookup_df.empty:
+            # Use DataFrame indexing for efficient cluster stats lookup
             cluster_key = (cid, ordinal)
-            cluster_stats = cluster_summary_lookup.get(cluster_key)
+            try:
+                if cluster_key in cluster_summary_lookup_df.index:
+                    cluster_stats_row = cluster_summary_lookup_df.loc[cluster_key]
+                    # Convert Series to dict for compatibility
+                    cluster_stats = cluster_stats_row.to_dict()
+            except (KeyError, IndexError):
+                pass
         
         plot_data.append({
             "concept_id": concept_id,
@@ -912,8 +1183,8 @@ def create_composite_plot_from_summary(
             "CONCEPT_ID": concept_id,   # Uppercase alias
             "concept_name": display_name,  # Use display_name (ordinal suffix for ordinals)
             "full_concept_name": full_concept_name,  # Full name for hover (e.g., "Pneumonia 1st")
-            "heritage": heritage if has_heritage else "ALL",
-            "HERITAGE": heritage if has_heritage else "ALL",  # Uppercase alias
+            "heritage": heritage if has_heritage else heritage_default,
+            "HERITAGE": heritage if has_heritage else heritage_default,  # Uppercase alias
             "kde_x": kde_x,
             "kde_y": kde_y,
             "median": summary.get("time_median"),
@@ -1018,6 +1289,37 @@ def create_composite_plot_from_summary(
         # Get heritage color for this group
         heritage_color = HERITAGE_COLORS.get(heritage, "#CCCCCC")
         
+        # Batch trace collection to reduce Plotly trace count and improve rendering performance.
+        # Collect coordinates for batched traces, separated by color (black for main concepts, gray for ordinals).
+        violin_x_batch = []
+        violin_y_batch = []
+        box_x_batch_black = []
+        box_y_batch_black = []
+        box_x_batch_gray = []
+        box_y_batch_gray = []
+        whisker_min_x_batch_black = []
+        whisker_min_y_batch_black = []
+        whisker_min_x_batch_gray = []
+        whisker_min_y_batch_gray = []
+        whisker_max_x_batch_black = []
+        whisker_max_y_batch_black = []
+        whisker_max_x_batch_gray = []
+        whisker_max_y_batch_gray = []
+        median_x_batch_black = []
+        median_y_batch_black = []
+        median_x_batch_gray = []
+        median_y_batch_gray = []
+        cluster_box_x_batch = []
+        cluster_box_y_batch = []
+        cluster_whisker_min_x_batch = []
+        cluster_whisker_min_y_batch = []
+        cluster_whisker_max_x_batch = []
+        cluster_whisker_max_y_batch = []
+        # Collect hover trace data (must remain individual for per-concept hover)
+        hover_traces = []
+        # Cluster median traces (must remain individual for hover)
+        cluster_median_traces = []
+        
         for y_pos, item in enumerate(items):
             all_y_labels.append(item["concept_name"])
             
@@ -1046,107 +1348,101 @@ def create_composite_plot_from_summary(
                     hover_lines.append(f"<br>... and {len(mapped_sources) - 10} more")
             hover_text = "".join(hover_lines) + "<extra></extra>"
             
-            # Add violin using KDE if available
+            # Collect violin data for batching
             kde_x = item.get("kde_x", [])
             kde_y = item.get("kde_y", [])
             
-            if kde_x and kde_y:
-                # Normalize KDE for violin width
-                max_kde = max(kde_y) if kde_y else 1
+            # Check if kde_x and kde_y are not empty (handles both lists and numpy arrays)
+            if kde_x is not None and kde_y is not None and len(kde_x) > 0 and len(kde_y) > 0:
+                # Normalize KDE for violin width (we know kde_y is not empty from the check above)
+                max_kde = max(kde_y)
                 normalized_kde = [k / max_kde * 0.4 for k in kde_y]
                 
-                # Create violin shape with heritage color
-                fig.add_trace(
-                    go.Scatter(
-                        x=list(kde_x) + list(reversed(kde_x)),
-                        y=[y_pos + k for k in normalized_kde] + [y_pos - k for k in reversed(normalized_kde)],
-                        fill="toself",
-                        fillcolor=heritage_color,
-                        line=dict(color="rgba(0,0,0,0)", width=0),
-                        mode="lines",
-                        name=item["concept_name"],
-                        showlegend=False,
-                        hoverinfo="skip",
-                        opacity=0.6
-                    ),
-                    row=row_idx, col=1
-                )
+                # Add violin coordinates to batch (with None separator for disconnected segments)
+                if violin_x_batch:  # Add separator if not first
+                    violin_x_batch.append(None)
+                    violin_y_batch.append(None)
+                
+                violin_x_batch.extend(list(kde_x) + list(reversed(kde_x)))
+                violin_y_batch.extend([y_pos + k for k in normalized_kde] + [y_pos - k for k in reversed(normalized_kde)])
             
-            # Add box plot elements
+            # Collect box plot data
             median = item.get("median")
             q1 = item.get("q1")
             q3 = item.get("q3")
             min_val = item.get("min")
             max_val = item.get("max")
-            count = item.get("count", 0)
             
             # Determine box color - gray for ordinals, black for main (like patient mode)
             box_color = "#666666" if is_ordinal else "black"
             
             if median is not None:
-                # Box - transparent fill like patient mode
+                # Box coordinates - separate by color
                 if q1 is not None and q3 is not None:
-                    fig.add_trace(
-                        go.Scatter(
-                            x=[q1, q3, q3, q1, q1],
-                            y=[y_pos - 0.15, y_pos - 0.15, y_pos + 0.15, y_pos + 0.15, y_pos - 0.15],
-                            fill="toself",
-                            fillcolor="rgba(0,0,0,0)",  # Transparent fill like patient mode
-                            line=dict(color=box_color, width=0.6),
-                            mode="lines",
-                            showlegend=False,
-                            hoverinfo="skip"
-                        ),
-                        row=row_idx, col=1
-                    )
+                    if is_ordinal:
+                        if box_x_batch_gray:  # Add separator if not first
+                            box_x_batch_gray.append(None)
+                            box_y_batch_gray.append(None)
+                        box_x_batch_gray.extend([q1, q3, q3, q1, q1])
+                        box_y_batch_gray.extend([y_pos - 0.15, y_pos - 0.15, y_pos + 0.15, y_pos + 0.15, y_pos - 0.15])
+                    else:
+                        if box_x_batch_black:  # Add separator if not first
+                            box_x_batch_black.append(None)
+                            box_y_batch_black.append(None)
+                        box_x_batch_black.extend([q1, q3, q3, q1, q1])
+                        box_y_batch_black.extend([y_pos - 0.15, y_pos - 0.15, y_pos + 0.15, y_pos + 0.15, y_pos - 0.15])
                     
-                    # Whiskers
+                    # Whiskers - separate by color
                     if min_val is not None:
-                        fig.add_trace(
-                            go.Scatter(x=[min_val, q1], y=[y_pos, y_pos], mode="lines",
-                                      line=dict(color=box_color, width=0.6), showlegend=False, hoverinfo="skip"),
-                            row=row_idx, col=1
-                        )
+                        if is_ordinal:
+                            if whisker_min_x_batch_gray:  # Add separator
+                                whisker_min_x_batch_gray.append(None)
+                                whisker_min_y_batch_gray.append(None)
+                            whisker_min_x_batch_gray.extend([min_val, q1])
+                            whisker_min_y_batch_gray.extend([y_pos, y_pos])
+                        else:
+                            if whisker_min_x_batch_black:  # Add separator
+                                whisker_min_x_batch_black.append(None)
+                                whisker_min_y_batch_black.append(None)
+                            whisker_min_x_batch_black.extend([min_val, q1])
+                            whisker_min_y_batch_black.extend([y_pos, y_pos])
+                    
                     if max_val is not None:
-                        fig.add_trace(
-                            go.Scatter(x=[q3, max_val], y=[y_pos, y_pos], mode="lines",
-                                      line=dict(color=box_color, width=0.6), showlegend=False, hoverinfo="skip"),
-                            row=row_idx, col=1
-                        )
+                        if is_ordinal:
+                            if whisker_max_x_batch_gray:  # Add separator
+                                whisker_max_x_batch_gray.append(None)
+                                whisker_max_y_batch_gray.append(None)
+                            whisker_max_x_batch_gray.extend([q3, max_val])
+                            whisker_max_y_batch_gray.extend([y_pos, y_pos])
+                        else:
+                            if whisker_max_x_batch_black:  # Add separator
+                                whisker_max_x_batch_black.append(None)
+                                whisker_max_y_batch_black.append(None)
+                            whisker_max_x_batch_black.extend([q3, max_val])
+                            whisker_max_y_batch_black.extend([y_pos, y_pos])
                 
-                # Median line
-                fig.add_trace(
-                    go.Scatter(
-                        x=[median, median],
-                        y=[y_pos - 0.15, y_pos + 0.15],
-                        mode="lines",
-                        line=dict(color=box_color, width=1.5),  # Match patient mode - using box_color
-                        showlegend=False,
-                        hoverinfo="skip"
-                    ),
-                    row=row_idx, col=1
-                )
+                # Median line - separate by color
+                if is_ordinal:
+                    if median_x_batch_gray:  # Add separator
+                        median_x_batch_gray.append(None)
+                        median_y_batch_gray.append(None)
+                    median_x_batch_gray.extend([median, median])
+                    median_y_batch_gray.extend([y_pos - 0.15, y_pos + 0.15])
+                else:
+                    if median_x_batch_black:  # Add separator
+                        median_x_batch_black.append(None)
+                        median_y_batch_black.append(None)
+                    median_x_batch_black.extend([median, median])
+                    median_y_batch_black.extend([y_pos - 0.15, y_pos + 0.15])
                 
-                # Add invisible scatter trace for clean hover (like patient mode)
-                fig.add_trace(
-                    go.Scatter(
-                        x=[median],
-                        y=[y_pos],
-                        mode='markers',
-                        marker=dict(size=30, opacity=0),  # Invisible but hoverable
-                        showlegend=False,
-                        hovertemplate=hover_text,
-                        hoverlabel=dict(
-                            bgcolor='white',
-                            bordercolor='#ccc',
-                            font=dict(color='black', size=12),
-                            align='left'
-                        )
-                    ),
-                    row=row_idx, col=1
-                )
+                # Hover trace (must remain individual for per-concept hover text)
+                hover_traces.append({
+                    'x': [median],
+                    'y': [y_pos],
+                    'hover_text': hover_text
+                })
             
-            # Add cluster overlay if available (red boxplot overlay like patient mode)
+            # Collect cluster overlay data
             cluster_stats = item.get("cluster_stats")
             if cluster_stats and show_cluster_overlay:
                 cluster_median = cluster_stats.get("time_median")
@@ -1157,11 +1453,189 @@ def create_composite_plot_from_summary(
                 cluster_count = cluster_stats.get("patient_count", 0)
                 
                 if cluster_median is not None and cluster_q1 is not None and cluster_q3 is not None:
-                    # Cluster box (red, smaller, on top)
+                    # Cluster box
+                    if cluster_box_x_batch:  # Add separator
+                        cluster_box_x_batch.append(None)
+                        cluster_box_y_batch.append(None)
+                    cluster_box_x_batch.extend([cluster_q1, cluster_q3, cluster_q3, cluster_q1, cluster_q1])
+                    cluster_box_y_batch.extend([y_pos - 0.08, y_pos - 0.08, y_pos + 0.08, y_pos + 0.08, y_pos - 0.08])
+                    
+                    # Cluster whiskers
+                    if cluster_min is not None:
+                        if cluster_whisker_min_x_batch:  # Add separator
+                            cluster_whisker_min_x_batch.append(None)
+                            cluster_whisker_min_y_batch.append(None)
+                        cluster_whisker_min_x_batch.extend([cluster_min, cluster_q1])
+                        cluster_whisker_min_y_batch.extend([y_pos, y_pos])
+                    
+                    if cluster_max is not None:
+                        if cluster_whisker_max_x_batch:  # Add separator
+                            cluster_whisker_max_x_batch.append(None)
+                            cluster_whisker_max_y_batch.append(None)
+                        cluster_whisker_max_x_batch.extend([cluster_q3, cluster_max])
+                        cluster_whisker_max_y_batch.extend([y_pos, y_pos])
+                    
+                    # Cluster median (with hover - keep individual for hover support)
+                    cluster_median_traces.append({
+                        'x': [cluster_median, cluster_median],
+                        'y': [y_pos - 0.08, y_pos + 0.08],
+                        'hover_text': f"Cluster - Median: {cluster_median:.1f} days<br>N={cluster_count}<extra></extra>"
+                    })
+        
+        # Add batched violin trace (if any violins)
+        if violin_x_batch:
+                fig.add_trace(
+                    go.Scatter(
+                    x=violin_x_batch,
+                    y=violin_y_batch,
+                        fill="toself",
+                        fillcolor=heritage_color,
+                        line=dict(color="rgba(0,0,0,0)", width=0),
+                        mode="lines",
+                        showlegend=False,
+                        hoverinfo="skip",
+                        opacity=0.6
+                    ),
+                    row=row_idx, col=1
+                )
+            
+        # Add batched box traces (separated by color)
+        if box_x_batch_black:
+            fig.add_trace(
+                go.Scatter(
+                    x=box_x_batch_black,
+                    y=box_y_batch_black,
+                    fill="toself",
+                    fillcolor="rgba(0,0,0,0)",  # Transparent fill
+                    line=dict(color="black", width=0.6),
+                    mode="lines",
+                    showlegend=False,
+                    hoverinfo="skip"
+                ),
+                row=row_idx, col=1
+            )
+        
+        if box_x_batch_gray:
                     fig.add_trace(
                         go.Scatter(
-                            x=[cluster_q1, cluster_q3, cluster_q3, cluster_q1, cluster_q1],
-                            y=[y_pos - 0.08, y_pos - 0.08, y_pos + 0.08, y_pos + 0.08, y_pos - 0.08],
+                    x=box_x_batch_gray,
+                    y=box_y_batch_gray,
+                            fill="toself",
+                    fillcolor="rgba(0,0,0,0)",  # Transparent fill
+                    line=dict(color="#666666", width=0.6),
+                            mode="lines",
+                            showlegend=False,
+                            hoverinfo="skip"
+                        ),
+                        row=row_idx, col=1
+                    )
+                    
+        # Add batched whisker traces (separated by color)
+        if whisker_min_x_batch_black:
+                        fig.add_trace(
+                go.Scatter(
+                    x=whisker_min_x_batch_black,
+                    y=whisker_min_y_batch_black,
+                    mode="lines",
+                    line=dict(color="black", width=0.6),
+                    showlegend=False,
+                    hoverinfo="skip"
+                ),
+                            row=row_idx, col=1
+                        )
+        
+        if whisker_min_x_batch_gray:
+                        fig.add_trace(
+                go.Scatter(
+                    x=whisker_min_x_batch_gray,
+                    y=whisker_min_y_batch_gray,
+                    mode="lines",
+                    line=dict(color="#666666", width=0.6),
+                    showlegend=False,
+                    hoverinfo="skip"
+                ),
+                            row=row_idx, col=1
+                        )
+                
+        if whisker_max_x_batch_black:
+                fig.add_trace(
+                    go.Scatter(
+                    x=whisker_max_x_batch_black,
+                    y=whisker_max_y_batch_black,
+                        mode="lines",
+                    line=dict(color="black", width=0.6),
+                        showlegend=False,
+                        hoverinfo="skip"
+                    ),
+                    row=row_idx, col=1
+                )
+                
+        if whisker_max_x_batch_gray:
+                fig.add_trace(
+                    go.Scatter(
+                    x=whisker_max_x_batch_gray,
+                    y=whisker_max_y_batch_gray,
+                    mode="lines",
+                    line=dict(color="#666666", width=0.6),
+                    showlegend=False,
+                    hoverinfo="skip"
+                ),
+                row=row_idx, col=1
+            )
+        
+        # Add batched median lines (separated by color)
+        if median_x_batch_black:
+            fig.add_trace(
+                go.Scatter(
+                    x=median_x_batch_black,
+                    y=median_y_batch_black,
+                    mode="lines",
+                    line=dict(color="black", width=1.5),
+                    showlegend=False,
+                    hoverinfo="skip"
+                ),
+                row=row_idx, col=1
+            )
+        
+        if median_x_batch_gray:
+            fig.add_trace(
+                go.Scatter(
+                    x=median_x_batch_gray,
+                    y=median_y_batch_gray,
+                    mode="lines",
+                    line=dict(color="#666666", width=1.5),
+                    showlegend=False,
+                    hoverinfo="skip"
+                ),
+                row=row_idx, col=1
+            )
+                
+        # Add individual hover traces (required for per-concept hover text)
+        for hover_data in hover_traces:
+                fig.add_trace(
+                    go.Scatter(
+                    x=hover_data['x'],
+                    y=hover_data['y'],
+                        mode='markers',
+                        marker=dict(size=30, opacity=0),  # Invisible but hoverable
+                        showlegend=False,
+                    hovertemplate=hover_data['hover_text'],
+                        hoverlabel=dict(
+                            bgcolor='white',
+                            bordercolor='#ccc',
+                            font=dict(color='black', size=12),
+                            align='left'
+                        )
+                    ),
+                    row=row_idx, col=1
+                )
+            
+        # Add batched cluster overlay traces
+        if cluster_box_x_batch and show_cluster_overlay:
+                    fig.add_trace(
+                        go.Scatter(
+                    x=cluster_box_x_batch,
+                    y=cluster_box_y_batch,
                             fill="toself",
                             fillcolor="rgba(0,0,0,0)",  # Transparent fill
                             line=dict(color="#E74C3C", width=1.5),  # Red for cluster
@@ -1172,35 +1646,49 @@ def create_composite_plot_from_summary(
                         row=row_idx, col=1
                     )
                     
-                    # Cluster whiskers
-                    if cluster_min is not None:
+        if cluster_whisker_min_x_batch and show_cluster_overlay:
                         fig.add_trace(
-                            go.Scatter(x=[cluster_min, cluster_q1], y=[y_pos, y_pos], mode="lines",
-                                      line=dict(color="#E74C3C", width=1.5), showlegend=False, hoverinfo="skip"),
+                go.Scatter(
+                    x=cluster_whisker_min_x_batch,
+                    y=cluster_whisker_min_y_batch,
+                    mode="lines",
+                    line=dict(color="#E74C3C", width=1.5),
+                    showlegend=False,
+                    hoverinfo="skip"
+                ),
                             row=row_idx, col=1
                         )
-                    if cluster_max is not None:
+        
+        if cluster_whisker_max_x_batch and show_cluster_overlay:
                         fig.add_trace(
-                            go.Scatter(x=[cluster_q3, cluster_max], y=[y_pos, y_pos], mode="lines",
-                                      line=dict(color="#E74C3C", width=1.5), showlegend=False, hoverinfo="skip"),
+                go.Scatter(
+                    x=cluster_whisker_max_x_batch,
+                    y=cluster_whisker_max_y_batch,
+                    mode="lines",
+                    line=dict(color="#E74C3C", width=1.5),
+                    showlegend=False,
+                    hoverinfo="skip"
+                ),
                             row=row_idx, col=1
                         )
                     
-                    # Cluster median line
+        # Add individual cluster median traces (required for hover)
+        if cluster_median_traces and show_cluster_overlay:
+            for cluster_median_data in cluster_median_traces:
                     fig.add_trace(
                         go.Scatter(
-                            x=[cluster_median, cluster_median],
-                            y=[y_pos - 0.08, y_pos + 0.08],
+                        x=cluster_median_data['x'],
+                        y=cluster_median_data['y'],
                             mode="lines",
                             line=dict(color="#E74C3C", width=2),
                             showlegend=False,
-                            hovertemplate=f"Cluster - Median: {cluster_median:.1f} days<br>N={cluster_count}<extra></extra>"
+                        hovertemplate=cluster_median_data['hover_text']
                         ),
                         row=row_idx, col=1
                     )
         
         # Update y-axis - wrap long concept names for display
-        y_labels = [wrap_text(item["concept_name"], max_chars=45) for item in items]
+        y_labels = [wrap_text(item["concept_name"], max_chars=60) for item in items]
         fig.update_yaxes(
             tickmode='array',
             tickvals=list(range(len(items))),

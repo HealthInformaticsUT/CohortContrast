@@ -1,8 +1,7 @@
 Package: CohortContrast
 Type: Package
-Title: CohortContrast: Package for cohorts' trajectory feature selection 
-Version: 0.0.0.900
-Author: Markus Haug
+Title: Feature Selection and Enrichment Analysis for OMOP CDM Cohorts
+Version: 1.0.0
 Maintainer: Markus Haug <markus.haug@ut.ee>
 Authors@R: c(
     person("Markus", "Haug", , "markus.haug@ut.ee", 
@@ -10,10 +9,14 @@ Authors@R: c(
     person("Raivo", "Kolde", , "raivo.kolde@ut.ee", 
     role = c("aut"), comment = c(ORCID = "0000-0003-2886-6298"))
     )
-Description: After defining a target cohort (cohort we are intrested in) and a control cohort (cohort we use for general population or for comparison) the package workflow extracts medical interventions which are over-represented in the target cohort over observation period. The are different argument values users can experiment with such as topK (max number of exported eligible features), presenceFilter (% of people must have the intervention), prevalenceCutOff (if prevalence odds are less than the given value, the feature will not be extracted). This is a workflow for medical proccess investigation and feature extraction. Includes an interactive dashboard for visualizing and analyzing disease cohort data built with Python Dash backend.
+Description: Defines target and control cohorts and extracts medical interventions
+    that are over-represented in the target cohort during the observation period.
+    Users can tune filtering and selection with arguments such as topK, presenceFilter,
+    and prevalenceCutOff. The workflow includes CHI2Y tests (chi-squared tests for
+    two proportions with Yates continuity correction), logistic tests, and optional
+    visual exploration helpers.
 License: Apache License (>= 2) | file LICENSE
 Encoding: UTF-8
-LazyData: true
 RoxygenNote: 7.3.3
 SystemRequirements: Python (>= 3.8)
 Imports:
@@ -21,12 +24,9 @@ Imports:
     tibble,
     purrr,
     tidyr,
-    pheatmap,
-    ggplot2 (>= 3.5.0),
     stringr,
     stats,
     utils,
-    patchwork,
     CDMConnector,
     CohortConstructor,
     omopgenerics,
@@ -36,20 +36,15 @@ Imports:
     foreach,
     data.table,
     reshape2,
-    scales,
     cli,
     bit64,
-    RColorBrewer,
     igraph,
-    forcats,
     Matrix,
     cluster,
     vegan,
-    Cohort2Trajectory,
-    TrajectoryViz,
     reticulate (>= 1.26),
     jsonlite,
-    processx
+    nanoparquet
 Suggests: 
     testthat (>= 3.0.0),
     PatientProfiles (>= 1.1.0),
@@ -59,11 +54,8 @@ Suggests:
     readr,
     knitr,
     rmarkdown,
-    nanoparquet
-Remotes:
-    HealthInformaticsUT/Cohort2Trajectory,
-    HealthInformaticsUT/TrajectoryViz
+    processx
 Config/testthat/edition: 3
-Config/testthat/parallel: true
+Config/testthat/parallel: false
 URL: https://healthinformaticsut.github.io/CohortContrast/
 VignetteBuilder: knitr

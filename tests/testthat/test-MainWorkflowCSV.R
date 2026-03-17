@@ -1,6 +1,9 @@
 library(testthat)
 library(CohortContrast)
 
+testthat::skip_on_cran()
+skip_if_no_integration()
+
 test_that("Created features table is correct.", {
   pathToResults <<- getwd() #pathToResults = paste(getwd(), "/tests",sep="")
 
@@ -34,12 +37,12 @@ test_that("Created features table is correct.", {
     topK = 15, # Number of features to export
     presenceFilter = FALSE, # 0-1, percentage of people who must have the chosen feature present
     complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
-    runZTests = FALSE,
+    runChi2YTests = FALSE,
     runLogitTests = FALSE,
     createOutputFiles = FALSE,
     numCores = 1)
 
-  expect_equal(length(data$trajectoryDataList$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
+  expect_equal(length(data$selectedFeatureData$selectedFeatures$CONCEPT_NAME) == 15, TRUE)
   #expect_equal(as.numeric(data$data_features[data$data_features$CONCEPT_NAME == "Diclofenac", 4]) == 2, TRUE)
   expect_equal(nrow(data$data_initial) == 10, TRUE)
   expect_equal(nrow(data$data_person) == 10, TRUE)

@@ -2,16 +2,18 @@
 % Please edit documentation in R/helpers.R
 \name{save_object_metadata}
 \alias{save_object_metadata}
-\title{Function for saving metadata table to path}
+\title{Save study metadata to CSV}
 \usage{
 save_object_metadata(object, path, studyName = NULL)
 }
 \arguments{
 \item{object}{Object to save}
 
-\item{path}{Path to the file saved}
+\item{path}{Path to CSV file}
+
+\item{studyName}{Optional study name override}
 }
 \description{
-Function for saving metadata table to path
+Save study metadata to CSV
 }
 \keyword{internal}

@@ -1,6 +1,4 @@
 
-<!-- README.md is generated from README.Rmd. Please edit that file -->
-
 # CohortContrast
 
 The goal of CohortContrast is to facilitate the comparison between
@@ -123,7 +121,7 @@ and input data:
       presenceFilter = 0.2, # 0-1, percentage of people who must have the chosen feature present
       complementaryMappingTable = FALSE, # A table for manual concept_id and concept_name mapping (merge)
       getSourceData = FALSE, # If true will generate summaries with source data as well
-      runZTests = TRUE,
+      runChi2YTests = TRUE,
       runLogitTests = FALSE,
       createOutputFiles = TRUE,
       complName = "CohortContrastStudy")
@@ -133,18 +131,19 @@ and input data:
 The CohortContrast package generates the following outputs:
 
 1.  Running `CohortContrast` returns a list of tables (patient level
-    summarised data for target and control) as well as saves the object.
-    These can be analysed in the GUI.
-2.  Using GUI with `runCohortContrastGUI` generates plots as well as
-    saves the last state of your analysis in the GUI.
-3.  There is an example .rds file in `./inst/example/example.rds`.
-    You can view it in the GUI if you copy it (+ the `example.csv` file) to your `pathToResults` path.
+    summarised data for target and control) and saves a study folder with
+    parquet files that can be analysed in the GUI directly.
+2.  Using viewer helpers with `runCohortContrastViewer` generates plots
+    from parquet-formatted results.
+3.  Example studies are available under `inst/example/st`.
+4.  Published studies can be explored at
+    <http://omop-apps.cloud.ut.ee/CohortContrast/>.
     
 
 <!-- -->    
 
-    CohortContrast::runCohortContrastGUI(
-     pathToResults = pathToResults
+    CohortContrast::runCohortContrastViewer(
+     dataDir = "inst/example/st"
     )
 
 ## Demo

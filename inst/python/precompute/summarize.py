@@ -10,6 +10,7 @@ Optimized version with:
 
 import json
 import logging
+import math
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -19,10 +20,15 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from clustering.clustering import build_patient_feature_matrix, cluster_patient_features
+
 logger = logging.getLogger(__name__)
 
 PARQUET_ENGINE = 'pyarrow'
 DEFAULT_MIN_CELL_COUNT = 0
+DEFAULT_CLUSTER_FEATURE_MATRIX_CELL_THRESHOLD = 50000000
+FEATURES_PER_CLUSTER_CONCEPT = 3
+DEFAULT_PAIRWISE_OVERLAP_MAX_CONCEPTS = 500
 
 
 def setup_logging(verbose: bool = True) -> None:
@@ -348,17 +354,19 @@ def compute_concept_summaries_vectorized(preprocessed: PreprocessedData, data_fe
 
         
         # Apply small cell suppression to all count columns FIRST
+        # IMPORTANT: Suppression must happen BEFORE calculating prevalences to ensure privacy protection
         summaries["patient_count"] = apply_suppression_to_series(summaries["patient_count"], min_cell_count)
         summaries["time_count"] = apply_suppression_to_series(summaries["time_count"], min_cell_count)
         
-        # Apply suppression to target/control counts for prevalence and enrichment calculation
+        # Apply suppression to target/control counts BEFORE using them for prevalence calculations
+        # This ensures any counts in the suppression interval are raised to min_cell_count
         if "TARGET_SUBJECT_COUNT" in summaries.columns:
             summaries["TARGET_SUBJECT_COUNT"] = apply_suppression_to_series(summaries["TARGET_SUBJECT_COUNT"], min_cell_count)
         if "CONTROL_SUBJECT_COUNT" in summaries.columns:
             summaries["CONTROL_SUBJECT_COUNT"] = apply_suppression_to_series(summaries["CONTROL_SUBJECT_COUNT"], min_cell_count)
         
         # Calculate prevalences AFTER suppression using suppressed counts
-        # Use TARGET_SUBJECT_COUNT and CONTROL_SUBJECT_COUNT consistently for both prevalences
+        # The suppressed counts are used here to ensure privacy-protected prevalences
         total_target_patients = preprocessed.total_target_patients
         total_control_patients = preprocessed.total_control_patients
         
@@ -391,11 +399,15 @@ def compute_concept_summaries_vectorized(preprocessed: PreprocessedData, data_fe
         
         summaries["PREVALENCE_DIFFERENCE_RATIO"] = summaries.apply(calc_enrichment, axis=1)
         
+        # Drop TARGET_SUBJECT_COUNT and CONTROL_SUBJECT_COUNT - they were only used for intermediate calculations
+        # The prevalences are what we need, not the raw counts
+        summaries = summaries.drop(columns=["TARGET_SUBJECT_COUNT", "CONTROL_SUBJECT_COUNT"], errors="ignore")
+        
         logger.info(f"Generated {len(summaries):,} concept summaries")
         return summaries
 
 
-def compute_ordinal_summaries_vectorized(preprocessed: PreprocessedData, data_features: pd.DataFrame, min_cell_count: int = DEFAULT_MIN_CELL_COUNT) -> pd.DataFrame:
+def compute_ordinal_summaries_vectorized(preprocessed: PreprocessedData, data_features: pd.DataFrame, data_patients: pd.DataFrame, min_cell_count: int = DEFAULT_MIN_CELL_COUNT) -> pd.DataFrame:
     """Compute ordinal concept summaries (1st, 2nd, 3rd occurrence) using vectorized operations."""
     with Timer("Computing ordinal summaries (vectorized)"):
         df_exploded = preprocessed.df_exploded
@@ -462,8 +474,9 @@ def compute_ordinal_summaries_vectorized(preprocessed: PreprocessedData, data_fe
         patient_counts = df_ordinals.groupby(ordinal_group_cols)["PERSON_ID"].nunique().reset_index(name='patient_count')
         ordinal_summaries = time_agg.merge(patient_counts, on=ordinal_group_cols, how='outer')
         
-        if not preprocessed.feature_lookup.empty:
-            ordinal_summaries = ordinal_summaries.merge(preprocessed.feature_lookup, on="CONCEPT_ID", how="left")
+        # NOTE: We do NOT merge TARGET_SUBJECT_COUNT and CONTROL_SUBJECT_COUNT from feature_lookup
+        # because ordinal summaries use patient_count for prevalence calculation, not these columns.
+        # These columns are not needed and would require suppression if included.
         
         # Add age and gender statistics per ordinal group
         if not person_with_ages.empty and "AGE" in person_with_ages.columns:
@@ -500,7 +513,8 @@ def compute_ordinal_summaries_vectorized(preprocessed: PreprocessedData, data_fe
         
         ordinal_suffix_map = {1: "st", 2: "nd", 3: "rd"}
         ordinal_summaries["ordinal_name_suffix"] = ordinal_summaries["ORDINAL"].apply(lambda x: f"{x}{ordinal_suffix_map.get(x, 'th')}")
-        ordinal_summaries["ORIGINAL_CONCEPT_ID"] = ordinal_summaries["CONCEPT_ID"]
+        # Save ORIGINAL_CONCEPT_ID before modifying CONCEPT_ID (clean .0 suffix for consistency)
+        ordinal_summaries["ORIGINAL_CONCEPT_ID"] = ordinal_summaries["CONCEPT_ID"].astype(str).str.replace(r'\.0$', '', regex=True)
         
         # Add CONCEPT_NAME from data_features if not already present
         if "CONCEPT_NAME" not in ordinal_summaries.columns:
@@ -534,41 +548,129 @@ def compute_ordinal_summaries_vectorized(preprocessed: PreprocessedData, data_fe
             on="CONCEPT_ID", how="left"
         )
         
-        # Apply small cell suppression to all count columns FIRST
+        # Calculate target and control patient counts for each ordinal occurrence
+        # This is needed to calculate PREVALENCE_DIFFERENCE_RATIO correctly
+        logger.info("Calculating target and control ordinal occurrence counts...")
+        
+        # Save unsuppressed target counts before suppression
+        ordinal_summaries["TARGET_SUBJECT_COUNT"] = ordinal_summaries["patient_count"]
+        
+        # Process control cohort to get ordinal occurrence counts
+        # For control cohort, count ALL ordinals that exist (no 50% threshold applied)
+        # The 50% threshold only applies to target cohort to determine which ordinals are statistically meaningful
+        total_control_patients = preprocessed.total_control_patients
+        
+        # Initialize CONTROL_SUBJECT_COUNT to 0 for all rows
+        ordinal_summaries["CONTROL_SUBJECT_COUNT"] = 0
+        
+        if not data_patients.empty and total_control_patients > 0:
+            # Filter control cohort
+            df_control = data_patients[data_patients["COHORT_DEFINITION_ID"] == "control"].copy()
+            
+            if not df_control.empty:
+                # Filter to only concepts that exist in ordinal summaries (use ORIGINAL_CONCEPT_ID)
+                valid_concepts = set(ordinal_summaries["ORIGINAL_CONCEPT_ID"].unique())
+                df_control["CONCEPT_ID"] = df_control["CONCEPT_ID"].astype(str).str.replace(r'\.0$', '', regex=True)
+                df_control = df_control[df_control["CONCEPT_ID"].isin(valid_concepts)]
+                
+                if not df_control.empty:
+                    # Explode TIME_TO_EVENT for control cohort
+                    df_control_exploded = df_control.explode("TIME_TO_EVENT")
+                    df_control_exploded["TIME_TO_EVENT"] = pd.to_numeric(df_control_exploded["TIME_TO_EVENT"], errors='coerce')
+                    df_control_exploded = df_control_exploded.dropna(subset=["TIME_TO_EVENT"])
+                    
+                    if not df_control_exploded.empty:
+                        logger.info("Processing control cohort ordinals (counting all ordinals, no 50% threshold)...")
+                        # Assign ordinals to control events (same logic as target)
+                        df_control_sorted = df_control_exploded.sort_values(["PERSON_ID"] + group_cols + ["TIME_TO_EVENT"]).copy()
+                        df_control_sorted["_rank_key"] = df_control_sorted.groupby(["PERSON_ID"] + group_cols)["TIME_TO_EVENT"].rank(method='dense')
+                        df_control_sorted["ORDINAL"] = df_control_sorted["_rank_key"].astype(int)
+                        df_control_ordinals = df_control_sorted.drop_duplicates(subset=["PERSON_ID"] + group_cols + ["ORDINAL"])
+                        
+                        # For control cohort, count ALL ordinals that exist (no 50% threshold)
+                        # Only limit to ordinals 1-10 to match target cohort range
+                        df_control_ordinals = df_control_ordinals[df_control_ordinals["ORDINAL"] <= 10]
+                        
+                        if not df_control_ordinals.empty:
+                            logger.info(f"Found {df_control_ordinals[group_cols + ['ORDINAL']].drop_duplicates().shape[0]:,} control ordinal groups (all ordinals counted)")
+                            
+                            # Count control patients per ordinal group
+                            control_counts = df_control_ordinals.groupby(ordinal_group_cols)["PERSON_ID"].nunique().reset_index(name="CONTROL_SUBJECT_COUNT")
+                            
+                            # Match control ordinals with target ordinals for comparison
+                            # Use ORIGINAL_CONCEPT_ID for matching since CONCEPT_ID in ordinal_summaries has been modified with ordinal suffix
+                            # Rename CONCEPT_ID to ORIGINAL_CONCEPT_ID for merging with ordinal_summaries
+                            control_counts = control_counts.rename(columns={"CONCEPT_ID": "ORIGINAL_CONCEPT_ID"})
+                            # Merge with ordinal_summaries using ORIGINAL_CONCEPT_ID, ORDINAL (and HERITAGE if applicable)
+                            merge_cols = ["ORIGINAL_CONCEPT_ID", "ORDINAL"] + (["HERITAGE"] if has_heritage else [])
+                            ordinal_summaries = ordinal_summaries.merge(control_counts[merge_cols + ["CONTROL_SUBJECT_COUNT"]], on=merge_cols, how="left", suffixes=("", "_new"))
+                            # Update CONTROL_SUBJECT_COUNT where we have matches, keep 0 where we don't
+                            ordinal_summaries["CONTROL_SUBJECT_COUNT"] = ordinal_summaries["CONTROL_SUBJECT_COUNT_new"].fillna(ordinal_summaries["CONTROL_SUBJECT_COUNT"]).astype(int)
+                            ordinal_summaries = ordinal_summaries.drop(columns=["CONTROL_SUBJECT_COUNT_new"], errors="ignore")
+                            logger.info(f"Matched {ordinal_summaries[ordinal_summaries['CONTROL_SUBJECT_COUNT'] > 0].shape[0]:,} target ordinal groups with control data")
+                        else:
+                            logger.warning("No valid control ordinals found")
+                    else:
+                        logger.warning("Control cohort had no valid TIME_TO_EVENT after exploding")
+                else:
+                    logger.warning(f"Control cohort had no concepts matching ordinal summaries (valid concepts: {len(valid_concepts)})")
+            else:
+                logger.warning("Control cohort was empty")
+        else:
+            logger.warning(f"No control data available (data_patients empty: {data_patients.empty}, total_control_patients: {total_control_patients})")
+        
+        # Apply small cell suppression to all count columns BEFORE calculating prevalences
+        # IMPORTANT: Suppression must happen BEFORE calculating prevalences to ensure privacy protection
         ordinal_summaries["patient_count"] = apply_suppression_to_series(ordinal_summaries["patient_count"], min_cell_count)
-        ordinal_summaries["time_count"] = apply_suppression_to_series(ordinal_summaries["time_count"], min_cell_count)
+        ordinal_summaries["TARGET_SUBJECT_COUNT"] = apply_suppression_to_series(ordinal_summaries["TARGET_SUBJECT_COUNT"], min_cell_count)
+        ordinal_summaries["CONTROL_SUBJECT_COUNT"] = apply_suppression_to_series(ordinal_summaries["CONTROL_SUBJECT_COUNT"], min_cell_count)
         
         # Calculate prevalence AFTER suppression using suppressed counts
         if total_target_patients > 0:
-            ordinal_summaries["TARGET_SUBJECT_PREVALENCE"] = ordinal_summaries["patient_count"] / total_target_patients
+            ordinal_summaries["TARGET_SUBJECT_PREVALENCE"] = ordinal_summaries["TARGET_SUBJECT_COUNT"] / total_target_patients
         else:
             ordinal_summaries["TARGET_SUBJECT_PREVALENCE"] = 0.0
         
-        # For ordinal concepts, use the parent concept's enrichment
-        # Build lookup from data_features using ORIGINAL_CONCEPT_ID
-        if "PREVALENCE_DIFFERENCE_RATIO" in data_features.columns:
-            enrichment_lookup = data_features[["CONCEPT_ID", "PREVALENCE_DIFFERENCE_RATIO"]].drop_duplicates()
-            enrichment_lookup["CONCEPT_ID"] = enrichment_lookup["CONCEPT_ID"].astype(str)
-            ordinal_summaries = ordinal_summaries.merge(
-                enrichment_lookup.rename(columns={"CONCEPT_ID": "ORIGINAL_CONCEPT_ID"}),
-                on="ORIGINAL_CONCEPT_ID",
-                how="left"
-            )
-            ordinal_summaries["PREVALENCE_DIFFERENCE_RATIO"] = ordinal_summaries["PREVALENCE_DIFFERENCE_RATIO"].fillna(1.0)
+        # Calculate control prevalence from suppressed CONTROL_SUBJECT_COUNT
+        if total_control_patients > 0:
+            ordinal_summaries["CONTROL_SUBJECT_PREVALENCE"] = ordinal_summaries["CONTROL_SUBJECT_COUNT"] / total_control_patients
         else:
-            ordinal_summaries["PREVALENCE_DIFFERENCE_RATIO"] = 1.0
+            ordinal_summaries["CONTROL_SUBJECT_PREVALENCE"] = 0.0
+        
+        # Calculate PREVALENCE_DIFFERENCE_RATIO from suppressed target and control prevalences
+        # Handle edge cases: 0 target → 0, 0 control → 100 (capped enrichment)
+        def calc_enrichment(row):
+            target_prev = row.get("TARGET_SUBJECT_PREVALENCE", 0)
+            control_prev = row.get("CONTROL_SUBJECT_PREVALENCE", 0)
+            if target_prev == 0:
+                return 0.0
+            elif control_prev == 0:
+                return 100.0  # Capped enrichment when control is 0
+            else:
+                return target_prev / control_prev
+        
+        ordinal_summaries["PREVALENCE_DIFFERENCE_RATIO"] = ordinal_summaries.apply(calc_enrichment, axis=1)
+        
+        # Drop TARGET_SUBJECT_COUNT and CONTROL_SUBJECT_COUNT - they should not be in ordinal summaries
+        # This is a safety measure to ensure they're never saved in the parquet file
+        ordinal_summaries = ordinal_summaries.drop(columns=["TARGET_SUBJECT_COUNT", "CONTROL_SUBJECT_COUNT"], errors="ignore")
         
         logger.info(f"Generated {len(ordinal_summaries):,} ordinal summaries")
         return ordinal_summaries
 
 
-def compute_clustering_for_k(preprocessed: PreprocessedData, data_features: pd.DataFrame, data_initial, data_person, k: int, concept_limit: Optional[int] = 60, min_cell_count: int = DEFAULT_MIN_CELL_COUNT) -> Optional[Dict]:
+def compute_clustering_for_k(
+    preprocessed: PreprocessedData,
+    data_features: pd.DataFrame,
+    data_initial,
+    data_person,
+    k: int,
+    concept_limit: Optional[int] = 60,
+    min_cell_count: int = DEFAULT_MIN_CELL_COUNT,
+    cluster_feature_matrix_cell_threshold: int = DEFAULT_CLUSTER_FEATURE_MATRIX_CELL_THRESHOLD,
+    pairwise_overlap_max_concepts: int = DEFAULT_PAIRWISE_OVERLAP_MAX_CONCEPTS,
+) -> Optional[Dict]:
     """Compute clustering results for a specific k value using vectorized operations."""
-    from sklearn.decomposition import PCA
-    from sklearn.preprocessing import StandardScaler
-    from sklearn_extra.cluster import KMedoids
-    from sklearn.metrics import silhouette_score
-    
     df_exploded = preprocessed.df_exploded
     
     if df_exploded.empty:
@@ -593,36 +695,49 @@ def compute_clustering_for_k(preprocessed: PreprocessedData, data_features: pd.D
     else:
         top_concepts = df_exploded.groupby("CONCEPT_ID")["PERSON_ID"].nunique().nlargest(concept_limit).index.tolist()
     
+    all_patients = sorted(df_exploded["PERSON_ID"].unique())
+    if len(all_patients) < k:
+        return None
+
+    # Guardrail: cap concepts so patient x feature matrix stays within a manageable size.
+    max_concepts_by_matrix = max(
+        2,
+        cluster_feature_matrix_cell_threshold // max(1, len(all_patients) * FEATURES_PER_CLUSTER_CONCEPT),
+    )
+    if len(top_concepts) > max_concepts_by_matrix:
+        logger.warning(
+            "Capping clustering concepts from %s to %s for memory safety (%s patients).",
+            len(top_concepts),
+            max_concepts_by_matrix,
+            len(all_patients),
+        )
+        top_concepts = top_concepts[:max_concepts_by_matrix]
+
     events_df = df_exploded[df_exploded["CONCEPT_ID"].isin(top_concepts)].copy()
     if events_df.empty:
         return None
-    
-    all_patients = events_df["PERSON_ID"].unique()
-    if len(all_patients) < k:
+
+    feature_df = build_patient_feature_matrix(events_df, all_patients, time_col="TIME_TO_EVENT")
+    if feature_df.empty or len(feature_df.columns) == 0:
         return None
-    
+
     feature_matrix = events_df.groupby(["PERSON_ID", "CONCEPT_ID"]).size().unstack(fill_value=0)
     feature_matrix = (feature_matrix > 0).astype(int)
-    
-    X = feature_matrix.values
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-    
-    n_components = min(20, X_scaled.shape[1], X_scaled.shape[0] - 1)
-    if n_components < 2:
-        return None
-    
-    pca = PCA(n_components=n_components)
-    X_pca = pca.fit_transform(X_scaled)
-    
+    feature_matrix = feature_matrix.reindex(pd.Index(all_patients, name="PERSON_ID"), fill_value=0)
+
     try:
-        kmedoids = KMedoids(n_clusters=k, random_state=42, method='pam')
-        cluster_labels = kmedoids.fit_predict(X_pca)
-        silhouette = float(silhouette_score(X_pca, cluster_labels)) if len(set(cluster_labels)) > 1 else 0.0
+        clustering_result = cluster_patient_features(
+            feature_df,
+            cluster_range=(k, k),
+            pca_components=20,
+            k_value=k,
+        )
     except Exception as e:
         warnings.warn(f"Clustering failed for k={k}: {e}")
         return None
-    
+
+    cluster_labels = clustering_result["cluster_labels"]
+    silhouette = float(clustering_result["best_silhouette_score"])
     patient_assignments = pd.DataFrame({'PERSON_ID': feature_matrix.index, 'cluster': [f'C{i+1}' for i in cluster_labels]})
     raw_cluster_sizes = patient_assignments['cluster'].value_counts().to_dict()
     cluster_sizes = {k_name: apply_small_cell_suppression(v, min_cell_count) for k_name, v in raw_cluster_sizes.items()}
@@ -790,23 +905,46 @@ def compute_clustering_for_k(preprocessed: PreprocessedData, data_features: pd.D
     else:
         summary_matrix = cluster_stats
     
-    pairwise_overlap = compute_pairwise_overlap_vectorized(feature_matrix, top_concepts, patient_assignments, min_cell_count)
+    pairwise_overlap = compute_pairwise_overlap_vectorized(
+        feature_matrix,
+        top_concepts,
+        patient_assignments,
+        min_cell_count,
+        pairwise_overlap_max_concepts=pairwise_overlap_max_concepts,
+    )
     
     return {
         "k": k, "silhouette_score": silhouette, "cluster_sizes": cluster_sizes,
         "summary_matrix": summary_matrix, "pairwise_overlap": pairwise_overlap,
         "concepts_used": top_concepts, "total_patients": apply_small_cell_suppression(len(all_patients), min_cell_count),
-        "patient_assignments": patient_assignments
+        "patient_assignments": patient_assignments,
+        "sampled": clustering_result.get("sampled", False),
     }
 
 
-def compute_pairwise_overlap_vectorized(feature_matrix, concept_list, patient_assignments, min_cell_count) -> pd.DataFrame:
+def compute_pairwise_overlap_vectorized(
+    feature_matrix,
+    concept_list,
+    patient_assignments,
+    min_cell_count,
+    pairwise_overlap_max_concepts: int = DEFAULT_PAIRWISE_OVERLAP_MAX_CONCEPTS
+) -> pd.DataFrame:
     """Compute pairwise Jaccard and Phi matrices using vectorized operations.
     
     Computes overlap for:
     - "overall": all patients
     - Per-cluster: patients in each cluster (C1, C2, etc.)
     """
+    if feature_matrix.shape[1] > pairwise_overlap_max_concepts:
+        concept_counts = feature_matrix.sum(axis=0).sort_values(ascending=False)
+        selected_concepts = concept_counts.head(pairwise_overlap_max_concepts).index
+        logger.warning(
+            "Capping pairwise overlap concepts from %s to %s to avoid quadratic memory growth.",
+            feature_matrix.shape[1],
+            pairwise_overlap_max_concepts,
+        )
+        feature_matrix = feature_matrix.loc[:, selected_concepts]
+
     concept_patients = {cid: set(feature_matrix[feature_matrix[cid] > 0].index) for cid in feature_matrix.columns}
     n_total = len(feature_matrix)
     pairwise_rows = []
@@ -842,7 +980,8 @@ def compute_pairwise_overlap_vectorized(feature_matrix, concept_list, patient_as
                 n_10 = len(patients_i - patients_j)
                 n_01 = len(patients_j - patients_i)
                 n_00 = group_size - n_11 - n_10 - n_01
-                denom = np.sqrt((n_11 + n_10) * (n_11 + n_01) * (n_00 + n_10) * (n_00 + n_01))
+                denom_term = (n_11 + n_10) * (n_11 + n_01) * (n_00 + n_10) * (n_00 + n_01)
+                denom = math.sqrt(float(denom_term)) if denom_term > 0 else 0.0
                 phi = (n_11 * n_00 - n_10 * n_01) / denom if denom > 0 else 0
                 
                 rows.append({
@@ -870,7 +1009,18 @@ def compute_pairwise_overlap_vectorized(feature_matrix, concept_list, patient_as
     return pd.DataFrame(pairwise_rows)
     
 
-def compute_all_clusterings_parallel(preprocessed, data_features, data_initial, data_person, k_values, concept_limit, min_cell_count, max_parallel_jobs: int = 2) -> Dict[int, Dict]:
+def compute_all_clusterings_parallel(
+    preprocessed,
+    data_features,
+    data_initial,
+    data_person,
+    k_values,
+    concept_limit,
+    min_cell_count,
+    max_parallel_jobs: int = 2,
+    cluster_feature_matrix_cell_threshold: int = DEFAULT_CLUSTER_FEATURE_MATRIX_CELL_THRESHOLD,
+    pairwise_overlap_max_concepts: int = DEFAULT_PAIRWISE_OVERLAP_MAX_CONCEPTS,
+) -> Dict[int, Dict]:
     """Compute clustering for multiple k values.
     
     Args:
@@ -887,7 +1037,17 @@ def compute_all_clusterings_parallel(preprocessed, data_features, data_initial, 
             n_jobs = min(max_parallel_jobs, len(k_values))
             logger.info(f"Computing clustering for k={k_values} with {n_jobs} parallel jobs...")
             results = Parallel(n_jobs=n_jobs, prefer="threads")(
-                delayed(compute_clustering_for_k)(preprocessed, data_features, data_initial, data_person, k, concept_limit, min_cell_count)
+                delayed(compute_clustering_for_k)(
+                    preprocessed,
+                    data_features,
+                    data_initial,
+                    data_person,
+                    k,
+                    concept_limit,
+                    min_cell_count,
+                    cluster_feature_matrix_cell_threshold,
+                    pairwise_overlap_max_concepts,
+                )
                 for k in k_values
             )
             return {k: r for k, r in zip(k_values, results) if r is not None}
@@ -898,13 +1058,91 @@ def compute_all_clusterings_parallel(preprocessed, data_features, data_initial, 
     results = {}
     for k in k_values:
         logger.info(f"Computing clustering for k={k}...")
-        result = compute_clustering_for_k(preprocessed, data_features, data_initial, data_person, k, concept_limit, min_cell_count)
+        result = compute_clustering_for_k(
+            preprocessed,
+            data_features,
+            data_initial,
+            data_person,
+            k,
+            concept_limit,
+            min_cell_count,
+            cluster_feature_matrix_cell_threshold,
+            pairwise_overlap_max_concepts,
+        )
         if result is not None:
             results[k] = result
     return results
 
 
-def precompute_study_summary(study_path: str, output_path: Optional[str] = None, cluster_k_values: List[int] = [2, 3, 4, 5], concept_limit: Optional[int] = 60, min_cell_count: int = DEFAULT_MIN_CELL_COUNT, max_parallel_jobs: int = 1) -> Dict:
+def compute_cluster_demographics_for_assignments(
+    person_with_ages: pd.DataFrame,
+    patient_assignments: Optional[pd.DataFrame],
+    min_cell_count: int = DEFAULT_MIN_CELL_COUNT
+) -> Dict[str, Dict]:
+    """
+    Compute per-cluster demographic summaries from patient assignments.
+
+    Returns:
+        Dict keyed by cluster label (e.g., "C1"), with patient_count, age stats, n, and male_proportion.
+    """
+    if (
+        patient_assignments is None
+        or patient_assignments.empty
+        or "PERSON_ID" not in patient_assignments.columns
+        or "cluster" not in patient_assignments.columns
+        or person_with_ages is None
+        or person_with_ages.empty
+        or "PERSON_ID" not in person_with_ages.columns
+    ):
+        return {}
+    
+    cluster_demographics = {}
+    
+    for cluster in sorted(patient_assignments["cluster"].dropna().unique()):
+        cluster_patient_ids = patient_assignments[patient_assignments["cluster"] == cluster]["PERSON_ID"]
+        if cluster_patient_ids.empty:
+            continue
+        
+        cluster_persons = person_with_ages[person_with_ages["PERSON_ID"].isin(cluster_patient_ids)]
+        if cluster_persons.empty:
+            continue
+        
+        cluster_summary = {
+            "patient_count": apply_small_cell_suppression(int(cluster_patient_ids.nunique()), min_cell_count)
+        }
+        
+        if "AGE" in cluster_persons.columns:
+            cluster_ages = cluster_persons["AGE"].dropna().values
+            if len(cluster_ages) > 0:
+                q1, q3 = np.percentile(cluster_ages, [25, 75])
+                cluster_summary.update({
+                    "age_mean": float(np.mean(cluster_ages)),
+                    "age_median": float(np.median(cluster_ages)),
+                    "age_std": float(np.std(cluster_ages)) if len(cluster_ages) > 1 else 0.0,
+                    "age_q1": float(q1),
+                    "age_q3": float(q3),
+                    "n": apply_small_cell_suppression(int(len(cluster_ages)), min_cell_count)
+                })
+        
+        if "GENDER_CONCEPT_ID" in cluster_persons.columns and len(cluster_persons) > 0:
+            male_count = (cluster_persons["GENDER_CONCEPT_ID"] == 8507).sum()
+            cluster_summary["male_proportion"] = float(male_count / len(cluster_persons))
+        
+        cluster_demographics[str(cluster)] = cluster_summary
+    
+    return cluster_demographics
+
+
+def precompute_study_summary(
+    study_path: str,
+    output_path: Optional[str] = None,
+    cluster_k_values: List[int] = [2, 3, 4, 5],
+    concept_limit: Optional[int] = None,
+    min_cell_count: int = DEFAULT_MIN_CELL_COUNT,
+    max_parallel_jobs: int = 1,
+    cluster_feature_matrix_cell_threshold: int = DEFAULT_CLUSTER_FEATURE_MATRIX_CELL_THRESHOLD,
+    pairwise_overlap_max_concepts: int = DEFAULT_PAIRWISE_OVERLAP_MAX_CONCEPTS,
+) -> Dict:
     """Pre-compute all summary data for a study, removing patient-level information."""
     setup_logging(verbose=True)
     total_start = time.time()
@@ -925,6 +1163,8 @@ def precompute_study_summary(study_path: str, output_path: Optional[str] = None,
     logger.info(f"Output directory: {output_path}")
     logger.info(f"Concept limit: {'all' if concept_limit is None else concept_limit}")
     logger.info(f"Min cell count: {min_cell_count}")
+    logger.info(f"Cluster matrix cell threshold: {cluster_feature_matrix_cell_threshold}")
+    logger.info(f"Pairwise overlap max concepts: {pairwise_overlap_max_concepts}")
     logger.info("=" * 60)
     
     data_patients, data_features, data_initial, data_person, mapping_table = None, None, None, None, None
@@ -973,7 +1213,7 @@ def precompute_study_summary(study_path: str, output_path: Optional[str] = None,
         generated_files["concept_summaries"] = str(output_path / "concept_summaries.parquet")
         logger.info(f"✓ Generated concept_summaries.parquet: {len(concept_summaries):,} rows")
     
-    ordinal_summaries = compute_ordinal_summaries_vectorized(preprocessed, data_features, min_cell_count)
+    ordinal_summaries = compute_ordinal_summaries_vectorized(preprocessed, data_features, data_patients, min_cell_count)
     if not ordinal_summaries.empty:
         ordinal_summaries.to_parquet(output_path / "ordinal_summaries.parquet", engine=PARQUET_ENGINE)
         generated_files["ordinal_summaries"] = str(output_path / "ordinal_summaries.parquet")
@@ -994,7 +1234,18 @@ def precompute_study_summary(study_path: str, output_path: Optional[str] = None,
                 study_demographics["male_proportion"] = float(male_count / len(preprocessed.person_with_ages))
     
     with Timer(f"Computing clustering for k={cluster_k_values}"):
-        clustering_results = compute_all_clusterings_parallel(preprocessed, data_features, data_initial, data_person, cluster_k_values, concept_limit, min_cell_count, max_parallel_jobs)
+        clustering_results = compute_all_clusterings_parallel(
+            preprocessed,
+            data_features,
+            data_initial,
+            data_person,
+            cluster_k_values,
+            concept_limit,
+            min_cell_count,
+            max_parallel_jobs,
+            cluster_feature_matrix_cell_threshold=cluster_feature_matrix_cell_threshold,
+            pairwise_overlap_max_concepts=pairwise_overlap_max_concepts,
+        )
         for k, result in clustering_results.items():
             # Ensure CONCEPT_ID is string to avoid mixed type issues with PyArrow
             summary_df = result["summary_matrix"].copy()
@@ -1008,22 +1259,32 @@ def precompute_study_summary(study_path: str, output_path: Optional[str] = None,
                 result["pairwise_overlap"].to_parquet(output_path / f"clustering_k{k}_pairwise_overlap.parquet", engine=PARQUET_ENGINE)
                 generated_files[f"clustering_k{k}_pairwise_overlap"] = str(output_path / f"clustering_k{k}_pairwise_overlap.parquet")
             logger.info(f"✓ k={k}: silhouette={result['silhouette_score']:.3f}, patients={result['total_patients']}")
-        clustering_metadata = {k: {"silhouette_score": r["silhouette_score"], "cluster_sizes": r["cluster_sizes"], "total_patients": r["total_patients"], "concepts_used_count": len(r["concepts_used"])} for k, r in clustering_results.items()}
+        clustering_metadata = {
+            k: {
+                "silhouette_score": r["silhouette_score"],
+                "cluster_sizes": r["cluster_sizes"],
+                "total_patients": r["total_patients"],
+                "concepts_used_count": len(r["concepts_used"]),
+                "sampled": bool(r.get("sampled", False)),
+            }
+            for k, r in clustering_results.items()
+        }
     
-    demographics_data = {"overall": {}, "clusters": {}}
-    if not preprocessed.person_with_ages.empty and "AGE" in preprocessed.person_with_ages.columns:
+    demographics_data = {"overall": {}, "clusters": {}, "clusters_by_k": {}, "clusters_best_k": None}
+    if preprocessed.person_with_ages is not None and not preprocessed.person_with_ages.empty:
         with Timer("Computing demographic distributions"):
-            ages = preprocessed.person_with_ages["AGE"].dropna().values
-            if len(ages) > 0:
-                age_bins = list(range(0, 110, 10))
-                age_hist, _ = np.histogram(ages, bins=age_bins)
-                q1, q3 = np.percentile(ages, [25, 75])
-                demographics_data["overall"]["age_histogram"] = {
-                    "bins": [f"{age_bins[i]}-{age_bins[i+1]}" for i in range(len(age_bins)-1)],
-                    "counts": [apply_small_cell_suppression(int(c), min_cell_count) for c in age_hist],
-                    "mean": float(np.mean(ages)), "median": float(np.median(ages)), "std": float(np.std(ages)),
-                    "q1": float(q1), "q3": float(q3), "n": apply_small_cell_suppression(len(ages), min_cell_count)
-                }
+            if "AGE" in preprocessed.person_with_ages.columns:
+                ages = preprocessed.person_with_ages["AGE"].dropna().values
+                if len(ages) > 0:
+                    age_bins = list(range(0, 110, 10))
+                    age_hist, _ = np.histogram(ages, bins=age_bins)
+                    q1, q3 = np.percentile(ages, [25, 75])
+                    demographics_data["overall"]["age_histogram"] = {
+                        "bins": [f"{age_bins[i]}-{age_bins[i+1]}" for i in range(len(age_bins)-1)],
+                        "counts": [apply_small_cell_suppression(int(c), min_cell_count) for c in age_hist],
+                        "mean": float(np.mean(ages)), "median": float(np.median(ages)), "std": float(np.std(ages)),
+                        "q1": float(q1), "q3": float(q3), "n": apply_small_cell_suppression(len(ages), min_cell_count)
+                    }
             if "GENDER_CONCEPT_ID" in preprocessed.person_with_ages.columns:
                 person_df = preprocessed.person_with_ages
                 demographics_data["overall"]["sex_distribution"] = {
@@ -1033,35 +1294,45 @@ def precompute_study_summary(study_path: str, output_path: Optional[str] = None,
                 }
             if clustering_results:
                 best_k = max(clustering_results.keys(), key=lambda k: clustering_results[k].get("silhouette_score", 0))
-                patient_assignments = clustering_results[best_k].get("patient_assignments")
-                if patient_assignments is not None:
-                    for cluster in patient_assignments["cluster"].unique():
-                        cluster_patient_ids = patient_assignments[patient_assignments["cluster"] == cluster]["PERSON_ID"]
-                        cluster_persons = preprocessed.person_with_ages[preprocessed.person_with_ages["PERSON_ID"].isin(cluster_patient_ids)]
-                        if not cluster_persons.empty and "AGE" in cluster_persons.columns:
-                            cluster_ages = cluster_persons["AGE"].dropna().values
-                            if len(cluster_ages) > 0:
-                                q1, q3 = np.percentile(cluster_ages, [25, 75])
-                                male_prop = None
-                                if "GENDER_CONCEPT_ID" in cluster_persons.columns:
-                                    male_count = (cluster_persons["GENDER_CONCEPT_ID"] == 8507).sum()
-                                    if len(cluster_persons) > 0:
-                                        male_prop = float(male_count / len(cluster_persons))
-                                demographics_data["clusters"][cluster] = {
-                                    "patient_count": apply_small_cell_suppression(len(cluster_patient_ids), min_cell_count),
-                                    "age_mean": float(np.mean(cluster_ages)), "age_median": float(np.median(cluster_ages)),
-                                    "age_std": float(np.std(cluster_ages)) if len(cluster_ages) > 1 else 0,
-                                    "age_q1": float(q1), "age_q3": float(q3),
-                                    "n": apply_small_cell_suppression(len(cluster_ages), min_cell_count), "male_proportion": male_prop
-                                }
+                demographics_data["clusters_best_k"] = int(best_k)
+                
+                for k, result in clustering_results.items():
+                    patient_assignments = result.get("patient_assignments")
+                    cluster_demo = compute_cluster_demographics_for_assignments(
+                        preprocessed.person_with_ages,
+                        patient_assignments,
+                        min_cell_count
+                    )
+                    if cluster_demo:
+                        demographics_data["clusters_by_k"][str(k)] = cluster_demo
+                
+                # Backward compatibility: keep top-level "clusters" as best-k demographics.
+                best_k_key = str(best_k)
+                if best_k_key in demographics_data["clusters_by_k"]:
+                    demographics_data["clusters"] = demographics_data["clusters_by_k"][best_k_key]
     
     study_demographics["distributions"] = demographics_data
+    
+    # Calculate number of unique main concepts (non-ordinal)
+    # concept_summaries only contains main concepts (ordinals are in ordinal_summaries)
+    # Count unique CONCEPT_ID values (same concept may appear multiple times if it has multiple HERITAGE values)
+    significant_concepts_count = 0
+    if not concept_summaries.empty and "CONCEPT_ID" in concept_summaries.columns:
+        # Count unique CONCEPT_ID values (main concepts only)
+        # Note: same CONCEPT_ID may appear multiple times with different HERITAGE values
+        significant_concepts_count = concept_summaries["CONCEPT_ID"].nunique()
+        logger.info(f"Counted {significant_concepts_count:,} unique main concepts (significant concepts)")
     
     with Timer("Saving metadata"):
         metadata = {
             "study_name": summary_study_name, "original_study_name": original_study_name, "source_path": str(study_path),
             "mode": "summary", "demographics": study_demographics, "clustering": clustering_metadata,
-            "cluster_k_values": cluster_k_values, "concept_limit": concept_limit, "min_cell_count": min_cell_count
+            "cluster_k_values": cluster_k_values, "concept_limit": concept_limit, "min_cell_count": min_cell_count,
+            "significant_concepts": significant_concepts_count,
+            "clustering_guardrails": {
+                "cluster_feature_matrix_cell_threshold": int(cluster_feature_matrix_cell_threshold),
+                "pairwise_overlap_max_concepts": int(pairwise_overlap_max_concepts),
+            },
         }
         with open(output_path / "metadata.json", "w") as f:
             json.dump(metadata, f, indent=2)
@@ -1120,7 +1391,7 @@ def compute_concept_summaries(data_patients, data_features, data_person, data_in
 def compute_ordinal_summaries(data_patients, data_features, data_person, data_initial=None, min_cell_count=DEFAULT_MIN_CELL_COUNT):
     data_patients = deserialize_json_columns(data_patients)
     preprocessed = preprocess_data(data_patients, data_features, data_person, data_initial)
-    return compute_ordinal_summaries_vectorized(preprocessed, data_features, min_cell_count)
+    return compute_ordinal_summaries_vectorized(preprocessed, data_features, data_patients, min_cell_count)
 
 
 if __name__ == "__main__":

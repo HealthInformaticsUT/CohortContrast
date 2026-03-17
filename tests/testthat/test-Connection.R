@@ -1,5 +1,8 @@
 library(testthat)
 
+testthat::skip_on_cran()
+skip_if_no_integration()
+
 pathToResults <<- getwd()
 
 ################################################################################
