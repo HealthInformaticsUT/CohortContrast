@@ -2,7 +2,7 @@
 title: "Mappings Tab"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{a06_mappings_tab}
+  %\VignetteIndexEntry{Mappings Tab}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

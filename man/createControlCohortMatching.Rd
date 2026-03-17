@@ -27,5 +27,5 @@ createControlCohortMatching(
 Function for creating automatic matches based on age and sex
 }
 \examples{
-\dontrun{createControlCohortMatching(cdm = cdm, targetTable = targetTable, ratio = 2))}
+\dontrun{createControlCohortMatching(cdm = cdm, targetTable = targetTable, ratio = 2)}
 }

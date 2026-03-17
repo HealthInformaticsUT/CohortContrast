@@ -2,7 +2,7 @@
 title: "Dashboard Composite Plot"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{a03_dashboard_composite}
+  %\VignetteIndexEntry{Dashboard Composite Plot}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

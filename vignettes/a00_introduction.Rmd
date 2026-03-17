@@ -2,7 +2,7 @@
 title: "Setup"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{a00_introduction}
+  %\VignetteIndexEntry{Setup}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

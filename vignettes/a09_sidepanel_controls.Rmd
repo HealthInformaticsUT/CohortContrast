@@ -2,7 +2,7 @@
 title: "Sidepanel Filters and Controls"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{a09_sidepanel_controls}
+  %\VignetteIndexEntry{Sidepanel Filters and Controls}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
