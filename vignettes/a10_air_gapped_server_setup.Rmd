@@ -111,7 +111,8 @@ Confirm all required modules report as installed.
 summaryResult <- precomputeSummary(
   studyPath = "/data/studies/LungCancer_1Y",
   outputPath = "/data/studies/LungCancer_1Y_summary",
-  clusterKValues = c(2, 3, 4, 5)
+  clusterKValues = c(2, 3, 4, 5),
+  minibatchKMeansCutoffPatients = 50000
 )
 ```
 
@@ -160,6 +161,8 @@ runCohortContrastViewer(
   - set explicit `pythonPath` in `configurePython(...)`.
 - Viewer starts but no logs written:
   - use `mode = "server"` and set `logFile` explicitly.
+- Precompute exits with status `137` (killed/OOM):
+  - lower `minibatchKMeansCutoffPatients` to force scalable clustering earlier.
 
 ## Minimal offline checklist
 

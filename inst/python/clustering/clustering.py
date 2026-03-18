@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import MiniBatchKMeans
 from sklearn_extra.cluster import KMedoids
 from sklearn.metrics import silhouette_score
 
@@ -27,6 +28,8 @@ _LARGE_COHORT_MATRIX_THRESHOLD = 50000000
 _MIN_SAMPLED_CLUSTERING_SAMPLE_SIZE = 3000
 _CLUSTER_ASSIGN_BATCH_SIZE = 5000
 _CLUSTERING_RANDOM_STATE = 42
+_MINIBATCH_KMEANS_CUTOFF_PATIENTS = 50000
+_MINIBATCH_KMEANS_BATCH_SIZE = 4096
 
 
 def _compute_cache_key(
@@ -76,7 +79,7 @@ def _compute_cache_key(
     hash_parts.append(f"range:{cluster_range}")
     hash_parts.append(f"window:{time_window}")
     hash_parts.append(f"k:{k_value}")
-    hash_parts.append("sampling:v1")
+    hash_parts.append("sampling:v2")
     
     # Compute hash
     hash_string = "|".join(hash_parts)
@@ -279,6 +282,81 @@ def _cluster_feature_matrix_once(
         "best_silhouette_score": best_silhouette,
         "optimal_cluster_count": optimal_k,
         "sampled": sampled,
+        "algorithm": "kmedoids",
+    }
+
+
+def _cluster_feature_matrix_minibatch(
+    feature_df: pd.DataFrame,
+    cluster_range: Tuple[int, int],
+    pca_components: int,
+    k_value: Optional[int],
+) -> Dict:
+    """Cluster a feature matrix with MiniBatchKMeans for large cohorts."""
+    num_patients = len(feature_df)
+    if num_patients < 2:
+        raise ValueError("Need at least two patients for clustering")
+
+    X = feature_df.to_numpy(dtype=np.float32, copy=False)
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    n_components = min(pca_components, X_scaled.shape[1], X_scaled.shape[0] - 1)
+    if n_components < 1:
+        raise ValueError("Need at least one PCA component for clustering")
+
+    pca = PCA(n_components=n_components)
+    X_pca = pca.fit_transform(X_scaled)
+
+    if k_value is not None:
+        candidate_k = [k_value]
+    else:
+        min_k, max_k = cluster_range
+        candidate_k = list(range(min_k, max_k + 1))
+
+    best = None
+    best_score = float("-inf")
+    batch_size = min(_MINIBATCH_KMEANS_BATCH_SIZE, max(1024, len(X_pca) // 20))
+
+    for k in candidate_k:
+        if k <= 1 or k >= len(X_pca):
+            continue
+        model = MiniBatchKMeans(
+            n_clusters=k,
+            random_state=_CLUSTERING_RANDOM_STATE,
+            batch_size=batch_size,
+            n_init=10,
+            reassignment_ratio=0.01,
+        )
+        labels = model.fit_predict(X_pca)
+        if len(set(labels)) > 1 and len(X_pca) > len(set(labels)):
+            score = float(silhouette_score(X_pca, labels))
+        else:
+            score = 0.0
+
+        if k_value is not None:
+            return {
+                "cluster_labels": labels,
+                "best_silhouette_score": score,
+                "optimal_cluster_count": k,
+                "sampled": False,
+                "algorithm": "minibatch_kmeans",
+            }
+
+        if score > best_score:
+            best_score = score
+            best = (k, labels)
+
+    if best is None:
+        raise ValueError("No valid k found for MiniBatchKMeans clustering")
+
+    optimal_k, cluster_labels = best
+    return {
+        "cluster_labels": cluster_labels,
+        "best_silhouette_score": best_score,
+        "optimal_cluster_count": optimal_k,
+        "sampled": False,
+        "algorithm": "minibatch_kmeans",
     }
 
 
@@ -287,15 +365,25 @@ def cluster_patient_features(
     cluster_range: Tuple[int, int] = (2, 5),
     pca_components: int = 20,
     k_value: Optional[int] = None,
+    minibatch_kmeans_cutoff_patients: int = _MINIBATCH_KMEANS_CUTOFF_PATIENTS,
 ) -> Dict:
-    """Cluster patient features with an automatic sampled fallback for large cohorts."""
+    """Cluster patient features with automatic algorithm selection by cohort size."""
     if feature_df.empty or len(feature_df.columns) == 0:
         return {
             "cluster_labels": np.array([], dtype=int),
             "best_silhouette_score": 0.0,
             "optimal_cluster_count": 2,
             "sampled": False,
+            "algorithm": "kmedoids",
         }
+
+    if len(feature_df) > minibatch_kmeans_cutoff_patients:
+        return _cluster_feature_matrix_minibatch(
+            feature_df,
+            cluster_range=cluster_range,
+            pca_components=pca_components,
+            k_value=k_value,
+        )
 
     prefer_sampled = _should_use_sampled_clustering(len(feature_df), len(feature_df.columns))
     mode_candidates = [True] if prefer_sampled else [False, True]
@@ -323,6 +411,7 @@ def cluster_patient_features(
         "best_silhouette_score": 0.0,
         "optimal_cluster_count": 2,
         "sampled": False,
+        "algorithm": "kmedoids",
     }
 
 
@@ -656,6 +745,7 @@ def perform_patient_clustering(
         'best_silhouette_score': best_silhouette if best_silhouette is not None else 0.0,
         'optimal_cluster_count': optimal_k,
         'sampled': clustering_result.get('sampled', False),
+        'algorithm': clustering_result.get('algorithm', 'kmedoids'),
     }
     
     # Store in cache (with size limit)

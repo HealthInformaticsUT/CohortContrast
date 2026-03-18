@@ -667,8 +667,7 @@ def compute_clustering_for_k(
     k: int,
     concept_limit: Optional[int] = 60,
     min_cell_count: int = DEFAULT_MIN_CELL_COUNT,
-    cluster_feature_matrix_cell_threshold: int = DEFAULT_CLUSTER_FEATURE_MATRIX_CELL_THRESHOLD,
-    pairwise_overlap_max_concepts: int = DEFAULT_PAIRWISE_OVERLAP_MAX_CONCEPTS,
+    minibatch_kmeans_cutoff_patients: int = 50000,
 ) -> Optional[Dict]:
     """Compute clustering results for a specific k value using vectorized operations."""
     df_exploded = preprocessed.df_exploded
@@ -702,7 +701,7 @@ def compute_clustering_for_k(
     # Guardrail: cap concepts so patient x feature matrix stays within a manageable size.
     max_concepts_by_matrix = max(
         2,
-        cluster_feature_matrix_cell_threshold // max(1, len(all_patients) * FEATURES_PER_CLUSTER_CONCEPT),
+        DEFAULT_CLUSTER_FEATURE_MATRIX_CELL_THRESHOLD // max(1, len(all_patients) * FEATURES_PER_CLUSTER_CONCEPT),
     )
     if len(top_concepts) > max_concepts_by_matrix:
         logger.warning(
@@ -731,6 +730,7 @@ def compute_clustering_for_k(
             cluster_range=(k, k),
             pca_components=20,
             k_value=k,
+            minibatch_kmeans_cutoff_patients=minibatch_kmeans_cutoff_patients,
         )
     except Exception as e:
         warnings.warn(f"Clustering failed for k={k}: {e}")
@@ -910,7 +910,6 @@ def compute_clustering_for_k(
         top_concepts,
         patient_assignments,
         min_cell_count,
-        pairwise_overlap_max_concepts=pairwise_overlap_max_concepts,
     )
     
     return {
@@ -919,6 +918,7 @@ def compute_clustering_for_k(
         "concepts_used": top_concepts, "total_patients": apply_small_cell_suppression(len(all_patients), min_cell_count),
         "patient_assignments": patient_assignments,
         "sampled": clustering_result.get("sampled", False),
+        "algorithm": clustering_result.get("algorithm", "kmedoids"),
     }
 
 
@@ -927,7 +927,6 @@ def compute_pairwise_overlap_vectorized(
     concept_list,
     patient_assignments,
     min_cell_count,
-    pairwise_overlap_max_concepts: int = DEFAULT_PAIRWISE_OVERLAP_MAX_CONCEPTS
 ) -> pd.DataFrame:
     """Compute pairwise Jaccard and Phi matrices using vectorized operations.
     
@@ -935,13 +934,13 @@ def compute_pairwise_overlap_vectorized(
     - "overall": all patients
     - Per-cluster: patients in each cluster (C1, C2, etc.)
     """
-    if feature_matrix.shape[1] > pairwise_overlap_max_concepts:
+    if feature_matrix.shape[1] > DEFAULT_PAIRWISE_OVERLAP_MAX_CONCEPTS:
         concept_counts = feature_matrix.sum(axis=0).sort_values(ascending=False)
-        selected_concepts = concept_counts.head(pairwise_overlap_max_concepts).index
+        selected_concepts = concept_counts.head(DEFAULT_PAIRWISE_OVERLAP_MAX_CONCEPTS).index
         logger.warning(
             "Capping pairwise overlap concepts from %s to %s to avoid quadratic memory growth.",
             feature_matrix.shape[1],
-            pairwise_overlap_max_concepts,
+            DEFAULT_PAIRWISE_OVERLAP_MAX_CONCEPTS,
         )
         feature_matrix = feature_matrix.loc[:, selected_concepts]
 
@@ -1018,8 +1017,7 @@ def compute_all_clusterings_parallel(
     concept_limit,
     min_cell_count,
     max_parallel_jobs: int = 2,
-    cluster_feature_matrix_cell_threshold: int = DEFAULT_CLUSTER_FEATURE_MATRIX_CELL_THRESHOLD,
-    pairwise_overlap_max_concepts: int = DEFAULT_PAIRWISE_OVERLAP_MAX_CONCEPTS,
+    minibatch_kmeans_cutoff_patients: int = 50000,
 ) -> Dict[int, Dict]:
     """Compute clustering for multiple k values.
     
@@ -1045,8 +1043,7 @@ def compute_all_clusterings_parallel(
                     k,
                     concept_limit,
                     min_cell_count,
-                    cluster_feature_matrix_cell_threshold,
-                    pairwise_overlap_max_concepts,
+                    minibatch_kmeans_cutoff_patients,
                 )
                 for k in k_values
             )
@@ -1066,8 +1063,7 @@ def compute_all_clusterings_parallel(
             k,
             concept_limit,
             min_cell_count,
-            cluster_feature_matrix_cell_threshold,
-            pairwise_overlap_max_concepts,
+            minibatch_kmeans_cutoff_patients,
         )
         if result is not None:
             results[k] = result
@@ -1140,8 +1136,7 @@ def precompute_study_summary(
     concept_limit: Optional[int] = None,
     min_cell_count: int = DEFAULT_MIN_CELL_COUNT,
     max_parallel_jobs: int = 1,
-    cluster_feature_matrix_cell_threshold: int = DEFAULT_CLUSTER_FEATURE_MATRIX_CELL_THRESHOLD,
-    pairwise_overlap_max_concepts: int = DEFAULT_PAIRWISE_OVERLAP_MAX_CONCEPTS,
+    minibatch_kmeans_cutoff_patients: int = 50000,
 ) -> Dict:
     """Pre-compute all summary data for a study, removing patient-level information."""
     setup_logging(verbose=True)
@@ -1163,8 +1158,7 @@ def precompute_study_summary(
     logger.info(f"Output directory: {output_path}")
     logger.info(f"Concept limit: {'all' if concept_limit is None else concept_limit}")
     logger.info(f"Min cell count: {min_cell_count}")
-    logger.info(f"Cluster matrix cell threshold: {cluster_feature_matrix_cell_threshold}")
-    logger.info(f"Pairwise overlap max concepts: {pairwise_overlap_max_concepts}")
+    logger.info(f"MiniBatchKMeans cutoff patients: {minibatch_kmeans_cutoff_patients}")
     logger.info("=" * 60)
     
     data_patients, data_features, data_initial, data_person, mapping_table = None, None, None, None, None
@@ -1243,8 +1237,7 @@ def precompute_study_summary(
             concept_limit,
             min_cell_count,
             max_parallel_jobs,
-            cluster_feature_matrix_cell_threshold=cluster_feature_matrix_cell_threshold,
-            pairwise_overlap_max_concepts=pairwise_overlap_max_concepts,
+            minibatch_kmeans_cutoff_patients=minibatch_kmeans_cutoff_patients,
         )
         for k, result in clustering_results.items():
             # Ensure CONCEPT_ID is string to avoid mixed type issues with PyArrow
@@ -1266,6 +1259,7 @@ def precompute_study_summary(
                 "total_patients": r["total_patients"],
                 "concepts_used_count": len(r["concepts_used"]),
                 "sampled": bool(r.get("sampled", False)),
+                "algorithm": str(r.get("algorithm", "kmedoids")),
             }
             for k, r in clustering_results.items()
         }
@@ -1329,10 +1323,7 @@ def precompute_study_summary(
             "mode": "summary", "demographics": study_demographics, "clustering": clustering_metadata,
             "cluster_k_values": cluster_k_values, "concept_limit": concept_limit, "min_cell_count": min_cell_count,
             "significant_concepts": significant_concepts_count,
-            "clustering_guardrails": {
-                "cluster_feature_matrix_cell_threshold": int(cluster_feature_matrix_cell_threshold),
-                "pairwise_overlap_max_concepts": int(pairwise_overlap_max_concepts),
-            },
+            "minibatch_kmeans_cutoff_patients": int(minibatch_kmeans_cutoff_patients),
         }
         with open(output_path / "metadata.json", "w") as f:
             json.dump(metadata, f, indent=2)

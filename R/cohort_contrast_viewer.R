@@ -805,16 +805,12 @@ stopCohortContrastViewer <- function() {
 #' @param maxParallelJobs Maximum number of parallel clustering jobs.
 #'   Default is 1 (sequential) to avoid out-of-memory errors on servers.
 #'   Set to 2-4 on machines with ample RAM for faster execution.
-#' @param clusterFeatureMatrixCellThreshold Maximum allowed size for the
-#'   clustering feature matrix, measured as patients x features
-#'   (features = 3 x clustering concepts). If exceeded, clustering concepts are
-#'   auto-capped for memory safety. Default is 50000000.
-#' @param pairwiseOverlapMaxConcepts Maximum number of concepts used when
-#'   computing pairwise overlap matrices. Higher values increase memory/time
-#'   quadratically. Default is 500.
+#' @param minibatchKMeansCutoffPatients If target patient count is greater than
+#'   this value, clustering uses MiniBatchKMeans instead of KMedoids.
+#'   Default is 50000.
 #' @param ... Backward-compatible aliases: `study_path`, `output_path`,
 #'   `cluster_k_values`, `concept_limit`, `min_cell_count`, `max_parallel_jobs`,
-#'   `cluster_feature_matrix_cell_threshold`, `pairwise_overlap_max_concepts`.
+#'   `minibatch_kmeans_cutoff_patients`.
 #'
 #' @return A list with:
 #'   \item{outputPath}{Path to the generated summary directory
@@ -850,8 +846,7 @@ precomputeSummary <- function(studyPath,
                               conceptLimit = 60,
                               minCellCount = 0,
                               maxParallelJobs = 1,
-                              clusterFeatureMatrixCellThreshold = 50000000,
-                              pairwiseOverlapMaxConcepts = 500,
+                              minibatchKMeansCutoffPatients = 50000,
                               ...) {
   legacy <- .resolveLegacyArgs(
     dots = list(...),
@@ -862,8 +857,7 @@ precomputeSummary <- function(studyPath,
       concept_limit = "conceptLimit",
       min_cell_count = "minCellCount",
       max_parallel_jobs = "maxParallelJobs",
-      cluster_feature_matrix_cell_threshold = "clusterFeatureMatrixCellThreshold",
-      pairwise_overlap_max_concepts = "pairwiseOverlapMaxConcepts"
+      minibatch_kmeans_cutoff_patients = "minibatchKMeansCutoffPatients"
     ),
     explicitNew = c(
       studyPath = !missing(studyPath),
@@ -872,8 +866,7 @@ precomputeSummary <- function(studyPath,
       conceptLimit = !missing(conceptLimit),
       minCellCount = !missing(minCellCount),
       maxParallelJobs = !missing(maxParallelJobs),
-      clusterFeatureMatrixCellThreshold = !missing(clusterFeatureMatrixCellThreshold),
-      pairwiseOverlapMaxConcepts = !missing(pairwiseOverlapMaxConcepts)
+      minibatchKMeansCutoffPatients = !missing(minibatchKMeansCutoffPatients)
     ),
     fnName = "precomputeSummary"
   )
@@ -883,12 +876,7 @@ precomputeSummary <- function(studyPath,
   if (!is.null(legacy$conceptLimit)) conceptLimit <- legacy$conceptLimit
   if (!is.null(legacy$minCellCount)) minCellCount <- legacy$minCellCount
   if (!is.null(legacy$maxParallelJobs)) maxParallelJobs <- legacy$maxParallelJobs
-  if (!is.null(legacy$clusterFeatureMatrixCellThreshold)) {
-    clusterFeatureMatrixCellThreshold <- legacy$clusterFeatureMatrixCellThreshold
-  }
-  if (!is.null(legacy$pairwiseOverlapMaxConcepts)) {
-    pairwiseOverlapMaxConcepts <- legacy$pairwiseOverlapMaxConcepts
-  }
+  if (!is.null(legacy$minibatchKMeansCutoffPatients)) minibatchKMeansCutoffPatients <- legacy$minibatchKMeansCutoffPatients
 
   # Check Python configuration
   if (!.ccv_env$python_configured) {
@@ -903,11 +891,8 @@ precomputeSummary <- function(studyPath,
     stop("data_patients.parquet not found in: ", studyPath)
   }
 
-  if (!is.numeric(clusterFeatureMatrixCellThreshold) || length(clusterFeatureMatrixCellThreshold) != 1 || is.na(clusterFeatureMatrixCellThreshold) || clusterFeatureMatrixCellThreshold < 1000) {
-    stop("clusterFeatureMatrixCellThreshold must be a single numeric value >= 1000")
-  }
-  if (!is.numeric(pairwiseOverlapMaxConcepts) || length(pairwiseOverlapMaxConcepts) != 1 || is.na(pairwiseOverlapMaxConcepts) || pairwiseOverlapMaxConcepts < 2) {
-    stop("pairwiseOverlapMaxConcepts must be a single numeric value >= 2")
+  if (!is.numeric(minibatchKMeansCutoffPatients) || length(minibatchKMeansCutoffPatients) != 1 || is.na(minibatchKMeansCutoffPatients) || minibatchKMeansCutoffPatients < 1000) {
+    stop("minibatchKMeansCutoffPatients must be a single numeric value >= 1000")
   }
 
   # Get Python directory
@@ -933,8 +918,7 @@ result = precompute_study_summary(
     concept_limit=%s,
     min_cell_count=%d,
     max_parallel_jobs=%d,
-    cluster_feature_matrix_cell_threshold=%d,
-    pairwise_overlap_max_concepts=%d
+    minibatch_kmeans_cutoff_patients=%d
 )
 
 # Print result as JSON for R to parse
@@ -949,8 +933,7 @@ print("__RESULT_END__")
     concept_limit_py,
     as.integer(minCellCount),
     as.integer(maxParallelJobs),
-    as.integer(clusterFeatureMatrixCellThreshold),
-    as.integer(pairwiseOverlapMaxConcepts)
+    as.integer(minibatchKMeansCutoffPatients)
   )
 
   message("Pre-computing summary data for: ", studyPath)

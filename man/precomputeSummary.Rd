@@ -11,8 +11,7 @@ precomputeSummary(
   conceptLimit = 60,
   minCellCount = 0,
   maxParallelJobs = 1,
-  clusterFeatureMatrixCellThreshold = 5e+07,
-  pairwiseOverlapMaxConcepts = 500,
+  minibatchKMeansCutoffPatients = 50000,
   ...
 )
 }
@@ -36,18 +35,13 @@ Default is 0 (disabled). Set to e.g. 5 to apply suppression.}
 Default is 1 (sequential) to avoid out-of-memory errors on servers.
 Set to 2-4 on machines with ample RAM for faster execution.}
 
-\item{clusterFeatureMatrixCellThreshold}{Maximum allowed size for the
-clustering feature matrix, measured as patients x features
-(features = 3 x clustering concepts). If exceeded, clustering concepts are
-auto-capped for memory safety. Default is 50000000.}
-
-\item{pairwiseOverlapMaxConcepts}{Maximum number of concepts used when
-computing pairwise overlap matrices. Higher values increase memory/time
-quadratically. Default is 500.}
+\item{minibatchKMeansCutoffPatients}{If target patient count is greater than
+this value, clustering uses MiniBatchKMeans instead of KMedoids.
+Default is 50000.}
 
 \item{...}{Backward-compatible aliases: `study_path`, `output_path`,
 `cluster_k_values`, `concept_limit`, `min_cell_count`, `max_parallel_jobs`,
-`cluster_feature_matrix_cell_threshold`, `pairwise_overlap_max_concepts`.}
+`minibatch_kmeans_cutoff_patients`.}
 }
 \value{
 A list with:
