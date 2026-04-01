@@ -100,8 +100,8 @@ where internet access is not available at runtime.</p>
 <ul>
 <li>You cannot use <code><a href="../reference/installPythonDeps.html">installPythonDeps()</a></code> against online
 package indexes.</li>
-<li>You must provide local wheel files (<code>.whl</code>) for all
-required Python dependencies.</li>
+<li>You might have to provide local wheel files (<code>.whl</code>) for
+all required Python dependencies.</li>
 <li>Wheels must match:
 <ul>
 <li>target operating system</li>
@@ -172,7 +172,11 @@ server:</p>
 <div class="section level3">
 <h3 id="install-dependencies-from-local-wheels">4. Install dependencies from local wheels<a class="anchor" aria-label="anchor" href="#install-dependencies-from-local-wheels"></a>
 </h3>
+<p>When pip is available</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/installPythonDeps.html">installPythonDeps</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<p>If there is no pip available</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/installPythonDepsOffline.html">installPythonDepsOffline</a></span><span class="op">(</span></span>
 <span>  packagesDir <span class="op">=</span> <span class="st">"/opt/cohortcontrast/packages"</span>,</span>
 <span>  platform <span class="op">=</span> <span class="st">"linux_x86_64"</span></span>
@@ -181,7 +185,7 @@ server:</p>
 <div class="section level3">
 <h3 id="validate-before-production-usage">5. Validate before production usage<a class="anchor" aria-label="anchor" href="#validate-before-production-usage"></a>
 </h3>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/checkPythonDeps.html">checkPythonDeps</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <p>Confirm all required modules report as installed.</p>
 </div>
@@ -192,7 +196,7 @@ server:</p>
 <div class="section level3">
 <h3 id="summary-precompute">Summary precompute<a class="anchor" aria-label="anchor" href="#summary-precompute"></a>
 </h3>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">summaryResult</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/precomputeSummary.html">precomputeSummary</a></span><span class="op">(</span></span>
 <span>  studyPath <span class="op">=</span> <span class="st">"/data/studies/LungCancer_1Y"</span>,</span>
 <span>  outputPath <span class="op">=</span> <span class="st">"/data/studies/LungCancer_1Y_summary"</span>,</span>
@@ -205,7 +209,7 @@ server:</p>
 </h3>
 <p>On servers, prefer <code>mode = "server"</code> and
 <code>openBrowser = FALSE</code>.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/runCohortContrastViewer.html">runCohortContrastViewer</a></span><span class="op">(</span></span>
 <span>  dataDir <span class="op">=</span> <span class="st">"/data/studies"</span>,</span>
 <span>  host <span class="op">=</span> <span class="st">"0.0.0.0"</span>,</span>
@@ -232,7 +236,7 @@ recommended on air-gapped servers.</li>
 only.</li>
 </ul>
 <p>Optional export lockdown (common in controlled environments):</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/runCohortContrastViewer.html">runCohortContrastViewer</a></span><span class="op">(</span></span>
 <span>  dataDir <span class="op">=</span> <span class="st">"/data/studies"</span>,</span>
 <span>  mode <span class="op">=</span> <span class="st">"server"</span>,</span>

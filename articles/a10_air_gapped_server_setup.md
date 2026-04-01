@@ -17,8 +17,8 @@ It applies to both Python-backed workflows:
 - You cannot use
   [`installPythonDeps()`](https://healthinformaticsut.github.io/CohortContrast/reference/installPythonDeps.md)
   against online package indexes.
-- You must provide local wheel files (`.whl`) for all required Python
-  dependencies.
+- You might have to provide local wheel files (`.whl`) for all required
+  Python dependencies.
 - Wheels must match:
   - target operating system
   - target CPU architecture
@@ -86,6 +86,15 @@ configurePython(
 ```
 
 ### 4. Install dependencies from local wheels
+
+When pip is available
+
+``` r
+
+installPythonDeps()
+```
+
+If there is no pip available
 
 ``` r
 
