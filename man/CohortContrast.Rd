@@ -28,7 +28,7 @@ CohortContrast(
   automaticHierarchyCombineConceptsArgs = list(),
   runAutomaticCorrelationCombineConcepts = FALSE,
   automaticCorrelationCombineConceptsArgs = list(),
-  numCores = parallel::detectCores() - 1
+  numCores = max(1L, ceiling(0.2 * parallel::detectCores()), na.rm = TRUE)
 )
 }
 \arguments{
@@ -92,7 +92,8 @@ passed to `automaticCorrelationCombineConcepts()` (for example
 `abstraction_level = -1`, `minCorrelation = 0.7`,
 `maxDaysInBetween = 1`, and `heritageDriftAllowed = FALSE`.}
 
-\item{numCores}{Number of cores to allocate to parallel processing}
+\item{numCores}{Number of cores to allocate to parallel processing.
+Defaults to 20% of detected cores (minimum 1).}
 }
 \description{
 Run CohortContrast Analysis
