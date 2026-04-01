@@ -135,7 +135,7 @@ targetTable <- CohortContrast::cohortFromJSON(pathToJSON = pathToJSON, cdm = cdm
 
 # Example bundled with CohortContrast:
 exampleJsonDir <- system.file("example/example_json", package = "CohortContrast")
-list.files(exampleJsonDir, pattern = "\\\\.json$", full.names = TRUE)
+list.files(exampleJsonDir, pattern = ".json$", full.names = TRUE)
 # [1] ".../example_json/cohort.json"
 
 targetTable <- CohortContrast::cohortFromJSON(pathToJSON = exampleJsonDir, cdm = cdm)

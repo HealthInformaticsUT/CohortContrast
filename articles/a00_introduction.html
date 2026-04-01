@@ -209,7 +209,7 @@ below).</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Example bundled with CohortContrast:</span></span>
 <span><span class="va">exampleJsonDir</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"example/example_json"</span>, package <span class="op">=</span> <span class="st">"CohortContrast"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/list.files.html" class="external-link">list.files</a></span><span class="op">(</span><span class="va">exampleJsonDir</span>, pattern <span class="op">=</span> <span class="st">"\\\\.json$"</span>, full.names <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/list.files.html" class="external-link">list.files</a></span><span class="op">(</span><span class="va">exampleJsonDir</span>, pattern <span class="op">=</span> <span class="st">".json$"</span>, full.names <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="co"># [1] ".../example_json/cohort.json"</span></span>
 <span></span>
 <span><span class="va">targetTable</span> <span class="op">&lt;-</span> <span class="fu">CohortContrast</span><span class="fu">::</span><span class="fu"><a href="../reference/cohortFromJSON.html">cohortFromJSON</a></span><span class="op">(</span>pathToJSON <span class="op">=</span> <span class="va">exampleJsonDir</span>, cdm <span class="op">=</span> <span class="va">cdm</span><span class="op">)</span></span></code></pre></div>

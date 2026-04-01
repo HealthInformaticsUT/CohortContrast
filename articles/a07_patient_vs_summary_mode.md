@@ -29,7 +29,8 @@ Study selection with mode column
 summary_result <- CohortContrast::precomputeSummary(
   studyPath = file.path(getwd(), "studies", "LungCancer_1Y"),
   outputPath = file.path(getwd(), "studies", "LungCancer_1Y_summary"),
-  clusterKValues = c(2, 3, 4, 5)
+  clusterKValues = c(2, 3, 4, 5),
+  minCellCount = 5
 )
 
 # Open viewer and load the summary study
