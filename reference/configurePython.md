@@ -11,8 +11,7 @@ configurePython(
   pythonPath = NULL,
   virtualenvName = "r-cohortcontrast-viewer",
   createVenv = TRUE,
-  force = FALSE,
-  ...
+  force = FALSE
 )
 ```
 
@@ -37,11 +36,6 @@ configurePython(
 
   Logical. If TRUE, recreates the virtual environment even if it exists.
   Default is FALSE.
-
-- ...:
-
-  Backward-compatible aliases: \`python_path\`, \`virtualenv_name\`,
-  \`create_venv\`.
 
 ## Value
 

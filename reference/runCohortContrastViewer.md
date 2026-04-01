@@ -10,12 +10,10 @@ runCohortContrastViewer(
   port = 8050,
   host = "127.0.0.1",
   mode = c("simple", "server", "debug"),
-  debug = FALSE,
   logFile = NULL,
   allowExports = TRUE,
   openBrowser = TRUE,
-  background = TRUE,
-  ...
+  background = TRUE
 )
 ```
 
@@ -41,11 +39,6 @@ runCohortContrastViewer(
   logging suitable for hosted/server runs. \`"debug"\` enables maximum
   debug features.
 
-- debug:
-
-  Logical. Backward-compatible alias for debug behavior. If TRUE, mode
-  is forced to \`"debug"\`.
-
 - logFile:
 
   Optional log file path for \`"server"\` (or \`"debug"\`) mode. If NULL
@@ -65,11 +58,6 @@ runCohortContrastViewer(
 - background:
 
   Logical. If TRUE, runs the server in the background. Default is TRUE.
-
-- ...:
-
-  Backward-compatible aliases: \`data_dir\`, \`log_file\`,
-  \`allow_exports\`, \`open_browser\`.
 
 ## Value
 

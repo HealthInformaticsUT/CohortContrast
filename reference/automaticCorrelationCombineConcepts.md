@@ -10,8 +10,7 @@ automaticCorrelationCombineConcepts(
   abstraction_level = -1,
   minCorrelation = 0.7,
   maxDaysInBetween = 1,
-  heritageDriftAllowed = FALSE,
-  ...
+  heritageDriftAllowed = FALSE
 )
 ```
 
@@ -37,7 +36,3 @@ automaticCorrelationCombineConcepts(
 
   boolean for allowing heritage drift (combining concepts from differing
   heritages)
-
-- ...:
-
-  Backward-compatible alias: \`maxDaysInbetween\`.

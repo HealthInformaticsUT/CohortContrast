@@ -9,6 +9,7 @@ to execute the study.
 
 ``` r
 
+
 ################################################################################
 #
 # Execute
@@ -125,6 +126,7 @@ metadata file `metadata.json`.
 ## Reloading a saved study
 
 ``` r
+
 reloaded <- CohortContrast::loadCohortContrastStudy(
   studyName = "LungCancer_1Y",
   pathToResults = file.path(getwd(), "studies")

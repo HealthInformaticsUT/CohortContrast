@@ -6,7 +6,7 @@ Determines whether a data directory contains pre-computed summary data
 ## Usage
 
 ``` r
-checkDataMode(dataDir, ...)
+checkDataMode(dataDir)
 ```
 
 ## Arguments
@@ -14,10 +14,6 @@ checkDataMode(dataDir, ...)
 - dataDir:
 
   Path to the data directory
-
-- ...:
-
-  Backward-compatible alias: \`data_dir\`.
 
 ## Value
 
@@ -33,8 +29,7 @@ A list with:
 
 - clusterKValues:
 
-  Vector of available k values for clustering (canonical name; legacy
-  \`cluster_k_values\` is also returned).
+  Vector of available k values for clustering
 
 ## Examples
 

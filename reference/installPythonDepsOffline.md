@@ -10,8 +10,7 @@ access.
 installPythonDepsOffline(
   packagesDir = NULL,
   platform = "linux_x86_64",
-  cleanup = TRUE,
-  ...
+  cleanup = TRUE
 )
 ```
 
@@ -30,10 +29,6 @@ installPythonDepsOffline(
 
   Logical. If TRUE, removes extracted files after installation. Default
   is TRUE.
-
-- ...:
-
-  Backward-compatible alias: \`packages_dir\`.
 
 ## Value
 

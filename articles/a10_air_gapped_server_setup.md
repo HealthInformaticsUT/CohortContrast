@@ -67,6 +67,7 @@ Copy either:
 If virtual environments are available:
 
 ``` r
+
 configurePython(
   pythonPath = "/usr/bin/python3",
   virtualenvName = "r-cohortcontrast-viewer",
@@ -77,6 +78,7 @@ configurePython(
 If `venv`/`ensurepip` is unavailable on the server:
 
 ``` r
+
 configurePython(
   pythonPath = "/usr/bin/python3",
   createVenv = FALSE
@@ -86,6 +88,7 @@ configurePython(
 ### 4. Install dependencies from local wheels
 
 ``` r
+
 installPythonDepsOffline(
   packagesDir = "/opt/cohortcontrast/packages",
   platform = "linux_x86_64"
@@ -95,6 +98,7 @@ installPythonDepsOffline(
 ### 5. Validate before production usage
 
 ``` r
+
 checkPythonDeps()
 ```
 
@@ -105,10 +109,12 @@ Confirm all required modules report as installed.
 ### Summary precompute
 
 ``` r
+
 summaryResult <- precomputeSummary(
   studyPath = "/data/studies/LungCancer_1Y",
   outputPath = "/data/studies/LungCancer_1Y_summary",
-  clusterKValues = c(2, 3, 4, 5)
+  clusterKValues = c(2, 3, 4, 5),
+  minibatchKMeansCutoffPatients = 50000
 )
 ```
 
@@ -117,6 +123,7 @@ summaryResult <- precomputeSummary(
 On servers, prefer `mode = "server"` and `openBrowser = FALSE`.
 
 ``` r
+
 runCohortContrastViewer(
   dataDir = "/data/studies",
   host = "0.0.0.0",
@@ -138,6 +145,7 @@ runCohortContrastViewer(
 Optional export lockdown (common in controlled environments):
 
 ``` r
+
 runCohortContrastViewer(
   dataDir = "/data/studies",
   mode = "server",
@@ -162,6 +170,9 @@ runCohortContrastViewer(
   - set explicit `pythonPath` in `configurePython(...)`.
 - Viewer starts but no logs written:
   - use `mode = "server"` and set `logFile` explicitly.
+- Precompute exits with status `137` (killed/OOM):
+  - lower `minibatchKMeansCutoffPatients` to force scalable clustering
+    earlier.
 
 ## Minimal offline checklist
 

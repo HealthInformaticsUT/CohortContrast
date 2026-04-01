@@ -25,6 +25,7 @@ Study selection with mode column
   `precomputeSummary(studyPath = ..., outputPath = ...)`.
 
 ``` r
+
 summary_result <- CohortContrast::precomputeSummary(
   studyPath = file.path(getwd(), "studies", "LungCancer_1Y"),
   outputPath = file.path(getwd(), "studies", "LungCancer_1Y_summary"),

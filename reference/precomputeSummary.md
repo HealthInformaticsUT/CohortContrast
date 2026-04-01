@@ -14,9 +14,7 @@ precomputeSummary(
   conceptLimit = 60,
   minCellCount = 0,
   maxParallelJobs = 1,
-  clusterFeatureMatrixCellThreshold = 5e+07,
-  pairwiseOverlapMaxConcepts = 500,
-  ...
+  minibatchKMeansCutoffPatients = 50000
 )
 ```
 
@@ -52,25 +50,10 @@ precomputeSummary(
   to avoid out-of-memory errors on servers. Set to 2-4 on machines with
   ample RAM for faster execution.
 
-- clusterFeatureMatrixCellThreshold:
+- minibatchKMeansCutoffPatients:
 
-  Maximum allowed size for the clustering feature matrix, measured as
-  patients x features (features = 3 x clustering concepts). If exceeded,
-  clustering concepts are auto-capped for memory safety. Default is
-  50000000.
-
-- pairwiseOverlapMaxConcepts:
-
-  Maximum number of concepts used when computing pairwise overlap
-  matrices. Higher values increase memory/time quadratically. Default is
-  500.
-
-- ...:
-
-  Backward-compatible aliases: \`study_path\`, \`output_path\`,
-  \`cluster_k_values\`, \`concept_limit\`, \`min_cell_count\`,
-  \`max_parallel_jobs\`, \`cluster_feature_matrix_cell_threshold\`,
-  \`pairwise_overlap_max_concepts\`.
+  If target patient count is greater than this value, clustering uses
+  MiniBatchKMeans instead of KMedoids. Default is 50000.
 
 ## Value
 
@@ -78,8 +61,7 @@ A list with:
 
 - outputPath:
 
-  Path to the generated summary directory (canonical name; legacy
-  \`output_path\` may also be present depending on Python output).
+  Path to the generated summary directory.
 
 - files:
 

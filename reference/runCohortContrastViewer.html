@@ -62,12 +62,10 @@
 <span>  port <span class="op">=</span> <span class="fl">8050</span>,</span>
 <span>  host <span class="op">=</span> <span class="st">"127.0.0.1"</span>,</span>
 <span>  mode <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"simple"</span>, <span class="st">"server"</span>, <span class="st">"debug"</span><span class="op">)</span>,</span>
-<span>  debug <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  logFile <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  allowExports <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  openBrowser <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  background <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  <span class="va">...</span></span>
+<span>  background <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -95,11 +93,6 @@ If NULL, defaults to the current working directory (`getwd()`).</p></dd>
 `"debug"` enables maximum debug features.</p></dd>
 
 
-<dt id="arg-debug">debug<a class="anchor" aria-label="anchor" href="#arg-debug"></a></dt>
-<dd><p>Logical. Backward-compatible alias for debug behavior.
-If TRUE, mode is forced to `"debug"`.</p></dd>
-
-
 <dt id="arg-logfile">logFile<a class="anchor" aria-label="anchor" href="#arg-logfile"></a></dt>
 <dd><p>Optional log file path for `"server"` (or `"debug"`) mode.
 If NULL in `"server"` mode, defaults to `file.path(dataDir, "contrast_viewer.log")`.</p></dd>
@@ -118,11 +111,6 @@ Default is TRUE.</p></dd>
 <dt id="arg-background">background<a class="anchor" aria-label="anchor" href="#arg-background"></a></dt>
 <dd><p>Logical. If TRUE, runs the server in the background.
 Default is TRUE.</p></dd>
-
-
-<dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>Backward-compatible aliases:
-`data_dir`, `log_file`, `allow_exports`, `open_browser`.</p></dd>
 
 </dl></div>
     <div class="section level2">

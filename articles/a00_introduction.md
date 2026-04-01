@@ -12,6 +12,7 @@ visualization and concept mapping.
 ## Load packages
 
 ``` r
+
 library(CohortContrast)
 library(CDMConnector)
 library(DBI)
@@ -22,14 +23,14 @@ library(tibble)
 
 ## Initiating database connection
 
-The
-[CDMConnector](https://cran.r-project.org/web/packages/CDMConnector/index.html)
+The [CDMConnector](https://CRAN.R-project.org/package=CDMConnector)
 package is used to establish the database connection for running
 `CohortContrast`. You can configure the connection either by reading
 credentials from a `.Renviron` file or explicitly writing them in your
 script.
 
 ``` r
+
 ################################################################################
 #
 # Initiate the database connection
@@ -74,6 +75,7 @@ or summary precompute
 configure Python and install required Python packages:
 
 ``` r
+
 configurePython()
 installPythonDeps()
 checkPythonDeps()
@@ -81,9 +83,10 @@ checkPythonDeps()
 
 ## Air-gapped server setup
 
-If you are running CohortContrast on an air-gapped server, see the wiki
-article
-[here](https://healthinformaticsut.github.io/CohortContrast/articles/a10_air_gapped_server_setup.html).
+If you are deploying on an offline or air-gapped environment, see the
+supplementary article **Air-gapped server setup**:
+
+- [`vignette("a10_air_gapped_server_setup", package = "CohortContrast")`](https://healthinformaticsut.github.io/CohortContrast/articles/a10_air_gapped_server_setup.md)
 
 ## Building a target cohort
 
@@ -96,6 +99,7 @@ If your cohort is defined in ATLAS, you can use its unique cohort ID.
 Ensure the cohort is generated within ATLAS on the CDM instance.
 
 ``` r
+
 ################################################################################
 #
 # Create target table from OMOP CDM instance (ATLAS's cohort id)
@@ -117,6 +121,7 @@ JSON cohort in `inst/example/example_json/cohort.json` (installed path
 shown below).
 
 ``` r
+
 ################################################################################
 #
 # Create target table from a JSON
@@ -127,6 +132,7 @@ targetTable <- CohortContrast::cohortFromJSON(pathToJSON = pathToJSON, cdm = cdm
 ```
 
 ``` r
+
 # Example bundled with CohortContrast:
 exampleJsonDir <- system.file("example/example_json", package = "CohortContrast")
 list.files(exampleJsonDir, pattern = "\\\\.json$", full.names = TRUE)
@@ -142,6 +148,7 @@ columns as present inside a cohort table (cohort_definition_id,
 subject_id, cohort_start_date, cohort_end_date).
 
 ``` r
+
 ################################################################################
 #
 # Create target table from a CSV
@@ -156,6 +163,7 @@ targetTable <- CohortContrast::cohortFromCSV(pathToCsv = pathToCsv, cohortId = 2
 We can also use a table in our memory.
 
 ``` r
+
 ################################################################################
 #
 # Create target table
@@ -204,6 +212,7 @@ matches error otherwise) and `max` (at maximum n matches) parameters can
 be used.
 
 ``` r
+
 ################################################################################
 #
 # Create control cohort table based on matches
@@ -220,6 +229,7 @@ is the case for example if we want to see the contrast after a
 diagnosis.
 
 ``` r
+
 ################################################################################
 #
 # Create control cohort table based on inverse controls
@@ -235,6 +245,7 @@ check and resolve overlap conflicts as well as conflicts with
 observation period inside the OMOP CDM.
 
 ``` r
+
 ################################################################################
 #
 # Resolve conflicts
@@ -245,6 +256,7 @@ controlTable = CohortContrast::resolveCohortTableOverlaps(cdm = cdm, cohortTable
 ```
 
 ``` r
+
 # Close DB connection when done
 DBI::dbDisconnect(db)
 ```

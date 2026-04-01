@@ -10,21 +10,23 @@ cohorts effectively.
 The development version of the package from GitHub:
 
 ``` r
+
 # install.packages("devtools")
 devtools::install_github("HealthInformaticsUT/CohortContrast")
 ```
 
 ## Usage
 
-For full setup and execution code, use the project documentation:
+For complete setup and workflow code, use:
 
-1.  **Project wiki (setup + workflow)**:
+1.  Project wiki (setup + workflow):
     <https://github.com/HealthInformaticsUT/CohortContrast/wiki>
-2.  **Package site (reference + vignettes)**:
+2.  Package site (function reference + vignettes):
     <https://healthinformaticsut.github.io/CohortContrast/>
 
-This README intentionally keeps only a concise overview to avoid
-duplicating setup instructions in multiple places.
+If you are running CohortContrast on an air-gapped server, see the wiki
+article here:
+<https://github.com/HealthInformaticsUT/CohortContrast/wiki>
 
 ## Outputs
 
@@ -42,7 +44,7 @@ The CohortContrast package generates the following outputs:
 ### More information
 
 CohortContrast provides much more insight generation possibilities. See
-the documentation site for details:
+the package site for details:
 <https://healthinformaticsut.github.io/CohortContrast/>
 
 For feature requests create issues on Github or contact Markus Haug

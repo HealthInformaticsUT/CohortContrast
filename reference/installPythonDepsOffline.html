@@ -63,8 +63,7 @@ This is useful for air-gapped servers without internet access.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">installPythonDepsOffline</span><span class="op">(</span></span>
 <span>  packagesDir <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  platform <span class="op">=</span> <span class="st">"linux_x86_64"</span>,</span>
-<span>  cleanup <span class="op">=</span> <span class="cn">TRUE</span>,</span>
-<span>  <span class="va">...</span></span>
+<span>  cleanup <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -84,10 +83,6 @@ This argument is required in CRAN builds.</p></dd>
 <dt id="arg-cleanup">cleanup<a class="anchor" aria-label="anchor" href="#arg-cleanup"></a></dt>
 <dd><p>Logical. If TRUE, removes extracted files after installation.
 Default is TRUE.</p></dd>
-
-
-<dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
-<dd><p>Backward-compatible alias: `packages_dir`.</p></dd>
 
 </dl></div>
     <div class="section level2">

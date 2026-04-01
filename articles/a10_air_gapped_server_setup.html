@@ -196,7 +196,8 @@ server:</p>
 <code class="sourceCode R"><span><span class="va">summaryResult</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/precomputeSummary.html">precomputeSummary</a></span><span class="op">(</span></span>
 <span>  studyPath <span class="op">=</span> <span class="st">"/data/studies/LungCancer_1Y"</span>,</span>
 <span>  outputPath <span class="op">=</span> <span class="st">"/data/studies/LungCancer_1Y_summary"</span>,</span>
-<span>  clusterKValues <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">4</span>, <span class="fl">5</span><span class="op">)</span></span>
+<span>  clusterKValues <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">4</span>, <span class="fl">5</span><span class="op">)</span>,</span>
+<span>  minibatchKMeansCutoffPatients <span class="op">=</span> <span class="fl">50000</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
@@ -272,6 +273,12 @@ contents, reinstall with <code><a href="../reference/installPythonDepsOffline.ht
 <ul>
 <li>use <code>mode = "server"</code> and set <code>logFile</code>
 explicitly.</li>
+</ul>
+</li>
+<li>Precompute exits with status <code>137</code> (killed/OOM):
+<ul>
+<li>lower <code>minibatchKMeansCutoffPatients</code> to force scalable
+clustering earlier.</li>
 </ul>
 </li>
 </ul>

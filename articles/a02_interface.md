@@ -8,8 +8,11 @@ summaries with
 launch the viewer:
 
 ``` r
+
+exampleDataDir <- system.file("example", "st", package = "CohortContrast", mustWork = TRUE)
+
 CohortContrast::runCohortContrastViewer(
-  dataDir = file.path(getwd(), "studies")
+  dataDir = exampleDataDir
 )
 ```
 
