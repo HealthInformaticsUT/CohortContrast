@@ -5,12 +5,8 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 from dash import Input, Output, State, callback_context, no_update
 
+from callbacks.common import scoped_study_key as build_scoped_study_key
 from callbacks.session_state import touch_session
-
-
-def _scoped_study_key(selected_study: str, session_id: Optional[str]) -> str:
-    session_key = session_id or "anonymous-session"
-    return f"{session_key}::{selected_study}"
 
 
 def register_dashboard_table_callbacks(
@@ -43,8 +39,7 @@ def register_dashboard_table_callbacks(
          State("heritage-selection-store", "data"),
          State("selected-study-store", "data"),
          State("show-ordinal-checkbox", "value"),
-         State("session-id-store", "data"),
-         State("plots-update-trigger-store", "data")],
+         State("session-id-store", "data")],
         background=True,
         running=[
             (Output("loading-message-store", "data"), "Applying filters to concepts...", "")
@@ -62,7 +57,6 @@ def register_dashboard_table_callbacks(
         selected_study: Optional[str],
         show_ordinal_checkbox: Optional[List[str]],
         session_id: Optional[str],
-        current_trigger: Optional[int],
     ) -> Tuple[List[Dict], Optional[int]]:
         ctx = callback_context
         if not ctx.triggered:
@@ -75,7 +69,7 @@ def register_dashboard_table_callbacks(
         if trigger_id == "apply-filters-btn" and apply_n_clicks is not None and apply_n_clicks > 0:
             if not dashboard_data or not selected_study:
                 return row_data or [], no_update
-            scoped_study_key = _scoped_study_key(selected_study, session_id)
+            scoped_study_key = build_scoped_study_key(selected_study, session_id)
 
             updated_data = [row.copy() for row in dashboard_data]
 
@@ -113,7 +107,7 @@ def register_dashboard_table_callbacks(
         if trigger_id == "apply-table-selection-btn" and apply_table_n_clicks is not None and apply_table_n_clicks > 0:
             if not row_data or not selected_study:
                 return row_data or [], no_update
-            scoped_study_key = _scoped_study_key(selected_study, session_id)
+            scoped_study_key = build_scoped_study_key(selected_study, session_id)
 
             updated_row_data = [row.copy() for row in row_data]
 

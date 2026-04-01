@@ -63,6 +63,7 @@ def register_layout_interaction_callbacks(app) -> None:
                             var rect = plotDiv.getBoundingClientRect();
                             var isVisible = rect.width > 0 && rect.height > 0;
                             var isInViewport = rect.top < window.innerHeight && rect.bottom > 0;
+                            var chromeExtra = 320;
 
                             if (isVisible || isInViewport) {
                                 var figure = plotDiv.data || null;
@@ -79,15 +80,26 @@ def register_layout_interaction_callbacks(app) -> None:
                                     }
 
                                     if (containerDiv && plotHeight > 0) {
-                                        containerDiv.style.height = plotHeight + "px";
-                                        containerDiv.style.minHeight = plotHeight + "px";
+                                        var measuredContainerHeight = Math.max(
+                                            containerDiv.scrollHeight || 0,
+                                            containerDiv.offsetHeight || 0
+                                        );
+                                        var targetHeight = Math.max(plotHeight + chromeExtra, measuredContainerHeight);
+                                        containerDiv.style.height = "auto";
+                                        containerDiv.style.minHeight = targetHeight + "px";
                                     }
                                 } else {
                                     window.Plotly.Plots.resize(plotDiv);
                                     if (containerDiv) {
                                         var currentHeight = plotDiv.offsetHeight || plotDiv.clientHeight;
                                         if (currentHeight > 0) {
-                                            containerDiv.style.height = currentHeight + "px";
+                                            var measuredContainerHeight = Math.max(
+                                                containerDiv.scrollHeight || 0,
+                                                containerDiv.offsetHeight || 0
+                                            );
+                                            var targetHeight = Math.max(currentHeight + chromeExtra, measuredContainerHeight);
+                                            containerDiv.style.height = "auto";
+                                            containerDiv.style.minHeight = targetHeight + "px";
                                         }
                                     }
                                 }

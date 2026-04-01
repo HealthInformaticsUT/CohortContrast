@@ -7,8 +7,7 @@
 installPythonDepsOffline(
   packagesDir = NULL,
   platform = "linux_x86_64",
-  cleanup = TRUE,
-  ...
+  cleanup = TRUE
 )
 }
 \arguments{
@@ -19,8 +18,6 @@ This argument is required in CRAN builds.}
 
 \item{cleanup}{Logical. If TRUE, removes extracted files after installation.
 Default is TRUE.}
-
-\item{...}{Backward-compatible alias: `packages_dir`.}
 }
 \value{
 Invisibly returns TRUE if installation was successful.

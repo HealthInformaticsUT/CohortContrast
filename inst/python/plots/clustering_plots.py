@@ -3,6 +3,7 @@ Clustering visualization plots.
 """
 
 from typing import Dict, List, Optional, Tuple, Set
+import textwrap
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -25,6 +26,41 @@ from utils.helpers import (
     get_unique_occurrences,
     normalize_concept_name,
 )
+
+
+def _deduplicate_axis_labels(
+    labels: List[str],
+    concept_ids: List[str],
+    concept_info: Dict[str, Dict],
+) -> List[str]:
+    """
+    Keep labels readable while ensuring they are unique for Plotly heatmap axes.
+    """
+    counts: Dict[str, int] = {}
+    for label in labels:
+        counts[label] = counts.get(label, 0) + 1
+
+    deduplicated: List[str] = []
+    used: Set[str] = set()
+    for label, cid in zip(labels, concept_ids):
+        candidate = label
+        if counts.get(label, 0) > 1 or candidate in used:
+            heritage = concept_info.get(cid, {}).get("heritage")
+            candidate = f"{label} [{heritage}]" if heritage else f"{label} [{cid}]"
+            if candidate in used:
+                candidate = f"{label} [{cid}]"
+            if candidate in used:
+                suffix = 2
+                next_candidate = f"{candidate} #{suffix}"
+                while next_candidate in used:
+                    suffix += 1
+                    next_candidate = f"{candidate} #{suffix}"
+                candidate = next_candidate
+
+        used.add(candidate)
+        deduplicated.append(candidate)
+
+    return deduplicated
 
 
 def create_clustering_heatmap(
@@ -1090,9 +1126,13 @@ def _create_trajectory_rank_matrix(
     cluster_counts: Dict[str, int],
     min_prevalence_pct: int = 0,
     ordering_mode: str = "order",
+    preferred_cluster: Optional[str] = None,
 ) -> go.Figure:
     """
-    Create ordering matrix with rank deltas plus median day and prevalence text.
+    Create trajectory ordering matrix.
+
+    Default modes align concepts by row and emphasize rank movement.
+    Cluster mode renders each column as an independent ordering list.
     """
     def _empty(message: str) -> go.Figure:
         fig = go.Figure()
@@ -1123,6 +1163,196 @@ def _create_trajectory_rank_matrix(
         order = cluster_orders.get(label, [])
         cluster_rank[label] = {cid: i + 1 for i, (cid, _, _) in enumerate(order)}
         cluster_metrics[label] = {cid: (median, prevalence) for cid, median, prevalence in order}
+
+    def _wrap_text(text: str, max_chars: int = 42) -> str:
+        if len(text) <= max_chars:
+            return text
+        bp = text.rfind(" ", 0, max_chars)
+        if bp == -1:
+            bp = max_chars
+        return text[:bp] + "<br>" + text[bp:].strip()
+
+    if ordering_mode == "cluster":
+        col_labels = ["Overall"] + cluster_labels
+        orders_by_col: Dict[str, List[Tuple[str, float, float]]] = {"Overall": overall_order}
+        for lbl in cluster_labels:
+            orders_by_col[lbl] = cluster_orders.get(lbl, [])
+
+        max_rows = max((len(order) for order in orders_by_col.values()), default=0)
+        if max_rows == 0:
+            return _empty(f"No cells with ≥{min_prevalence_pct}% prevalence")
+
+        cell_height = 62
+        overall_cell_width = 420
+        cluster_cell_width = 300
+        col_gap = 20
+        col_widths = [overall_cell_width] + [cluster_cell_width] * len(cluster_labels)
+        col_starts = []
+        x_cursor = 0
+        for width in col_widths:
+            col_starts.append(x_cursor)
+            x_cursor += width + col_gap
+        total_plot_width = x_cursor - col_gap
+
+        plot_height = max(420, max_rows * cell_height + 130)
+        total_width = total_plot_width + 50
+
+        fig = go.Figure()
+        shapes = []
+        annotations = []
+
+        for col_idx in range(1, len(col_labels)):
+            x_line = col_starts[col_idx] - col_gap / 2
+            shapes.append(dict(
+                type="line",
+                x0=x_line, x1=x_line,
+                y0=-8, y1=max_rows * cell_height + 38,
+                line=dict(color="#aab0b6", width=1, dash="dash"),
+                layer="below"
+            ))
+
+        col_headers = ["Overall"] + [f"{label}\n(n={cluster_counts.get(label, '?')})" for label in cluster_labels]
+        for col_idx, header in enumerate(col_headers):
+            x_center = col_starts[col_idx] + col_widths[col_idx] / 2
+            annotations.append(dict(
+                x=x_center, y=max_rows * cell_height + 30,
+                text=f"<b>{header}</b>",
+                showarrow=False,
+                font=dict(size=12, color="#2c3e50"),
+                xref="x", yref="y",
+                xanchor="center"
+            ))
+
+        annotations.append(dict(
+            x=0, y=max_rows * cell_height + 56,
+            text="<b>Cluster trajectory (independent ordering per column)</b>",
+            showarrow=False,
+            font=dict(size=11, color="#4d4d4d"),
+            xref="x", yref="y",
+            xanchor="left"
+        ))
+
+        def _format_concept_label_for_cell(concept_name: str, max_chars_per_line: int = 26) -> Tuple[str, int]:
+            """
+            Format concept name to fit inside a cell:
+            - max 2 wrapped lines
+            - reduce font size for long names
+            """
+            normalized = str(concept_name or "").strip()
+            wrapped = textwrap.wrap(
+                normalized,
+                width=max_chars_per_line,
+                break_long_words=True,
+                break_on_hyphens=False,
+            )
+
+            if not wrapped:
+                return "", 10
+
+            if len(wrapped) <= 2:
+                max_line_len = max(len(line) for line in wrapped)
+                font_size = 10 if max_line_len <= int(max_chars_per_line * 0.85) else 9
+                return "<br>".join(wrapped), font_size
+
+            # Keep exactly two lines; truncate second line with ellipsis.
+            first_line = wrapped[0]
+            second_line = wrapped[1]
+            if len(second_line) >= max_chars_per_line:
+                second_line = second_line[: max_chars_per_line - 1].rstrip() + "…"
+            else:
+                second_line = second_line.rstrip() + "…"
+
+            # For very long names, use smaller font.
+            font_size = 8 if len(normalized) > (max_chars_per_line * 2 + 10) else 9
+            return f"{first_line}<br>{second_line}", font_size
+
+        for row_idx in range(max_rows):
+            y_top = max_rows * cell_height - row_idx * cell_height
+            y_bottom = y_top - cell_height + 4
+
+            for col_idx, col_label in enumerate(col_labels):
+                x0 = col_starts[col_idx]
+                x1 = x0 + col_widths[col_idx]
+                ordered_items = orders_by_col.get(col_label, [])
+
+                if row_idx < len(ordered_items):
+                    cid, median_day, prevalence_pct = ordered_items[row_idx]
+                    info = concept_info.get(cid, {})
+                    concept_name = str(info.get("name", cid))
+                    heritage = info.get("heritage", "unknown")
+                    fill_color = HERITAGE_COLORS.get(heritage, "#dddddd")
+                    rank = row_idx + 1
+
+                    label_html, label_font = _format_concept_label_for_cell(concept_name)
+                    if col_label == "Overall":
+                        rank_delta_html = "<span style='color:#666'>=0</span>"
+                    else:
+                        overall_pos = overall_rank.get(cid)
+                        if overall_pos is None:
+                            rank_delta_html = "<span style='color:#999'>NA</span>"
+                        else:
+                            delta = int(rank - overall_pos)
+                            if delta > 0:
+                                rank_delta_html = f"<span style='color:#d62728'>▼{delta}</span>"
+                            elif delta < 0:
+                                rank_delta_html = f"<span style='color:#1a7a1a'>▲{abs(delta)}</span>"
+                            else:
+                                rank_delta_html = "<span style='color:#666'>=0</span>"
+
+                    cell_text = (
+                        f"<span style='font-size:{label_font}px'><b>{label_html}</b></span><br>"
+                        f"<span style='font-size:10px'>#{rank} {rank_delta_html} | {median_day:.0f}d | {prevalence_pct:.0f}%</span>"
+                    )
+                else:
+                    fill_color = "#f5f5f5"
+                    cell_text = "<span style='color:#999'>NA</span>"
+
+                shapes.append(dict(
+                    type="rect",
+                    x0=x0, x1=x1, y0=y_bottom, y1=y_top,
+                    fillcolor=fill_color,
+                    line=dict(color="white", width=2),
+                    layer="below"
+                ))
+                annotations.append(dict(
+                    x=(x0 + x1) / 2,
+                    y=(y_top + y_bottom) / 2,
+                    text=cell_text,
+                    showarrow=False,
+                    font=dict(size=10, color="black"),
+                    xref="x", yref="y",
+                    xanchor="center", yanchor="middle", align="center"
+                ))
+
+        x_max = total_plot_width
+        y_max = max_rows * cell_height + 74
+        fig.update_layout(
+            height=plot_height,
+            width=total_width,
+            showlegend=False,
+            plot_bgcolor="white",
+            paper_bgcolor="white",
+            margin=dict(l=20, r=20, t=30, b=20),
+            shapes=shapes,
+            annotations=annotations,
+            xaxis=dict(
+                showgrid=False,
+                showticklabels=False,
+                zeroline=False,
+                range=[-10, x_max],
+                fixedrange=True,
+                scaleanchor="y",
+                scaleratio=1
+            ),
+            yaxis=dict(
+                showgrid=False,
+                showticklabels=False,
+                zeroline=False,
+                range=[-20, y_max],
+                fixedrange=True
+            )
+        )
+        return fig
     
     all_cids = set(overall_rank.keys())
     for label in cluster_labels:
@@ -1130,6 +1360,29 @@ def _create_trajectory_rank_matrix(
     
     if not all_cids:
         return _empty(f"No cells with ≥{min_prevalence_pct}% prevalence")
+
+    def _normalize_cluster_value(value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        label = str(value).strip()
+        if not label or label.lower() == "all":
+            return None
+        if label in cluster_labels:
+            return label
+        if label.isdigit():
+            candidate = f"C{label}"
+            if candidate in cluster_labels:
+                return candidate
+        lower = label.lower()
+        if lower.startswith("cluster_"):
+            suffix = lower.split("_", 1)[1]
+            if suffix.isdigit():
+                candidate = f"C{suffix}"
+                if candidate in cluster_labels:
+                    return candidate
+        return None
+
+    cluster_focus_label = _normalize_cluster_value(preferred_cluster)
     
     def _rank_delta(cid: str, label: str) -> Optional[int]:
         r_o = overall_rank.get(cid)
@@ -1156,6 +1409,26 @@ def _create_trajectory_rank_matrix(
     def _row_sort_key(cid: str):
         default_name = str(concept_info.get(cid, {}).get("name", cid)).lower()
         default_rank = overall_rank.get(cid, 10**9)
+        if ordering_mode == "cluster":
+            if cluster_focus_label:
+                focus_rank = cluster_rank.get(cluster_focus_label, {}).get(cid)
+                return (
+                    1 if focus_rank is None else 0,
+                    focus_rank if focus_rank is not None else 10**9,
+                    default_rank,
+                    default_name,
+                    str(cid),
+                )
+            best_rank = 10**9
+            best_cluster_idx = 10**9
+            for idx, lbl in enumerate(cluster_labels):
+                c_rank = cluster_rank.get(lbl, {}).get(cid)
+                if c_rank is None:
+                    continue
+                if c_rank < best_rank or (c_rank == best_rank and idx < best_cluster_idx):
+                    best_rank = c_rank
+                    best_cluster_idx = idx
+            return (best_rank, best_cluster_idx, default_rank, default_name, str(cid))
         if ordering_mode == "movers":
             return (-mover_score.get(cid, 0), default_rank, default_name, str(cid))
         if ordering_mode == "stable":
@@ -1167,14 +1440,6 @@ def _create_trajectory_rank_matrix(
     
     if max_rows == 0:
         return _empty(f"No cells with ≥{min_prevalence_pct}% prevalence")
-    
-    def _wrap_text(text: str, max_chars: int = 42) -> str:
-        if len(text) <= max_chars:
-            return text
-        bp = text.rfind(" ", 0, max_chars)
-        if bp == -1:
-            bp = max_chars
-        return text[:bp] + "<br>" + text[bp:].strip()
     
     def _delta_fill_color(d: Optional[int]) -> str:
         if d is None:
@@ -1229,11 +1494,17 @@ def _create_trajectory_rank_matrix(
             xanchor="center"
         ))
     
-    subtitle = {
-        "order": "Ordered by overall rank",
-        "movers": "Top movers (largest rank shift)",
-        "stable": "Most stable (smallest rank variance)"
-    }.get(ordering_mode, "Ordered by overall rank")
+    if ordering_mode == "cluster":
+        if cluster_focus_label:
+            subtitle = f"Cluster trajectory ({cluster_focus_label})"
+        else:
+            subtitle = "Cluster trajectory (best cluster rank)"
+    else:
+        subtitle = {
+            "order": "Ordered by overall rank",
+            "movers": "Top movers (largest rank shift)",
+            "stable": "Most stable (smallest rank variance)"
+        }.get(ordering_mode, "Ordered by overall rank")
     annotations.append(dict(
         x=0, y=max_rows * cell_height + 56,
         text=f"<b>{subtitle}</b>",
@@ -1250,7 +1521,9 @@ def _create_trajectory_rank_matrix(
         is_ordinal = info.get("is_ordinal", False)
         ordinal_num = info.get("ordinal_num")
         
-        if is_ordinal and ordinal_num:
+        if ordering_mode == "cluster":
+            concept_label = str(name)
+        elif is_ordinal and ordinal_num:
             suffix = {1: "1st", 2: "2nd", 3: "3rd"}.get(ordinal_num, f"{ordinal_num}th")
             concept_label = f"{name} ({suffix})"
         else:
@@ -1369,7 +1642,8 @@ def create_trajectory_plot(
     heritage_groups_order: Dict[str, List[Dict]],
     active_concept_ids: Set[str],
     min_prevalence_pct: int = 0,
-    ordering_mode: str = "order"
+    ordering_mode: str = "order",
+    selected_cluster: Optional[str] = None,
 ) -> go.Figure:
     """
     Create a trajectory visualization showing concept ordering by median time.
@@ -1386,7 +1660,8 @@ def create_trajectory_plot(
         heritage_groups_order: Dictionary mapping heritage to list of items in display order
         active_concept_ids: Set of active concept IDs to include
         min_prevalence_pct: Minimum prevalence percentage (0-100) to include concept
-        ordering_mode: One of "order", "movers", "stable"
+        ordering_mode: One of "order", "cluster", "movers", "stable"
+        selected_cluster: Selected cluster label ("C1", "C2", etc.) for cluster ordering mode
         
     Returns:
         Plotly figure with trajectory visualization
@@ -1684,7 +1959,8 @@ def create_trajectory_plot(
         cluster_labels=cluster_labels,
         cluster_counts=cluster_counts,
         min_prevalence_pct=min_prevalence_pct,
-        ordering_mode=ordering_mode
+        ordering_mode=ordering_mode,
+        preferred_cluster=selected_cluster,
     )
 
 
@@ -1918,7 +2194,8 @@ def create_overlap_plot(
     # Axis labels:
     # - X-axis keeps existing shortened labels
     # - Y-axis shows up to 60 characters
-    x_labels = [concept_info[cid]['display_name'] for cid in concept_ids]
+    x_label_base = [concept_info[cid]['display_name'] for cid in concept_ids]
+    x_labels = _deduplicate_axis_labels(x_label_base, concept_ids, concept_info)
 
     def build_y_label(cid):
         info = concept_info[cid]
@@ -1930,7 +2207,8 @@ def create_overlap_plot(
             full_label = base_name
         return f"{full_label[:60]}..." if len(full_label) > 60 else full_label
 
-    y_labels = [build_y_label(cid) for cid in concept_ids]
+    y_label_base = [build_y_label(cid) for cid in concept_ids]
+    y_labels = _deduplicate_axis_labels(y_label_base, concept_ids, concept_info)
     # Full names for hover
     full_names = [concept_info[cid]['name'] for cid in concept_ids]
     
@@ -2172,7 +2450,8 @@ def create_trajectory_plot_from_summary(
     heritage_groups_order: Dict[str, List[Dict]],
     active_concept_ids: Set[str],
     min_prevalence_pct: int = 0,
-    ordering_mode: str = "order"
+    ordering_mode: str = "order",
+    selected_cluster: Optional[str] = None,
 ) -> go.Figure:
     """
     Create trajectory ranking matrix from pre-computed summary data.
@@ -2183,7 +2462,8 @@ def create_trajectory_plot_from_summary(
         heritage_groups_order: Dictionary mapping heritage to list of items in display order
         active_concept_ids: Set of active concept IDs to include
         min_prevalence_pct: Minimum prevalence percentage (0-100) to include concept
-        ordering_mode: One of "order", "movers", "stable"
+        ordering_mode: One of "order", "cluster", "movers", "stable"
+        selected_cluster: Selected cluster label ("C1", "C2", etc.) for cluster ordering mode
         
     Returns:
         Plotly figure with trajectory rank matrix
@@ -2375,7 +2655,8 @@ def create_trajectory_plot_from_summary(
         cluster_labels=cluster_labels,
         cluster_counts={label: _cluster_size(label) for label in cluster_labels},
         min_prevalence_pct=min_prevalence_pct,
-        ordering_mode=ordering_mode
+        ordering_mode=ordering_mode,
+        preferred_cluster=selected_cluster,
     )
 
 
@@ -2561,7 +2842,8 @@ def create_overlap_plot_from_summary(
     # Axis labels:
     # - X-axis keeps existing shortened labels
     # - Y-axis shows up to 60 characters
-    x_labels = [concept_info[cid]['display_name'] for cid in concept_ids]
+    x_label_base = [concept_info[cid]['display_name'] for cid in concept_ids]
+    x_labels = _deduplicate_axis_labels(x_label_base, concept_ids, concept_info)
 
     def build_y_label(cid):
         info = concept_info[cid]
@@ -2573,7 +2855,8 @@ def create_overlap_plot_from_summary(
             full_label = base_name
         return f"{full_label[:60]}..." if len(full_label) > 60 else full_label
 
-    y_labels = [build_y_label(cid) for cid in concept_ids]
+    y_label_base = [build_y_label(cid) for cid in concept_ids]
+    y_labels = _deduplicate_axis_labels(y_label_base, concept_ids, concept_info)
     full_names = [concept_info[cid]['name'] for cid in concept_ids]
     
     # Create hover text

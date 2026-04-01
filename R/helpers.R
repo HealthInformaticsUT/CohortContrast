@@ -337,11 +337,6 @@ createCohortContrastObject <- function(data) {
   return(obj)
 }
 
-#' @keywords internal
-create_CohortContrast_object <- function(data) {
-  createCohortContrastObject(data)
-}
-
 #' @export
 print.CohortContrastObject <- function(x, ...) {
   cat("CohortContrastObject:\n\n")

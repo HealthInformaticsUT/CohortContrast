@@ -4,19 +4,16 @@
 \alias{checkDataMode}
 \title{Check if a Data Directory Contains Summary Mode Data}
 \usage{
-checkDataMode(dataDir, ...)
+checkDataMode(dataDir)
 }
 \arguments{
 \item{dataDir}{Path to the data directory}
-
-\item{...}{Backward-compatible alias: `data_dir`.}
 }
 \value{
 A list with:
   \item{mode}{"summary" or "patient"}
   \item{has_clustering}{Logical, whether clustering data is available}
-  \item{clusterKValues}{Vector of available k values for clustering
-    (canonical name; legacy `cluster_k_values` is also returned).}
+  \item{clusterKValues}{Vector of available k values for clustering}
 }
 \description{
 Determines whether a data directory contains pre-computed summary data

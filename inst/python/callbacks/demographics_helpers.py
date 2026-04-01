@@ -8,21 +8,14 @@ import plotly.graph_objects as go
 from dash import html
 
 from data.loader import load_clustering_file
-from utils.helpers import get_unique_occurrences, normalize_concept_id_series
+from utils.helpers import get_unique_occurrences, normalize_concept_id_series, safe_float
 
 
 _TARGET_COHORT_LABELS = {"target", "2"}
 _CONTROL_COHORT_LABELS = {"control", "1"}
 
 
-def _safe_float(value, default=None):
-    """Safely convert a value to float."""
-    try:
-        if value is None or (isinstance(value, float) and np.isnan(value)):
-            return default
-        return float(value)
-    except (TypeError, ValueError):
-        return default
+_safe_float = safe_float
 
 
 def _safe_int(value, default=None):
@@ -858,71 +851,6 @@ def _create_summary_age_histogram_figure(context: Dict) -> go.Figure:
     )
     fig.update_yaxes(gridcolor="#eee", autorange=True)
     fig.update_xaxes(showgrid=False, autorange=True)
-    return fig
-
-
-def _create_summary_sex_distribution_figure(context: Dict) -> go.Figure:
-    """Create summary-mode sex distribution figure with cluster overlays."""
-    overall = context.get("overall", {})
-    clusters = context.get("clusters", {})
-    sex = overall.get("sex_distribution", {}) if isinstance(overall, dict) else {}
-    
-    male = _safe_int(sex.get("male"), default=0)
-    female = _safe_int(sex.get("female"), default=0)
-    total = _safe_int(sex.get("total"), default=male + female)
-    other = _safe_int(sex.get("other"), default=max(total - male - female, 0))
-    
-    if total <= 0:
-        return _create_demographics_message_figure("Sex distribution not available in summary files.")
-    
-    categories = ["Male", "Female", "Other"]
-    values = [100 * male / total, 100 * female / total, 100 * other / total]
-    
-    fig = go.Figure()
-    fig.add_trace(
-        go.Bar(
-            x=categories,
-            y=values,
-            name="Overall",
-            marker_color="#2c3e50",
-            text=[f"{v:.2f}%<br>(n={n:,})" for v, n in zip(values, [male, female, other])],
-            textposition="auto",
-            hovertemplate="Overall<br>%{x}: %{y:.2f}%<extra></extra>"
-        )
-    )
-    
-    if isinstance(clusters, dict):
-        for cluster_name in sorted(clusters.keys()):
-            cluster_data = clusters.get(cluster_name, {})
-            male_prop = _safe_float(cluster_data.get("male_proportion"))
-            if male_prop is None:
-                continue
-            male_pct = 100 * male_prop
-            female_pct = 100 * (1 - male_prop)
-            fig.add_trace(
-                go.Scatter(
-                    x=["Male", "Female"],
-                    y=[male_pct, female_pct],
-                    mode="markers+text",
-                    name=cluster_name,
-                    marker=dict(size=11, symbol="diamond"),
-                    text=[f"{male_pct:.1f}%", f"{female_pct:.1f}%"],
-                    textposition="top center",
-                    hovertemplate=f"{cluster_name}<br>%{{x}}: %{{y:.2f}}%<extra></extra>"
-                )
-            )
-    
-    fig.update_layout(
-        title="<b>Sex Distribution</b>",
-        height=340,
-        margin=dict(t=60, b=60, l=55, r=20),
-        plot_bgcolor="white",
-        paper_bgcolor="white",
-        yaxis_title="Percentage (%)",
-        yaxis=dict(gridcolor="#eee", autorange=True),
-        xaxis=dict(showgrid=False, autorange=True),
-        legend=dict(orientation="h", yanchor="bottom", y=1.03, xanchor="left", x=0)
-    )
     return fig
 
 

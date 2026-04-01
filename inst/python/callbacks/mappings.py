@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 import time
 import re
+import platform
+import subprocess
 
 import numpy as np
 import pandas as pd
@@ -23,15 +25,6 @@ from utils.helpers import (
 
 _TARGET_COHORT_LABELS = {"target", "2"}
 _CONTROL_COHORT_LABELS = {"control", "1"}
-
-
-def _safe_float(value, default=0.0) -> float:
-    try:
-        if value is None or (isinstance(value, float) and np.isnan(value)):
-            return float(default)
-        return float(value)
-    except (TypeError, ValueError):
-        return float(default)
 
 
 def _base_concept_id_int(value) -> Optional[int]:
@@ -128,6 +121,9 @@ def _to_float(value, default=0.0) -> float:
         return float(value)
     except Exception:
         return float(default)
+
+
+_safe_float = _to_float
 
 
 def _parse_source_concept_ids(value) -> List[str]:
@@ -248,6 +244,15 @@ def _build_hierarchy_suggestions(
         if len(selected_ids_filtered) < 2:
             continue
 
+        selected_descendants = [cid for cid in selected_ids_filtered if cid != ancestor_id]
+        max_hierarchy_depth = np.nan
+        if depth_col is not None and selected_descendants:
+            depth_subset = group[group["__desc"].isin(selected_descendants)]
+            if not depth_subset.empty:
+                depth_vals = pd.to_numeric(depth_subset[depth_col], errors="coerce").dropna()
+                if not depth_vals.empty:
+                    max_hierarchy_depth = int(depth_vals.max())
+
         selected_rows = [concept_meta[cid] for cid in selected_ids_filtered if cid in concept_meta]
         names = [str(row.get("CONCEPT_NAME") or row.get("CONCEPT_ID")) for row in selected_rows]
         source_names_text = " | ".join(names[:8]) + (" | ..." if len(names) > 8 else "")
@@ -267,7 +272,7 @@ def _build_hierarchy_suggestions(
                 "SOURCE_CONCEPT_NAMES": source_names_text,
                 "N_CONCEPTS": len(selected_ids_filtered),
                 "SCORE": round(parent_prev * 100.0, 2),
-                "AUX_VALUE": int(len(selected_ids_filtered) - 1),
+                "AUX_VALUE": max_hierarchy_depth,
             }
         )
 
@@ -824,6 +829,26 @@ def _save_patient_study_state_copy(
     source_study_dir: Path,
     output_dir_raw: str,
 ) -> Tuple[Path, int]:
+    def _sanitize_for_parquet_export(frame: pd.DataFrame) -> pd.DataFrame:
+        """
+        Normalize mixed-typed concept ID columns before parquet export.
+
+        Mapping operations can introduce string IDs into columns that were previously
+        numeric-only. Arrow may otherwise infer int64 and fail on mixed values.
+        """
+        out = frame.copy()
+        for col in out.columns:
+            col_name = str(col).upper()
+            if not col_name.endswith("CONCEPT_ID"):
+                continue
+
+            source = out[col]
+            null_mask = source.isna()
+            normalized = normalize_concept_id_series(source)
+            normalized = normalized.where(~null_mask, pd.NA).astype("string")
+            out[col] = normalized
+        return out
+
     output_dir = Path(output_dir_raw).expanduser()
     if not output_dir.is_absolute():
         output_dir = (Path.cwd() / output_dir).resolve()
@@ -852,7 +877,8 @@ def _save_patient_study_state_copy(
         frame = parquet_data.get(key)
         if isinstance(frame, pd.DataFrame):
             target_path = output_dir / f"{key}.parquet"
-            frame.to_parquet(target_path, index=False)
+            frame_to_write = _sanitize_for_parquet_export(frame)
+            frame_to_write.to_parquet(target_path, index=False)
             written_count += 1
             written_names.add(target_path.name)
 
@@ -864,17 +890,97 @@ def _save_patient_study_state_copy(
             shutil.copy2(source_file, output_dir / source_file.name)
             written_count += 1
 
+    source_metadata_path = source_study_dir / "metadata.json"
+    metadata_payload = None
     metadata = parquet_data.get("_metadata")
     if isinstance(metadata, dict):
+        metadata_payload = dict(metadata)
+    elif source_metadata_path.exists():
+        try:
+            with open(source_metadata_path, "r", encoding="utf-8") as f:
+                loaded_metadata = json.load(f)
+            if isinstance(loaded_metadata, dict):
+                metadata_payload = loaded_metadata
+        except Exception:
+            metadata_payload = None
+
+    if isinstance(metadata_payload, dict):
+        saved_study_name = output_dir.name
+        metadata_payload["study"] = saved_study_name
+        metadata_payload["study_name"] = saved_study_name
         with open(output_dir / "metadata.json", "w", encoding="utf-8") as f:
-            json.dump(metadata, f, indent=2)
-    elif (source_study_dir / "metadata.json").exists():
-        shutil.copy2(source_study_dir / "metadata.json", output_dir / "metadata.json")
+            json.dump(metadata_payload, f, indent=2)
+    elif source_metadata_path.exists():
+        shutil.copy2(source_metadata_path, output_dir / "metadata.json")
 
     if (source_study_dir / "desc.txt").exists():
         shutil.copy2(source_study_dir / "desc.txt", output_dir / "desc.txt")
 
     return output_dir, written_count
+
+
+def _browse_for_directory(initial_dir: Path) -> Optional[str]:
+    """Open a native folder chooser and return the selected path."""
+    system_name = platform.system().lower()
+    initial_dir_resolved = initial_dir.expanduser().resolve()
+
+    if system_name == "darwin":
+        safe_path = str(initial_dir_resolved).replace("\\", "\\\\").replace('"', '\\"')
+        script = (
+            'POSIX path of (choose folder with prompt "Select output folder for study state copy" '
+            f'default location POSIX file "{safe_path}")'
+        )
+        result = subprocess.run(
+            ["osascript", "-e", script],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            return None
+        selected = result.stdout.strip()
+        return selected or None
+
+    if system_name == "windows":
+        safe_path = str(initial_dir_resolved).replace("\\", "\\\\").replace('"', '\\"')
+        ps_script = (
+            "[System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms') | Out-Null; "
+            "$dialog = New-Object System.Windows.Forms.FolderBrowserDialog; "
+            f'$dialog.SelectedPath = "{safe_path}"; '
+            "if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) "
+            "{ Write-Output $dialog.SelectedPath }"
+        )
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", ps_script],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            return None
+        selected = result.stdout.strip()
+        return selected or None
+
+    if shutil.which("zenity"):
+        filename_arg = str(initial_dir_resolved) + "/"
+        result = subprocess.run(
+            [
+                "zenity",
+                "--file-selection",
+                "--directory",
+                "--title=Select output folder for study state copy",
+                f"--filename={filename_arg}",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            return None
+        selected = result.stdout.strip()
+        return selected or None
+
+    return None
 
 
 def register_mappings_callbacks(
@@ -890,6 +996,48 @@ def register_mappings_callbacks(
     DATA_DIR = data_dir
     cache = cache_store
     loaded_parquet_data = loaded_parquet_data_store
+
+    @app.callback(
+        Output("save-study-path-input", "value"),
+        Input("browse-save-study-path-btn", "n_clicks"),
+        [State("selected-study-store", "data"),
+         State("save-study-path-input", "value")],
+        prevent_initial_call=True,
+    )
+    def browse_save_study_path(
+        n_clicks: Optional[int],
+        selected_study: Optional[str],
+        current_value: Optional[str],
+    ):
+        if not n_clicks:
+            return no_update
+
+        current_path = str(current_value or "").strip()
+        initial_dir = None
+        if current_path:
+            try:
+                path_obj = Path(current_path).expanduser()
+                if path_obj.exists():
+                    initial_dir = path_obj if path_obj.is_dir() else path_obj.parent
+            except Exception:
+                initial_dir = None
+
+        if initial_dir is None and selected_study:
+            study_dir = (DATA_DIR / selected_study).expanduser()
+            if study_dir.exists():
+                initial_dir = study_dir
+
+        if initial_dir is None:
+            initial_dir = DATA_DIR.expanduser() if DATA_DIR.exists() else Path.cwd()
+
+        try:
+            selected_path = _browse_for_directory(initial_dir)
+        except Exception:
+            selected_path = None
+
+        if not selected_path:
+            return no_update
+        return selected_path
 
     @app.callback(
         [Output("mappings-candidate-table", "rowData"),

@@ -11,8 +11,7 @@ precomputeSummary(
   conceptLimit = 60,
   minCellCount = 0,
   maxParallelJobs = 1,
-  minibatchKMeansCutoffPatients = 50000,
-  ...
+  minibatchKMeansCutoffPatients = 50000
 )
 }
 \arguments{
@@ -38,15 +37,10 @@ Set to 2-4 on machines with ample RAM for faster execution.}
 \item{minibatchKMeansCutoffPatients}{If target patient count is greater than
 this value, clustering uses MiniBatchKMeans instead of KMedoids.
 Default is 50000.}
-
-\item{...}{Backward-compatible aliases: `study_path`, `output_path`,
-`cluster_k_values`, `concept_limit`, `min_cell_count`, `max_parallel_jobs`,
-`minibatch_kmeans_cutoff_patients`.}
 }
 \value{
 A list with:
-  \item{outputPath}{Path to the generated summary directory
-    (canonical name; legacy `output_path` may also be present depending on Python output).}
+  \item{outputPath}{Path to the generated summary directory.}
   \item{files}{Named list of generated file paths}
   \item{metadata}{Study metadata including demographics and clustering info}
 }

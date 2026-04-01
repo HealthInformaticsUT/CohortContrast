@@ -2,7 +2,6 @@
 
 from datetime import datetime
 import hashlib
-import os
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -39,6 +38,7 @@ from callbacks.composite_stats_helpers import (
     build_summary_age_stats as _build_summary_age_stats,
     build_summary_cluster_overlay_data as _build_summary_cluster_overlay_data,
 )
+from callbacks.common import load_study_parquet_data
 from config.constants import (
     BOTTOM_MARGIN_COMBINED,
     HERITAGE_ORDER,
@@ -49,7 +49,6 @@ from config.constants import (
     TOP_MARGIN_COMBINED,
     VERTICAL_SPACING,
 )
-from data.cache import get_or_load_parquet_data
 from data.loader import get_available_cluster_k_values, load_clustering_file
 from plots.age import calculate_age_stats, create_age_plot
 from plots.composite import create_composite_plot
@@ -63,22 +62,14 @@ from utils.helpers import (
     filter_top_n_concepts_by_sd,
     get_unique_occurrences,
     get_default_container_style,
+    is_exports_enabled,
     normalize_concept_id as _normalize_concept_id,
+    safe_float,
 )
 
 
 def _safe_float(value) -> float:
-    if value is None:
-        return np.nan
-    try:
-        if pd.isna(value):
-            return np.nan
-    except Exception:
-        pass
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return np.nan
+    return safe_float(value, default=np.nan)
 
 
 def _normalize_cluster_label(label) -> str:
@@ -147,14 +138,56 @@ def _is_ordinal_concept_row(concept: Dict) -> bool:
         return bool(flag)
 
 
-def _concept_stat_lookup_key(concept: Dict) -> Tuple[str, object, int]:
+def _concept_stat_lookup_keys(concept: Dict) -> List[Tuple[str, object, int]]:
+    """Build robust stat lookup keys (str/int concept-id variants)."""
     heritage = concept.get("HERITAGE") or concept.get("heritage") or "unknown"
+    heritage_candidates = [str(heritage)]
+    if "unknown" not in heritage_candidates:
+        heritage_candidates.append("unknown")
+    if "ALL" not in heritage_candidates:
+        heritage_candidates.append("ALL")
     concept_id = concept.get("_concept_id") or concept.get("CONCEPT_ID") or concept.get("concept_id")
     original_concept_id = concept.get("ORIGINAL_CONCEPT_ID") or concept.get("original_concept_id")
     ordinal = _extract_ordinal_number(concept)
     is_ordinal = _is_ordinal_concept_row(concept)
-    lookup_id = original_concept_id if is_ordinal and original_concept_id is not None else concept_id
-    return str(heritage), _normalize_concept_id(lookup_id), ordinal
+
+    lookup_values = []
+    primary_lookup_id = original_concept_id if is_ordinal and original_concept_id is not None else concept_id
+    if primary_lookup_id is not None:
+        lookup_values.append(primary_lookup_id)
+    if concept_id is not None:
+        lookup_values.append(concept_id)
+    if original_concept_id is not None:
+        lookup_values.append(original_concept_id)
+
+    keys: List[Tuple[str, object, int]] = []
+    seen = set()
+    for raw_id in lookup_values:
+        norm_str = _normalize_concept_id(raw_id)
+        candidates: List[object] = [norm_str]
+        if norm_str and norm_str.lstrip("-").isdigit():
+            try:
+                candidates.append(int(norm_str))
+            except ValueError:
+                pass
+        for heritage_candidate in heritage_candidates:
+            for candidate in candidates:
+                key = (heritage_candidate, candidate, ordinal)
+                if key not in seen:
+                    seen.add(key)
+                    keys.append(key)
+    return keys
+
+
+def _resolve_concept_stat_entry(stats: Dict, concept: Dict) -> Dict:
+    """Resolve concept stats using tolerant key matching for export."""
+    if not stats:
+        return {}
+    for key in _concept_stat_lookup_keys(concept):
+        entry = stats.get(key)
+        if entry is not None:
+            return entry
+    return {}
 
 
 def _format_ci(low, high, *, decimals: int = 2) -> str:
@@ -267,9 +300,7 @@ def register_composite_plot_callbacks(
     plot_figure_cache = plot_figure_cache_store
     MAX_PLOT_CACHE_SIZE = max_plot_cache_size
     logger = logger_obj
-    exports_enabled = os.environ.get("CONTRAST_VIEWER_ALLOW_EXPORTS", "1").strip().lower() not in {
-        "0", "false", "no", "off"
-    }
+    exports_enabled = is_exports_enabled()
     @app.callback(
         [Output("composite-plot", "figure"),
          Output("composite-plot-container", "style"),
@@ -278,8 +309,7 @@ def register_composite_plot_callbacks(
          Input("selected-study-store", "data"),
          Input("dashboard-data-store", "data"),
          Input("clustering-results-store", "data"),
-         Input("cluster-view-store", "data"),
-         Input("main-tabs", "value")],  # Also trigger when switching to dashboard tab
+         Input("cluster-view-store", "data")],
         [State("dashboard-table", "rowData"),
          State("cluster-prevalence-slider", "value"),
          State("top-n-sd-filter", "value"),
@@ -296,7 +326,6 @@ def register_composite_plot_callbacks(
         dashboard_data_store: Optional[List[Dict]],
         clustering_results: Optional[Dict],
         selected_cluster: Optional[str],
-        _tab_value: Optional[str],
         row_data: Optional[List[Dict]],
         cluster_prevalence_threshold: int,
         top_n_sd_filter: Optional[int],
@@ -372,14 +401,16 @@ def register_composite_plot_callbacks(
             return no_update, no_update, (updated_table_data if updated_table_data is not None else no_update)
         
         # Try to get parquet data using centralized cache (works across background callbacks)
-        parquet_data = get_or_load_parquet_data(selected_study, DATA_DIR, cache)
+        parquet_data = load_study_parquet_data(
+            selected_study,
+            DATA_DIR,
+            cache,
+            loaded_parquet_data,
+        )
         if parquet_data is None:
             # During load transitions, parquet may not yet be available in this worker.
             # Keep current plot instead of flashing an error/empty figure.
             return no_update, no_update, (updated_table_data if updated_table_data is not None else no_update)
-        
-        # Also update in-memory cache for this process
-        loaded_parquet_data[selected_study] = parquet_data
         
         # Check data mode
         data_mode = parquet_data.get("_mode", "patient")
@@ -1219,8 +1250,12 @@ def register_composite_plot_callbacks(
             heritage_groups_order=heritage_groups_order,
         )
         
-        # Calculate container height based on plot height
+        # Calculate container height based on plot height plus UI chrome
+        # (heading, controls, legend, and loading wrapper), to prevent overlap
+        # with the dashboard table on smaller screens.
         plot_height = fig_combined.layout.height if hasattr(fig_combined.layout, 'height') and fig_combined.layout.height else 400
+        container_chrome_height = 320
+        container_min_height = int(plot_height) + container_chrome_height
         
         # Set explicit height but allow width to adapt
         fig_combined.update_layout(
@@ -1228,13 +1263,14 @@ def register_composite_plot_callbacks(
             height=plot_height
         )
         
-        # Container style: set height to match plot height
-        # The clientside callback will resize the plot when switching tabs
+        # Container style: allow natural growth and enforce a protective minimum.
+        # The clientside callback re-evaluates minHeight on tab switches/resizes.
         container_style = {
             "width": "100%",
             "marginBottom": "60px",
             "overflow": "visible",
-            "height": f"{plot_height}px"
+            "height": "auto",
+            "minHeight": f"{container_min_height}px",
         }
         
         # Store in cache (LRU eviction) - cache the complete combined figure
@@ -1284,7 +1320,12 @@ def register_composite_plot_callbacks(
         if not active_concepts:
             return no_update
 
-        parquet_data = get_or_load_parquet_data(selected_study, DATA_DIR, cache)
+        parquet_data = load_study_parquet_data(
+            selected_study,
+            DATA_DIR,
+            cache,
+            loaded_parquet_data,
+        )
         if parquet_data is None:
             return no_update
 
@@ -1481,9 +1522,8 @@ def register_composite_plot_callbacks(
             heritage = concept.get("HERITAGE") or concept.get("heritage") or ""
             ordinal_number = _extract_ordinal_number(concept)
 
-            lookup_key = _concept_stat_lookup_key(concept)
-            age_entry = age_stats.get(lookup_key, {})
-            male_entry = male_prop_stats.get(lookup_key, {})
+            age_entry = _resolve_concept_stat_entry(age_stats, concept)
+            male_entry = _resolve_concept_stat_entry(male_prop_stats, concept)
 
             target_prev_pct = _safe_float(concept.get("TARGET_SUBJECT_PREVALENCE_PCT"))
             if np.isnan(target_prev_pct):

@@ -70,11 +70,6 @@ calculateDataFeatures <-
     return(data)
   }
 
-#' @keywords internal
-calculate_data_features <- function(data, nHighestPrevalenceDifference) {
-  calculateDataFeatures(data, nHighestPrevalenceDifference)
-}
-
 #' This function uses complementaryMappingTable to map concepts to custom names
 #' @param data Data list object
 #' @param complementaryMappingTable Mappingtable for mapping concept_ids if present, columns CONCEPT_ID, CONCEPT_NAME, NEW_CONCEPT_ID, NEW_CONCEPT_NAME, ABSTRACTION_LEVEL,

@@ -9,8 +9,7 @@ automaticCorrelationCombineConcepts(
   abstraction_level = -1,
   minCorrelation = 0.7,
   maxDaysInBetween = 1,
-  heritageDriftAllowed = FALSE,
-  ...
+  heritageDriftAllowed = FALSE
 )
 }
 \arguments{
@@ -23,8 +22,6 @@ automaticCorrelationCombineConcepts(
 \item{maxDaysInBetween}{minimum days between concepts to use for automatic concept combining}
 
 \item{heritageDriftAllowed}{boolean for allowing heritage drift (combining concepts from differing heritages)}
-
-\item{...}{Backward-compatible alias: `maxDaysInbetween`.}
 }
 \description{
 Function for automatically combining concepts by hierarchy mapping

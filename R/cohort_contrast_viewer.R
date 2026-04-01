@@ -52,48 +52,6 @@ NULL
   return(req_path)
 }
 
-#' @keywords internal
-.get_python_dir <- function() {
-  .getPythonDir()
-}
-
-#' @keywords internal
-.get_requirements_path <- function() {
-  .getRequirementsPath()
-}
-
-#' @keywords internal
-.resolveLegacyArgs <- function(dots, mapping, explicitNew, fnName) {
-  resolved <- list()
-  for (oldName in names(mapping)) {
-    newName <- unname(mapping[[oldName]])
-    if (!is.null(dots[[oldName]])) {
-      if (isTRUE(explicitNew[[newName]])) {
-        stop(
-          "Both `", newName, "` and deprecated `", oldName, "` were provided in `",
-          fnName, "()`.",
-          call. = FALSE
-        )
-      }
-      resolved[[newName]] <- dots[[oldName]]
-      warning(
-        "`", oldName, "` is deprecated in `", fnName, "()`; use `", newName, "` instead.",
-        call. = FALSE
-      )
-      dots[[oldName]] <- NULL
-    }
-  }
-  if (length(dots) > 0) {
-    stop(
-      "Unknown argument(s) in `", fnName, "()`",
-      ": ",
-      paste(names(dots), collapse = ", "),
-      call. = FALSE
-    )
-  }
-  resolved
-}
-
 #' Configure Python Environment for CohortContrast Viewer
 #'
 #' Sets up the Python environment for running the CohortContrast Viewer dashboard.
@@ -106,8 +64,6 @@ NULL
 #'   Default is TRUE. Set to FALSE on systems without python3-venv package.
 #' @param force Logical. If TRUE, recreates the virtual environment even if it exists.
 #'   Default is FALSE.
-#' @param ... Backward-compatible aliases:
-#'   `python_path`, `virtualenv_name`, `create_venv`.
 #'
 #' @return Invisibly returns TRUE if configuration was successful.
 #'
@@ -128,26 +84,7 @@ NULL
 configurePython <- function(pythonPath = NULL,
                             virtualenvName = "r-cohortcontrast-viewer",
                             createVenv = TRUE,
-                            force = FALSE,
-                            ...) {
-
-  legacy <- .resolveLegacyArgs(
-    dots = list(...),
-    mapping = c(
-      python_path = "pythonPath",
-      virtualenv_name = "virtualenvName",
-      create_venv = "createVenv"
-    ),
-    explicitNew = c(
-      pythonPath = !missing(pythonPath),
-      virtualenvName = !missing(virtualenvName),
-      createVenv = !missing(createVenv)
-    ),
-    fnName = "configurePython"
-  )
-  if (!is.null(legacy$pythonPath)) pythonPath <- legacy$pythonPath
-  if (!is.null(legacy$virtualenvName)) virtualenvName <- legacy$virtualenvName
-  if (!is.null(legacy$createVenv)) createVenv <- legacy$createVenv
+                            force = FALSE) {
 
   message("Configuring Python environment for CohortContrast Viewer...")
 
@@ -191,7 +128,7 @@ configurePython <- function(pythonPath = NULL,
 
     # Use the virtual environment
     reticulate::use_virtualenv(virtualenvName, required = TRUE)
-    .ccv_env$virtualenv_name <- virtualenvName
+    .ccv_env$virtualenvName <- virtualenvName
 
   } else {
     # Use system Python directly (no virtual environment)
@@ -211,7 +148,7 @@ configurePython <- function(pythonPath = NULL,
         stop("Could not find Python. Please specify `pythonPath`.")
       }
     }
-    .ccv_env$virtualenv_name <- NULL
+    .ccv_env$virtualenvName <- NULL
   }
 
   .ccv_env$python_configured <- TRUE
@@ -241,8 +178,7 @@ getPythonInfo <- function() {
   list(
     python_version = config$version,
     pythonPath = config$python,
-    python_path = config$python,
-    virtualenv = if (exists("virtualenv_name", envir = .ccv_env)) .ccv_env$virtualenv_name else NA,
+    virtualenv = if (exists("virtualenvName", envir = .ccv_env)) .ccv_env$virtualenvName else NA,
     configured = .ccv_env$python_configured,
     numpy_available = reticulate::py_module_available("numpy"),
     pandas_available = reticulate::py_module_available("pandas"),
@@ -287,7 +223,7 @@ installPythonDeps <- function(upgrade = FALSE, quiet = FALSE, user = NULL) {
   # Auto-detect if we should use --user flag
   # Use --user when not in a virtual environment
   if (is.null(user)) {
-    user <- is.null(.ccv_env$virtualenv_name)
+    user <- is.null(.ccv_env$virtualenvName)
     if (user) {
       message("No virtual environment detected. Installing to user directory (--user).")
     }
@@ -310,8 +246,8 @@ installPythonDeps <- function(upgrade = FALSE, quiet = FALSE, user = NULL) {
   }, error = function(e) {
     # Fallback: use system pip directly
     message("Trying alternative installation method...")
-    python_path <- reticulate::py_config()$python
-    pip_cmd <- paste(python_path, "-m pip install -r", shQuote(req_path))
+    pythonPath <- reticulate::py_config()$python
+    pip_cmd <- paste(pythonPath, "-m pip install -r", shQuote(req_path))
     if (upgrade) pip_cmd <- paste(pip_cmd, "--upgrade")
     if (user) pip_cmd <- paste(pip_cmd, "--user")
 
@@ -385,7 +321,6 @@ checkPythonDeps <- function() {
 #' @param platform Platform identifier. Default is "linux_x86_64".
 #' @param cleanup Logical. If TRUE, removes extracted files after installation.
 #'   Default is TRUE.
-#' @param ... Backward-compatible alias: `packages_dir`.
 #'
 #' @return Invisibly returns TRUE if installation was successful.
 #'
@@ -413,16 +348,7 @@ checkPythonDeps <- function() {
 #' @export
 installPythonDepsOffline <- function(packagesDir = NULL,
                                      platform = "linux_x86_64",
-                                     cleanup = TRUE,
-                                     ...) {
-
-  legacy <- .resolveLegacyArgs(
-    dots = list(...),
-    mapping = c(packages_dir = "packagesDir"),
-    explicitNew = c(packagesDir = !missing(packagesDir)),
-    fnName = "installPythonDepsOffline"
-  )
-  if (!is.null(legacy$packagesDir)) packagesDir <- legacy$packagesDir
+                                     cleanup = TRUE) {
 
   if (!.ccv_env$python_configured) {
     message("Python not configured. Running configurePython() first...")
@@ -516,8 +442,6 @@ installPythonDepsOffline <- function(packagesDir = NULL,
 #'   `"simple"` hides debug-style output and is the default.
 #'   `"server"` enables file logging suitable for hosted/server runs.
 #'   `"debug"` enables maximum debug features.
-#' @param debug Logical. Backward-compatible alias for debug behavior.
-#'   If TRUE, mode is forced to `"debug"`.
 #' @param logFile Optional log file path for `"server"` (or `"debug"`) mode.
 #'   If NULL in `"server"` mode, defaults to `file.path(dataDir, "contrast_viewer.log")`.
 #' @param allowExports Logical. If FALSE, disables export actions (TSV/PNG) in the UI.
@@ -526,8 +450,6 @@ installPythonDepsOffline <- function(packagesDir = NULL,
 #'   Default is TRUE.
 #' @param background Logical. If TRUE, runs the server in the background.
 #'   Default is TRUE.
-#' @param ... Backward-compatible aliases:
-#'   `data_dir`, `log_file`, `allow_exports`, `open_browser`.
 #'
 #' @return If background is TRUE, invisibly returns the process object.
 #'   If FALSE, blocks until the server is stopped.
@@ -551,37 +473,12 @@ runCohortContrastViewer <- function(dataDir = NULL,
                                 port = 8050,
                                 host = "127.0.0.1",
                                 mode = c("simple", "server", "debug"),
-                                debug = FALSE,
                                 logFile = NULL,
                                 allowExports = TRUE,
                                 openBrowser = TRUE,
-                                background = TRUE,
-                                ...) {
-  legacy <- .resolveLegacyArgs(
-    dots = list(...),
-    mapping = c(
-      data_dir = "dataDir",
-      log_file = "logFile",
-      allow_exports = "allowExports",
-      open_browser = "openBrowser"
-    ),
-    explicitNew = c(
-      dataDir = !missing(dataDir),
-      logFile = !missing(logFile),
-      allowExports = !missing(allowExports),
-      openBrowser = !missing(openBrowser)
-    ),
-    fnName = "runCohortContrastViewer"
-  )
-  if (!is.null(legacy$dataDir)) dataDir <- legacy$dataDir
-  if (!is.null(legacy$logFile)) logFile <- legacy$logFile
-  if (!is.null(legacy$allowExports)) allowExports <- legacy$allowExports
-  if (!is.null(legacy$openBrowser)) openBrowser <- legacy$openBrowser
+                                background = TRUE) {
 
   mode <- match.arg(mode)
-  if (isTRUE(debug) && mode != "debug") {
-    mode <- "debug"
-  }
 
   if (!is.logical(allowExports) || length(allowExports) != 1 || is.na(allowExports)) {
     stop("allowExports must be TRUE or FALSE.")
@@ -611,8 +508,7 @@ runCohortContrastViewer <- function(dataDir = NULL,
   # Set environment variables for the app
   env_vars <- list(
     CONTRAST_VIEWER_PORT = as.character(port),
-    CONTRAST_VIEWER_HOST = host,
-    CONTRAST_VIEWER_DEBUG = if (debug) "1" else "0"
+    CONTRAST_VIEWER_HOST = host
   )
 
   if (is.null(dataDir)) {
@@ -808,13 +704,9 @@ stopCohortContrastViewer <- function() {
 #' @param minibatchKMeansCutoffPatients If target patient count is greater than
 #'   this value, clustering uses MiniBatchKMeans instead of KMedoids.
 #'   Default is 50000.
-#' @param ... Backward-compatible aliases: `study_path`, `output_path`,
-#'   `cluster_k_values`, `concept_limit`, `min_cell_count`, `max_parallel_jobs`,
-#'   `minibatch_kmeans_cutoff_patients`.
 #'
 #' @return A list with:
-#'   \item{outputPath}{Path to the generated summary directory
-#'     (canonical name; legacy `output_path` may also be present depending on Python output).}
+#'   \item{outputPath}{Path to the generated summary directory.}
 #'   \item{files}{Named list of generated file paths}
 #'   \item{metadata}{Study metadata including demographics and clustering info}
 #'
@@ -846,37 +738,7 @@ precomputeSummary <- function(studyPath,
                               conceptLimit = 60,
                               minCellCount = 0,
                               maxParallelJobs = 1,
-                              minibatchKMeansCutoffPatients = 50000,
-                              ...) {
-  legacy <- .resolveLegacyArgs(
-    dots = list(...),
-    mapping = c(
-      study_path = "studyPath",
-      output_path = "outputPath",
-      cluster_k_values = "clusterKValues",
-      concept_limit = "conceptLimit",
-      min_cell_count = "minCellCount",
-      max_parallel_jobs = "maxParallelJobs",
-      minibatch_kmeans_cutoff_patients = "minibatchKMeansCutoffPatients"
-    ),
-    explicitNew = c(
-      studyPath = !missing(studyPath),
-      outputPath = !missing(outputPath),
-      clusterKValues = !missing(clusterKValues),
-      conceptLimit = !missing(conceptLimit),
-      minCellCount = !missing(minCellCount),
-      maxParallelJobs = !missing(maxParallelJobs),
-      minibatchKMeansCutoffPatients = !missing(minibatchKMeansCutoffPatients)
-    ),
-    fnName = "precomputeSummary"
-  )
-  if (!is.null(legacy$studyPath)) studyPath <- legacy$studyPath
-  if (!is.null(legacy$outputPath)) outputPath <- legacy$outputPath
-  if (!is.null(legacy$clusterKValues)) clusterKValues <- legacy$clusterKValues
-  if (!is.null(legacy$conceptLimit)) conceptLimit <- legacy$conceptLimit
-  if (!is.null(legacy$minCellCount)) minCellCount <- legacy$minCellCount
-  if (!is.null(legacy$maxParallelJobs)) maxParallelJobs <- legacy$maxParallelJobs
-  if (!is.null(legacy$minibatchKMeansCutoffPatients)) minibatchKMeansCutoffPatients <- legacy$minibatchKMeansCutoffPatients
+                              minibatchKMeansCutoffPatients = 50000) {
 
   # Check Python configuration
   if (!.ccv_env$python_configured) {
@@ -971,15 +833,15 @@ print("__RESULT_END__")
     stop("Pre-computation failed: ", e$message)
   })
 
-  if (!is.null(result$output_path) && is.null(result$outputPath)) {
-    result$outputPath <- result$output_path
+  if (!is.null(result$output_path)) {
+    if (is.null(result$outputPath)) {
+      result$outputPath <- result$output_path
+    }
+    result$output_path <- NULL
   }
 
   message("\nSummary generation complete!")
   outputDir <- result$outputPath
-  if (is.null(outputDir) && !is.null(result$output_path)) {
-    outputDir <- result$output_path
-  }
   message("Output directory: ", outputDir)
   message("Files generated: ", length(result$files))
 
@@ -993,13 +855,11 @@ print("__RESULT_END__")
 #' (summary mode) or patient-level data (patient mode).
 #'
 #' @param dataDir Path to the data directory
-#' @param ... Backward-compatible alias: `data_dir`.
 #'
 #' @return A list with:
 #'   \item{mode}{"summary" or "patient"}
 #'   \item{has_clustering}{Logical, whether clustering data is available}
-#'   \item{clusterKValues}{Vector of available k values for clustering
-#'     (canonical name; legacy `cluster_k_values` is also returned).}
+#'   \item{clusterKValues}{Vector of available k values for clustering}
 #'
 #' @examples
 #' \dontrun{
@@ -1008,15 +868,7 @@ print("__RESULT_END__")
 #' }
 #'
 #' @export
-checkDataMode <- function(dataDir, ...) {
-  legacy <- .resolveLegacyArgs(
-    dots = list(...),
-    mapping = c(data_dir = "dataDir"),
-    explicitNew = c(dataDir = !missing(dataDir)),
-    fnName = "checkDataMode"
-  )
-  if (!is.null(legacy$dataDir)) dataDir <- legacy$dataDir
-
+checkDataMode <- function(dataDir) {
   dataDir <- normalizePath(dataDir, mustWork = TRUE)
 
   # Check for summary mode indicators
@@ -1036,7 +888,6 @@ checkDataMode <- function(dataDir, ...) {
       mode = "summary",
       has_clustering = length(k_values) > 0,
       clusterKValues = sort(k_values),
-      cluster_k_values = sort(k_values),
       demographics = metadata$demographics,
       metadata = metadata
     ))
@@ -1045,7 +896,6 @@ checkDataMode <- function(dataDir, ...) {
       mode = "patient",
       has_clustering = TRUE,  # Can compute on-the-fly
       clusterKValues = 2:10,  # Any k is possible
-      cluster_k_values = 2:10,  # Any k is possible
       demographics = NULL,
       metadata = NULL
     ))

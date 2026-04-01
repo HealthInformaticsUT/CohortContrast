@@ -214,24 +214,7 @@ filterCorrelationMappings <- function(df,
                                       data_features,
                                       minCorrelation = 0.8,
                                       maxDaysInBetween = 1,
-                                      heritageDriftAllowed = FALSE,
-                                      ...) {
-  legacyArgs <- list(...)
-  if (!is.null(legacyArgs$maxDaysInbetween)) {
-    if (!missing(maxDaysInBetween)) {
-      stop("Both `maxDaysInBetween` and deprecated `maxDaysInbetween` were provided.", call. = FALSE)
-    }
-    maxDaysInBetween <- legacyArgs$maxDaysInbetween
-    warning("`maxDaysInbetween` is deprecated; use `maxDaysInBetween`.", call. = FALSE)
-    legacyArgs$maxDaysInbetween <- NULL
-  }
-  if (length(legacyArgs) > 0) {
-    stop(
-      "Unknown argument(s) in `filterCorrelationMappings()`: ",
-      paste(names(legacyArgs), collapse = ", "),
-      call. = FALSE
-    )
-  }
+                                      heritageDriftAllowed = FALSE) {
 
   if (nrow(df) == 0 || is.null(df) || nrow(data_features) == 0 || is.null(data_features)) {
     return(df)
@@ -278,4 +261,3 @@ filterCorrelationMappings <- function(df,
 
   return(df)
 }
-

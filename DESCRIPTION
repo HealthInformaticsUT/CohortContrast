@@ -20,21 +20,21 @@ Encoding: UTF-8
 RoxygenNote: 7.3.3
 SystemRequirements: Python (>= 3.8)
 Imports:
-    dplyr,
+    dplyr (>= 1.0.4),
     tibble,
     purrr,
-    tidyr,
+    tidyr (>= 1.0.0),
     stringr,
     stats,
     utils,
-    CDMConnector,
-    CohortConstructor,
-    omopgenerics,
-    lubridate,
+    CDMConnector (>= 2.0.0),
+    CohortConstructor (>= 0.6.0),
+    omopgenerics (>= 1.3.0),
+    lubridate (>= 1.9.0),
     doParallel,
     parallel,
     foreach,
-    data.table,
+    data.table (>= 1.14.0),
     reshape2,
     cli,
     bit64,
@@ -43,8 +43,8 @@ Imports:
     cluster,
     vegan,
     reticulate (>= 1.26),
-    jsonlite,
-    nanoparquet
+    jsonlite (>= 1.8.0),
+    nanoparquet (>= 0.4.0)
 Suggests: 
     testthat (>= 3.0.0),
     PatientProfiles (>= 1.1.0),

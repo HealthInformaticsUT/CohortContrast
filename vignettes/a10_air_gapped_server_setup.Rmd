@@ -26,7 +26,7 @@ It applies to both Python-backed workflows:
 ## What differs in air-gapped environments
 
 - You cannot use `installPythonDeps()` against online package indexes.
-- You must provide local wheel files (`.whl`) for all required Python dependencies.
+- You might have to provide local wheel files (`.whl`) for all required Python dependencies.
 - Wheels must match:
   - target operating system
   - target CPU architecture
@@ -88,6 +88,12 @@ configurePython(
 
 ### 4. Install dependencies from local wheels
 
+When pip is available
+```{r, include = TRUE, eval=FALSE, echo=TRUE}
+installPythonDeps()
+```
+
+If there is no pip available
 ```{r, include = TRUE, eval=FALSE, echo=TRUE}
 installPythonDepsOffline(
   packagesDir = "/opt/cohortcontrast/packages",

@@ -19,8 +19,10 @@ knitr::opts_chunk$set(
 After running a study with `createOutputFiles = TRUE` (or generating summaries with `precomputeSummary()`), launch the viewer:
 
 ```{r, include = TRUE, eval=FALSE, echo=TRUE}
+exampleDataDir <- system.file("example", "st", package = "CohortContrast", mustWork = TRUE)
+
 CohortContrast::runCohortContrastViewer(
-  dataDir = file.path(getwd(), "studies")
+  dataDir = exampleDataDir
 )
 ```
 

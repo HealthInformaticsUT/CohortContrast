@@ -2,12 +2,44 @@
 Helper utility functions for ContrastViewer.
 """
 
-from typing import Dict, Any, List, Union, Tuple, Optional
+import os
+from typing import Dict, List, Union, Tuple, Optional
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
 from config.constants import HERITAGE_LABELS
+
+
+# =============================================================================
+# Runtime / Casting Helpers
+# =============================================================================
+
+def is_env_flag_enabled(env_name: str, default: str = "1") -> bool:
+    """Parse common boolean-style environment flags."""
+    return os.environ.get(env_name, default).strip().lower() not in {
+        "0", "false", "no", "off"
+    }
+
+
+def is_exports_enabled() -> bool:
+    """Return whether viewer export actions are enabled for this session."""
+    return is_env_flag_enabled("CONTRAST_VIEWER_ALLOW_EXPORTS", default="1")
+
+
+def safe_float(value, default=None):
+    """Safely convert values to float while tolerating None/NA-like inputs."""
+    try:
+        if value is None or (isinstance(value, float) and np.isnan(value)):
+            return default
+        if pd.isna(value):
+            return default
+    except Exception:
+        pass
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 
 
 # =============================================================================
@@ -54,11 +86,13 @@ def create_empty_figure_with_style(
         Tuple of (empty figure, container style dict)
     """
     fig = create_empty_figure(message)
+    container_chrome_height = 320
     container_style = {
         "width": "100%",
         "marginBottom": "60px",
         "overflow": "visible",
-        "height": f"{height}px"
+        "height": "auto",
+        "minHeight": f"{int(height) + container_chrome_height}px",
     }
     return fig, container_style
 
@@ -73,11 +107,13 @@ def get_default_container_style(height: int = 400) -> Dict:
     Returns:
         Container style dictionary
     """
+    container_chrome_height = 320
     return {
         "width": "100%",
         "marginBottom": "60px",
         "overflow": "visible",
-        "height": f"{height}px"
+        "height": "auto",
+        "minHeight": f"{int(height) + container_chrome_height}px",
     }
 
 

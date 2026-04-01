@@ -462,15 +462,6 @@ runOptionalWorkflowSteps <- function(data,
       automaticCorrelationCombineConceptsArgs,
       "automaticCorrelationCombineConceptsArgs"
     )
-    if ("maxDaysInbetween" %in% names(automaticCorrelationCombineConceptsArgs) &&
-        !("maxDaysInBetween" %in% names(automaticCorrelationCombineConceptsArgs))) {
-      automaticCorrelationCombineConceptsArgs$maxDaysInBetween <-
-        automaticCorrelationCombineConceptsArgs$maxDaysInbetween
-      automaticCorrelationCombineConceptsArgs$maxDaysInbetween <- NULL
-      cli::cli_warn(
-        "Argument `maxDaysInbetween` is deprecated in `automaticCorrelationCombineConceptsArgs`; use `maxDaysInBetween`."
-      )
-    }
     automaticCorrelationCombineConceptsArgs <- applyOptionalStepDefaults(
       args = automaticCorrelationCombineConceptsArgs,
       defaults = automaticCorrelationDefaults,

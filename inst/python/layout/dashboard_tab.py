@@ -1,13 +1,17 @@
 """Dashboard tab layout builders."""
 
-import os
 from typing import Dict, List, Optional
 
 from dash import dcc, html
 from dash_ag_grid import AgGrid
 
 from config.constants import HERITAGE_COLORS, HERITAGE_ORDER
-from utils.helpers import create_empty_figure, format_column_name, format_heritage_label
+from utils.helpers import (
+    create_empty_figure,
+    format_column_name,
+    format_heritage_label,
+    is_exports_enabled,
+)
 
 _HERITAGE_VALUE_FORMATTER_JS = """
 function(params) {
@@ -350,9 +354,7 @@ def _build_composite_legend() -> html.Div:
 
 
 def _build_composite_section(summary_mode: bool) -> html.Div:
-    exports_enabled = os.environ.get("CONTRAST_VIEWER_ALLOW_EXPORTS", "1").strip().lower() not in {
-        "0", "false", "no", "off"
-    }
+    exports_enabled = is_exports_enabled()
 
     return html.Div([
         html.Div([

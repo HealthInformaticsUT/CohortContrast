@@ -367,31 +367,12 @@ automaticHierarchyCombineConcepts <- function(data, abstraction_level = -1, minD
 #' @param minCorrelation minimum correlation to use for automatic concept combining
 #' @param maxDaysInBetween minimum days between concepts to use for automatic concept combining
 #' @param heritageDriftAllowed boolean for allowing heritage drift (combining concepts from differing heritages)
-#' @param ... Backward-compatible alias: `maxDaysInbetween`.
 #' @export
 automaticCorrelationCombineConcepts <- function(data,
                                                 abstraction_level = -1,
                                                 minCorrelation = 0.7,
                                                 maxDaysInBetween = 1,
-                                                heritageDriftAllowed = FALSE,
-                                                ...) {
-
-  legacyArgs <- list(...)
-  if (!is.null(legacyArgs$maxDaysInbetween)) {
-    if (!missing(maxDaysInBetween)) {
-      stop("Both `maxDaysInBetween` and deprecated `maxDaysInbetween` were provided.", call. = FALSE)
-    }
-    maxDaysInBetween <- legacyArgs$maxDaysInbetween
-    warning("`maxDaysInbetween` is deprecated; use `maxDaysInBetween`.", call. = FALSE)
-    legacyArgs$maxDaysInbetween <- NULL
-  }
-  if (length(legacyArgs) > 0) {
-    stop(
-      "Unknown argument(s) in `automaticCorrelationCombineConcepts()`: ",
-      paste(names(legacyArgs), collapse = ", "),
-      call. = FALSE
-    )
-  }
+                                                heritageDriftAllowed = FALSE) {
 
   counter <- 1
 

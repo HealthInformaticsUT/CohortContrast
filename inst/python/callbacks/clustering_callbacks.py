@@ -6,8 +6,9 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 from dash import Input, Output, State, no_update
 
+from callbacks.common import load_study_parquet_data
 from clustering.clustering import perform_patient_clustering
-from data.cache import get_or_load_clustering_file, get_or_load_parquet_data, update_cache
+from data.cache import get_or_load_clustering_file, update_cache
 from data.loader import get_available_cluster_k_values, load_clustering_file
 
 
@@ -73,6 +74,188 @@ def _summary_matrix_records(summary_matrix: pd.DataFrame) -> List[Dict]:
     return normalized.to_dict("records")
 
 
+def _resolve_summary_k_value(parquet_data: Dict, cluster_count: str) -> Optional[int]:
+    """Resolve requested k value for summary mode, including auto-selection."""
+    if cluster_count != "auto":
+        try:
+            return int(cluster_count)
+        except (ValueError, TypeError):
+            return 3
+
+    available_k = get_available_cluster_k_values(parquet_data)
+    if not available_k:
+        return None
+
+    metadata = parquet_data.get("_metadata", {})
+    clustering_info = metadata.get("clustering", {})
+    best_k = available_k[0]
+    best_score = -1
+    for k in available_k:
+        k_info = clustering_info.get(str(k), {})
+        score = k_info.get("silhouette_score", 0)
+        if score > best_score:
+            best_score = score
+            best_k = k
+    return best_k
+
+
+def _load_summary_matrix(
+    *,
+    selected_study: str,
+    parquet_data: Dict,
+    data_dir: Path,
+    cache_store,
+    k_value: int,
+    use_cache_loader: bool,
+) -> Tuple[Optional[pd.DataFrame], Optional[int]]:
+    """Load summary matrix for requested/closest available k."""
+    summary_key = f"clustering_k{k_value}_summary"
+    if summary_key in parquet_data:
+        return parquet_data[summary_key], k_value
+
+    def _load_for_k(current_k: int) -> Optional[pd.DataFrame]:
+        cache_key = f"clustering_k{current_k}_summary"
+        if use_cache_loader:
+            summary_matrix_local = get_or_load_clustering_file(
+                selected_study,
+                data_dir,
+                current_k,
+                "summary",
+                cache_store,
+            )
+            if summary_matrix_local is not None:
+                parquet_data[cache_key] = summary_matrix_local
+                update_cache(selected_study, parquet_data, cache_store, data_dir=data_dir)
+            return summary_matrix_local
+
+        disease_folder = parquet_data.get("_disease_folder") or (data_dir / selected_study)
+        summary_matrix_local = load_clustering_file(disease_folder, current_k, "summary")
+        if summary_matrix_local is not None:
+            parquet_data[cache_key] = summary_matrix_local
+        return summary_matrix_local
+
+    summary_matrix = _load_for_k(k_value)
+    if summary_matrix is not None:
+        return summary_matrix, k_value
+
+    available_k = get_available_cluster_k_values(parquet_data)
+    if not available_k:
+        return None, None
+
+    closest_k = min(available_k, key=lambda candidate: abs(candidate - k_value))
+    summary_matrix = _load_for_k(closest_k)
+    if summary_matrix is None:
+        return None, None
+    return summary_matrix, closest_k
+
+
+def _build_summary_clustering_result(
+    parquet_data: Dict,
+    summary_matrix: pd.DataFrame,
+    k_value: int,
+) -> Tuple[Dict, List[str]]:
+    """Convert summary matrix into clustering store payload."""
+    metadata = parquet_data.get("_metadata", {})
+    clustering_info = metadata.get("clustering", {}).get(str(k_value), {})
+
+    summary_matrix_normalized = _normalize_summary_matrix_for_store(summary_matrix)
+    cluster_counts = _extract_cluster_counts(summary_matrix_normalized)
+    results_dict = {
+        "summary_matrix": _summary_matrix_records(summary_matrix_normalized),
+        "patient_assignments": [],
+        "cluster_counts": cluster_counts,
+        "best_silhouette_score": clustering_info.get("silhouette_score", 0),
+        "optimal_cluster_count": k_value,
+        "_mode": "summary",
+    }
+
+    concept_col = (
+        "CONCEPT_ID"
+        if "CONCEPT_ID" in summary_matrix_normalized.columns
+        else ("concept_id" if "concept_id" in summary_matrix_normalized.columns else None)
+    )
+    concept_ids_used = (
+        [str(cid) for cid in summary_matrix_normalized[concept_col].dropna().unique()]
+        if concept_col
+        else []
+    )
+    return results_dict, concept_ids_used
+
+
+def _filter_initial_patient_concepts(dashboard_data_store: List[Dict]) -> List[Dict]:
+    """Filter concepts for initial patient clustering."""
+    concepts_to_use = []
+    for concept in dashboard_data_store:
+        prevalence = concept.get("TARGET_SUBJECT_PREVALENCE", 0)
+        ratio = concept.get("PREVALENCE_DIFFERENCE_RATIO", 0)
+        try:
+            prevalence = float(prevalence) if prevalence is not None else 0
+            ratio = float(ratio) if ratio is not None else 0
+        except (ValueError, TypeError):
+            prevalence = 0
+            ratio = 0
+        if prevalence > 0.01 and ratio > 1:
+            concepts_to_use.append(concept)
+    return concepts_to_use
+
+
+def _resolve_patient_k_value(cluster_count: str) -> Optional[int]:
+    if cluster_count == "auto":
+        return None
+    try:
+        return int(cluster_count)
+    except (ValueError, TypeError):
+        return None
+
+
+def _run_patient_clustering(
+    *,
+    parquet_data: Dict,
+    concepts_to_use: List[Dict],
+    k_value: Optional[int],
+    include_mode_flag: bool,
+) -> Tuple[Optional[Dict], Optional[List[str]]]:
+    """Run patient clustering and convert results to callback payload format."""
+    data_patients = parquet_data["data_patients"]
+    data_initial = parquet_data.get("data_initial", pd.DataFrame())
+    try:
+        clustering_results = perform_patient_clustering(
+            data_patients=data_patients,
+            data_initial=data_initial,
+            dashboard_data=concepts_to_use,
+            concept_limit=60,
+            cluster_range=(2, 5),
+            pca_components=20,
+            time_window=180,
+            k_value=k_value,
+        )
+        summary_matrix_normalized = _normalize_summary_matrix_for_store(
+            clustering_results["summary_matrix"]
+        )
+        results_dict = {
+            "summary_matrix": _summary_matrix_records(summary_matrix_normalized),
+            "patient_assignments": (
+                clustering_results["patient_assignments"].to_dict("records")
+                if not clustering_results["patient_assignments"].empty
+                else []
+            ),
+            "best_silhouette_score": clustering_results["best_silhouette_score"],
+            "optimal_cluster_count": clustering_results["optimal_cluster_count"],
+        }
+        if include_mode_flag:
+            results_dict["_mode"] = "patient"
+        concept_ids_used = [
+            str(item.get("CONCEPT_ID") or item.get("_concept_id", ""))
+            for item in concepts_to_use
+        ]
+        return results_dict, concept_ids_used
+    except Exception:
+        import traceback
+
+        traceback.print_exc()
+        return None, None
+
+
 def register_clustering_callbacks(
     app,
     *,
@@ -113,163 +296,44 @@ def register_clustering_callbacks(
         
         if not clustering_trigger or not selected_study or not dashboard_data_store:
             return None, None
-        # Background callbacks run in separate processes, so use centralized cache
-        # This will check disk cache first (shared across processes)
-        parquet_data = get_or_load_parquet_data(selected_study, DATA_DIR, cache)
+        parquet_data = load_study_parquet_data(
+            selected_study,
+            DATA_DIR,
+            cache,
+            loaded_parquet_data,
+        )
         if parquet_data is None:
             return None, None
-        
-        # Also update in-memory cache for this process
-        loaded_parquet_data[selected_study] = parquet_data
-        
-        # Check if we're in summary mode
         data_mode = parquet_data.get("_mode", "patient")
         
         if data_mode == "summary":
-            # SUMMARY MODE: Use pre-computed clustering results
-            # Determine which k to use
-            if cluster_count == "auto":
-                # Find the k with best silhouette score
-                available_k = get_available_cluster_k_values(parquet_data)
-                if not available_k:
-                    return None, None
-                
-                # Get metadata for silhouette scores
-                metadata = parquet_data.get("_metadata", {})
-                clustering_info = metadata.get("clustering", {})
-                
-                best_k = available_k[0]
-                best_score = -1
-                for k in available_k:
-                    k_info = clustering_info.get(str(k), {})
-                    score = k_info.get("silhouette_score", 0)
-                    if score > best_score:
-                        best_score = score
-                        best_k = k
-                k_value = best_k
-            else:
-                try:
-                    k_value = int(cluster_count)
-                except (ValueError, TypeError):
-                    k_value = 3  # Default
-            
-            # Load pre-computed clustering for this k
-            summary_key = f"clustering_k{k_value}_summary"
-            if summary_key not in parquet_data:
-                # Try to load clustering file on demand
-                disease_folder = parquet_data.get("_disease_folder") or (DATA_DIR / selected_study)
-                summary_matrix = load_clustering_file(disease_folder, k_value, "summary")
-                if summary_matrix is not None:
-                    # Cache it in parquet_data for future use
-                    parquet_data[summary_key] = summary_matrix
-                else:
-                    # Try to find closest available k
-                    available_k = get_available_cluster_k_values(parquet_data)
-                    if available_k:
-                        k_value = min(available_k, key=lambda x: abs(x - k_value))
-                        summary_key = f"clustering_k{k_value}_summary"
-                        summary_matrix = load_clustering_file(disease_folder, k_value, "summary")
-                        if summary_matrix is not None:
-                            parquet_data[summary_key] = summary_matrix
-                        else:
-                            return None, None
-                    else:
-                        return None, None
-            else:
-                summary_matrix = parquet_data[summary_key]
-            
-            metadata = parquet_data.get("_metadata", {})
-            clustering_info = metadata.get("clustering", {}).get(str(k_value), {})
-            
-            summary_matrix_normalized = _normalize_summary_matrix_for_store(summary_matrix)
-            cluster_counts = _extract_cluster_counts(summary_matrix_normalized)
-            
-            # Convert to expected format
-            results_dict = {
-                'summary_matrix': _summary_matrix_records(summary_matrix_normalized),
-                'patient_assignments': [],  # Not available in summary mode
-                'cluster_counts': cluster_counts,  # Pre-computed cluster counts for summary mode
-                'best_silhouette_score': clustering_info.get("silhouette_score", 0),
-                'optimal_cluster_count': k_value,
-                '_mode': 'summary'  # Flag to indicate summary mode
-            }
-            
-            # Get concept IDs from summary matrix
-            concept_col = "CONCEPT_ID" if "CONCEPT_ID" in summary_matrix_normalized.columns else ("concept_id" if "concept_id" in summary_matrix_normalized.columns else None)
-            concept_ids_used = [str(cid) for cid in summary_matrix_normalized[concept_col].dropna().unique()] if concept_col else []
-            
-            return results_dict, concept_ids_used
-        
-        # PATIENT MODE: Compute clustering on the fly
+            k_value = _resolve_summary_k_value(parquet_data, cluster_count)
+            if k_value is None:
+                return None, None
+            summary_matrix, resolved_k = _load_summary_matrix(
+                selected_study=selected_study,
+                parquet_data=parquet_data,
+                data_dir=DATA_DIR,
+                cache_store=cache,
+                k_value=k_value,
+                use_cache_loader=False,
+            )
+            if summary_matrix is None or resolved_k is None:
+                return None, None
+            return _build_summary_clustering_result(parquet_data, summary_matrix, resolved_k)
+
         if "data_patients" not in parquet_data:
             return None, None
-        
-        data_patients = parquet_data["data_patients"]
-        data_initial = parquet_data.get("data_initial", pd.DataFrame())
-        
-        # Filter concepts: prevalence > 1% and ratio > 1
-        # Use TARGET_SUBJECT_PREVALENCE and PREVALENCE_DIFFERENCE_RATIO fields
-        concepts_to_use = []
-        for concept in dashboard_data_store:
-            prevalence = concept.get("TARGET_SUBJECT_PREVALENCE", 0)
-            ratio = concept.get("PREVALENCE_DIFFERENCE_RATIO", 0)
-            
-            # Convert to float if needed
-            try:
-                prevalence = float(prevalence) if prevalence is not None else 0
-                ratio = float(ratio) if ratio is not None else 0
-            except (ValueError, TypeError):
-                prevalence = 0
-                ratio = 0
-            
-            # Filter: prevalence > 1% (0.01) and ratio > 1
-            if prevalence > 0.01 and ratio > 1:
-                concepts_to_use.append(concept)
-        
+
+        concepts_to_use = _filter_initial_patient_concepts(dashboard_data_store)
         if not concepts_to_use:
             return None, None
-        
-        # Parse cluster count
-        if cluster_count == "auto":
-            k_value = None
-        else:
-            try:
-                k_value = int(cluster_count)
-            except (ValueError, TypeError):
-                k_value = None
-        
-        # Perform clustering - pass full dashboard_data but use filtered concepts for clustering
-        # The perform_patient_clustering function will use concepts from dashboard_data
-        try:
-            clustering_results = perform_patient_clustering(
-                data_patients=data_patients,
-                data_initial=data_initial,
-                dashboard_data=concepts_to_use,  # Use filtered concepts
-                concept_limit=60,
-                cluster_range=(2, 5),
-                pca_components=20,
-                time_window=180,
-                k_value=k_value
-            )
-            
-            # Convert DataFrames to dict for storage
-            summary_matrix_normalized = _normalize_summary_matrix_for_store(clustering_results['summary_matrix'])
-            results_dict = {
-                'summary_matrix': _summary_matrix_records(summary_matrix_normalized),
-                'patient_assignments': clustering_results['patient_assignments'].to_dict('records') if not clustering_results['patient_assignments'].empty else [],
-                'best_silhouette_score': clustering_results['best_silhouette_score'],
-                'optimal_cluster_count': clustering_results['optimal_cluster_count'],
-                '_mode': 'patient'
-            }
-            
-            # Store concept IDs used
-            concept_ids_used = [str(item.get('CONCEPT_ID') or item.get('_concept_id', '')) for item in concepts_to_use]
-            
-            return results_dict, concept_ids_used
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            return None, None
+        return _run_patient_clustering(
+            parquet_data=parquet_data,
+            concepts_to_use=concepts_to_use,
+            k_value=_resolve_patient_k_value(cluster_count),
+            include_mode_flag=True,
+        )
     
     
     @app.callback(
@@ -325,13 +389,14 @@ def register_clustering_callbacks(
         if not selected_study or not dashboard_data_store:
             return None, None
         
-        # Load parquet data using centralized cache (works across background callbacks)
-        parquet_data = get_or_load_parquet_data(selected_study, DATA_DIR, cache)
+        parquet_data = load_study_parquet_data(
+            selected_study,
+            DATA_DIR,
+            cache,
+            loaded_parquet_data,
+        )
         if parquet_data is None:
             return None, None
-        
-        # Also update in-memory cache for this process
-        loaded_parquet_data[selected_study] = parquet_data
         if not parquet_data:
             return None, None
         
@@ -340,79 +405,20 @@ def register_clustering_callbacks(
         
         # SUMMARY MODE: Load pre-computed clustering for selected k
         if actual_data_mode == "summary":
-            # Parse requested cluster count
-            if cluster_count == "auto":
-                # Find the k with best silhouette score
-                available_k = get_available_cluster_k_values(parquet_data)
-                if not available_k:
-                    return None, None
-                
-                # Get metadata for silhouette scores
-                metadata = parquet_data.get("_metadata", {})
-                clustering_info = metadata.get("clustering", {})
-                
-                best_k = available_k[0]
-                best_score = -1
-                for k in available_k:
-                    k_info = clustering_info.get(str(k), {})
-                    score = k_info.get("silhouette_score", 0)
-                    if score > best_score:
-                        best_score = score
-                        best_k = k
-                k_value = best_k
-            else:
-                try:
-                    k_value = int(cluster_count)
-                except (ValueError, TypeError):
-                    k_value = 3  # Default
-            
-            # Load pre-computed clustering for this k using centralized cache
-            summary_key = f"clustering_k{k_value}_summary"
-            if summary_key not in parquet_data:
-                # Try to load clustering file on demand using cache
-                summary_matrix = get_or_load_clustering_file(selected_study, DATA_DIR, k_value, "summary", cache)
-                if summary_matrix is not None:
-                    # Cache it in parquet_data for future use
-                    parquet_data[summary_key] = summary_matrix
-                    update_cache(selected_study, parquet_data, cache, data_dir=DATA_DIR)
-                else:
-                    # Try to find closest available k
-                    available_k = get_available_cluster_k_values(parquet_data)
-                    if available_k:
-                        k_value = min(available_k, key=lambda x: abs(x - k_value))
-                        summary_key = f"clustering_k{k_value}_summary"
-                        summary_matrix = get_or_load_clustering_file(selected_study, DATA_DIR, k_value, "summary", cache)
-                        if summary_matrix is not None:
-                            parquet_data[summary_key] = summary_matrix
-                            update_cache(selected_study, parquet_data, cache, data_dir=DATA_DIR)
-                        else:
-                            return None, None
-                    else:
-                        return None, None
-            else:
-                summary_matrix = parquet_data[summary_key]
-            
-            metadata = parquet_data.get("_metadata", {})
-            clustering_info = metadata.get("clustering", {}).get(str(k_value), {})
-            
-            summary_matrix_normalized = _normalize_summary_matrix_for_store(summary_matrix)
-            cluster_counts = _extract_cluster_counts(summary_matrix_normalized)
-            
-            # Convert to expected format
-            results_dict = {
-                'summary_matrix': _summary_matrix_records(summary_matrix_normalized),
-                'patient_assignments': [],  # Not available in summary mode
-                'cluster_counts': cluster_counts,
-                'best_silhouette_score': clustering_info.get("silhouette_score", 0),
-                'optimal_cluster_count': k_value,
-                '_mode': 'summary'
-            }
-            
-            # Get concept IDs from summary matrix
-            concept_col = "CONCEPT_ID" if "CONCEPT_ID" in summary_matrix_normalized.columns else ("concept_id" if "concept_id" in summary_matrix_normalized.columns else None)
-            concept_ids_used = [str(cid) for cid in summary_matrix_normalized[concept_col].dropna().unique()] if concept_col else []
-            
-            return results_dict, concept_ids_used
+            k_value = _resolve_summary_k_value(parquet_data, cluster_count)
+            if k_value is None:
+                return None, None
+            summary_matrix, resolved_k = _load_summary_matrix(
+                selected_study=selected_study,
+                parquet_data=parquet_data,
+                data_dir=DATA_DIR,
+                cache_store=cache,
+                k_value=k_value,
+                use_cache_loader=True,
+            )
+            if summary_matrix is None or resolved_k is None:
+                return None, None
+            return _build_summary_clustering_result(parquet_data, summary_matrix, resolved_k)
         
         # PATIENT MODE: Perform live clustering
         if "data_patients" not in parquet_data:
@@ -433,47 +439,11 @@ def register_clustering_callbacks(
         if not concepts_to_use:
             return None, None
         
-        data_patients = parquet_data["data_patients"]
-        data_initial = parquet_data.get("data_initial", pd.DataFrame())
-        
-        # Parse cluster count
-        if cluster_count == "auto":
-            k_value = None
-        else:
-            try:
-                k_value = int(cluster_count)
-            except (ValueError, TypeError):
-                k_value = None
-        
-        # Perform clustering
-        try:
-            clustering_results = perform_patient_clustering(
-                data_patients=data_patients,
-                data_initial=data_initial,
-                dashboard_data=concepts_to_use,
-                concept_limit=60,
-                cluster_range=(2, 5),
-                pca_components=20,
-                time_window=180,
-                k_value=k_value
-            )
-            
-            # Convert DataFrames to dict for storage
-            summary_matrix_normalized = _normalize_summary_matrix_for_store(clustering_results['summary_matrix'])
-            results_dict = {
-                'summary_matrix': _summary_matrix_records(summary_matrix_normalized),
-                'patient_assignments': clustering_results['patient_assignments'].to_dict('records') if not clustering_results['patient_assignments'].empty else [],
-                'best_silhouette_score': clustering_results['best_silhouette_score'],
-                'optimal_cluster_count': clustering_results['optimal_cluster_count']
-            }
-            
-            # Store concept IDs used
-            concept_ids_used = [str(item.get('CONCEPT_ID') or item.get('_concept_id', '')) for item in concepts_to_use]
-            
-            return results_dict, concept_ids_used
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            return None, None
+        return _run_patient_clustering(
+            parquet_data=parquet_data,
+            concepts_to_use=concepts_to_use,
+            k_value=_resolve_patient_k_value(cluster_count),
+            include_mode_flag=False,
+        )
     
     

@@ -3,7 +3,7 @@
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
-from dash import Input, Output, State, dash_table, html
+from dash import Input, Output, State, dash_table, html, no_update
 
 
 def register_study_callbacks(app, study_summaries_df: pd.DataFrame, default_study: Optional[str]) -> None:
@@ -28,16 +28,58 @@ def register_study_callbacks(app, study_summaries_df: pd.DataFrame, default_stud
         if filtered_df.empty:
             return html.P("No studies match your search.", style={"color": "#666", "padding": "10px"})
 
+        def _coerce_count(value):
+            """Normalize table counts to integers when possible, else None."""
+            if value is None:
+                return None
+            if isinstance(value, str) and value.strip().upper() == "NA":
+                return None
+            try:
+                if pd.isna(value):
+                    return None
+            except Exception:
+                pass
+            try:
+                return int(float(value))
+            except (TypeError, ValueError):
+                return None
+
+        display_df = filtered_df.copy()
+
+        mode_map = {
+            "summary": "Summary",
+            "Summary": "Summary",
+            "patient": "Patient-level",
+            "Patient": "Patient-level",
+            "Patient-level": "Patient-level",
+        }
+        if "mode" in display_df.columns:
+            display_df["mode"] = display_df["mode"].apply(
+                lambda m: mode_map.get(m, str(m) if m is not None else "Unknown")
+            )
+        else:
+            display_df["mode"] = "Unknown"
+
+        display_df["patients"] = display_df.get("target_patients")
+
+        concept_candidates = [col for col in ["chi2y_count", "z_count", "significant_concepts", "concept_count"] if col in display_df.columns]
+        if concept_candidates:
+            display_df["concepts"] = display_df[concept_candidates].bfill(axis=1).iloc[:, 0]
+        else:
+            display_df["concepts"] = None
+
+        display_df["patients"] = display_df["patients"].apply(_coerce_count)
+        display_df["concepts"] = display_df["concepts"].apply(_coerce_count)
+
         columns = [
             {"name": "Study", "id": "study"},
             {"name": "Mode", "id": "mode"},
-            {"name": "Target Patients", "id": "target_patients", "type": "numeric"},
-            {"name": "Significant Concepts", "id": "z_count", "type": "numeric"}
+            {"name": "Patients", "id": "patients", "type": "numeric"},
+            {"name": "Concepts", "id": "concepts", "type": "numeric"},
         ]
 
-        required_cols = ["study", "mode", "target_patients", "z_count"]
-        available_cols = [col for col in required_cols if col in filtered_df.columns]
-        data = filtered_df[available_cols].copy().to_dict("records")
+        required_cols = ["study", "mode", "patients", "concepts"]
+        data = display_df[required_cols].copy().to_dict("records")
 
         return dash_table.DataTable(
             id="study-table",
@@ -45,6 +87,8 @@ def register_study_callbacks(app, study_summaries_df: pd.DataFrame, default_stud
             data=data,
             row_selectable="single",
             selected_rows=[],
+            page_action="native",
+            page_size=10,
             style_table={"overflowX": "auto", "fontSize": "12px"},
             style_cell={
                 "textAlign": "left",
@@ -52,6 +96,12 @@ def register_study_callbacks(app, study_summaries_df: pd.DataFrame, default_stud
                 "fontFamily": "Arial, sans-serif",
                 "fontSize": "12px"
             },
+            style_cell_conditional=[
+                {"if": {"column_id": "study"}, "minWidth": "320px", "width": "55%", "maxWidth": "680px"},
+                {"if": {"column_id": "mode"}, "minWidth": "140px", "width": "140px", "maxWidth": "180px"},
+                {"if": {"column_id": "patients"}, "minWidth": "110px", "width": "110px", "maxWidth": "140px", "textAlign": "right"},
+                {"if": {"column_id": "concepts"}, "minWidth": "110px", "width": "110px", "maxWidth": "140px", "textAlign": "right"},
+            ],
             style_header={
                 "backgroundColor": "rgb(70, 130, 180)",
                 "color": "white",
@@ -68,18 +118,26 @@ def register_study_callbacks(app, study_summaries_df: pd.DataFrame, default_stud
     @app.callback(
         Output("selected-study-store", "data"),
         Input("study-table", "selected_rows"),
-        State("study-table", "data")
+        [State("study-table", "data"),
+         State("selected-study-store", "data")]
     )
-    def update_selected_study(selected_rows: List[int], table_data: List[Dict]) -> Optional[str]:
+    def update_selected_study(
+        selected_rows: List[int],
+        table_data: List[Dict],
+        current_selected_study: Optional[str],
+    ) -> Optional[str]:
         """Update the selected study store when a study row is clicked."""
         if not selected_rows or not table_data:
-            return default_study
+            return no_update
 
         selected_row_idx = selected_rows[0]
         if selected_row_idx < len(table_data):
-            return table_data[selected_row_idx]["study"]
+            selected_study = table_data[selected_row_idx].get("study")
+            if selected_study == current_selected_study:
+                return no_update
+            return selected_study
 
-        return default_study
+        return no_update
 
     @app.callback(
         [Output("data-mode-badge", "children"), Output("data-mode-badge", "style")],

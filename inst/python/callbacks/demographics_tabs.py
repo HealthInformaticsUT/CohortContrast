@@ -1,12 +1,12 @@
 """Demographics tab callback registration and helpers."""
 
-import os
 from pathlib import Path
 from typing import Dict, Optional
 
 import pandas as pd
 from dash import Input, Output, dash_table, dcc, html
 
+from callbacks.common import load_study_parquet_data
 from callbacks.demographics_helpers import (
     _build_cluster_demographics_rows,
     _build_cluster_view_options,
@@ -18,7 +18,7 @@ from callbacks.demographics_helpers import (
     _create_summary_age_histogram_figure,
     _prepare_demographics_context,
 )
-from data.cache import get_or_load_parquet_data
+from utils.helpers import is_exports_enabled
 
 
 def register_demographics_callbacks(
@@ -32,9 +32,7 @@ def register_demographics_callbacks(
     DATA_DIR = data_dir
     cache = cache_store
     loaded_parquet_data = loaded_parquet_data_store
-    exports_enabled = os.environ.get("CONTRAST_VIEWER_ALLOW_EXPORTS", "1").strip().lower() not in {
-        "0", "false", "no", "off"
-    }
+    exports_enabled = is_exports_enabled()
     graph_config = {"displayModeBar": True, "scrollZoom": False}
     if not exports_enabled:
         graph_config["modeBarButtonsToRemove"] = ["toImage"]
@@ -49,7 +47,7 @@ def register_demographics_callbacks(
     def update_demographics_plot(
         selected_study: Optional[str],
         clustering_results: Optional[Dict],
-        data_mode: Optional[str]
+        _data_mode: Optional[str]
     ):
         """Build the demographics tab for summary and patient data modes."""
         if not selected_study:
@@ -58,14 +56,17 @@ def register_demographics_callbacks(
                 style={"color": "#999", "textAlign": "center", "padding": "50px"}
             )
         
-        parquet_data = get_or_load_parquet_data(selected_study, DATA_DIR, cache)
+        parquet_data = load_study_parquet_data(
+            selected_study,
+            DATA_DIR,
+            cache,
+            loaded_parquet_data,
+        )
         if parquet_data is None:
             return html.P(
                 "Study data not loaded.",
                 style={"color": "#999", "textAlign": "center", "padding": "50px"}
             )
-        
-        loaded_parquet_data[selected_study] = parquet_data
         
         try:
             summary_context = _prepare_demographics_context(parquet_data, clustering_results)
@@ -283,7 +284,7 @@ def register_demographics_callbacks(
     def update_demographics_concept_tables(
         selected_study: Optional[str],
         clustering_results: Optional[Dict],
-        data_mode: Optional[str],
+        _data_mode: Optional[str],
         min_patients: Optional[int],
         cluster_view: Optional[str]
     ):
@@ -291,7 +292,12 @@ def register_demographics_callbacks(
         if not selected_study:
             return [], [], "Select a study."
         
-        parquet_data = get_or_load_parquet_data(selected_study, DATA_DIR, cache)
+        parquet_data = load_study_parquet_data(
+            selected_study,
+            DATA_DIR,
+            cache,
+            loaded_parquet_data,
+        )
         if parquet_data is None:
             return [], [], "Study data not loaded."
         
@@ -331,7 +337,7 @@ def register_demographics_callbacks(
     )
     def update_demographics_ordinal_figures(
         selected_study: Optional[str],
-        data_mode: Optional[str],
+        _data_mode: Optional[str],
         selected_original_concept_id: Optional[str]
     ):
         """Update ordinal progression figures for selected concept."""
@@ -339,7 +345,12 @@ def register_demographics_callbacks(
             msg = "Select a study to view ordinal progression."
             return _create_demographics_message_figure(msg), _create_demographics_message_figure(msg)
         
-        parquet_data = get_or_load_parquet_data(selected_study, DATA_DIR, cache)
+        parquet_data = load_study_parquet_data(
+            selected_study,
+            DATA_DIR,
+            cache,
+            loaded_parquet_data,
+        )
         if parquet_data is None:
             msg = "Study data not loaded."
             return _create_demographics_message_figure(msg), _create_demographics_message_figure(msg)

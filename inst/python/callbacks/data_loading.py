@@ -8,9 +8,13 @@ import pandas as pd
 from dash import Input, Output, State, dcc, html
 from dash_ag_grid import AgGrid
 
+from callbacks.common import (
+    load_study_parquet_data,
+    scoped_study_key as build_scoped_study_key,
+)
 from callbacks.session_state import touch_session
-from data.cache import get_or_load_parquet_data
 from data.processing import calculate_concept_metrics_from_patients, create_ordinal_concepts
+from layout.app_shell import build_welcome_content
 from layout.dashboard_tab import build_dashboard_tab, build_dashboard_table
 from utils.helpers import convert_list_columns_to_strings, format_column_name
 
@@ -22,11 +26,6 @@ def _merge_median_column(df: pd.DataFrame) -> pd.DataFrame:
         )
         df = df.drop(columns=["MEDIAN_FIRST_OCCURRENCE_median"])
     return df
-
-
-def _scoped_study_key(selected_study: str, session_id: Optional[str]) -> str:
-    session_key = session_id or "anonymous-session"
-    return f"{session_key}::{selected_study}"
 
 
 def register_data_loading_callbacks(
@@ -82,7 +81,7 @@ def register_data_loading_callbacks(
         selected_heritages: Optional[List[str]],
         show_ordinal_checkbox: Optional[List[str]],
         session_id: Optional[str],
-    ) -> Tuple[html.Div, Optional[List[Dict]], Optional[float], str]:
+    ) -> Tuple[html.Div, Optional[List[Dict]], Optional[float], Optional[str]]:
         """
         Load parquet files for the selected study and display them in tables.
         Only loads parquet files when a study is selected (clicked).
@@ -97,43 +96,27 @@ def register_data_loading_callbacks(
         
         if selected_study is None:
             logger.info("No study selected, returning welcome message")
-            welcome_content = html.Div([
-                html.H3("Welcome to Contrast Viewer", style={
-                    "marginBottom": "20px",
-                    "color": "#2c3e50",
-                    "fontWeight": "600"
-                }),
-                html.P(
-                    "Select a study from the left sidebar to begin exploring the data.",
-                    style={
-                        "fontSize": "16px",
-                        "color": "#666",
-                        "marginTop": "10px",
-                        "lineHeight": "1.6"
-                    }
-                )
-            ], style={
-                "padding": "40px",
-                "textAlign": "left"
-            })
-            return (html.Div([welcome_content]), None, None, "patient")
+            return (html.Div([build_welcome_content()]), None, None, None)
 
-        scoped_study_key = _scoped_study_key(selected_study, session_id)
+        scoped_study_key = build_scoped_study_key(selected_study, session_id)
         touch_session(session_id, dashboard_show_state, logger_obj=logger)
         
         # Load parquet files using centralized cache (works across background callbacks)
-        parquet_data = get_or_load_parquet_data(selected_study, DATA_DIR, cache)
+        parquet_data = load_study_parquet_data(
+            selected_study,
+            DATA_DIR,
+            cache,
+            loaded_parquet_data,
+        )
         if parquet_data is None:
             logger.error(f"Study folder not found or error loading: {selected_study}")
-            return (html.Div(f"Study folder {selected_study} not found."), None, None, "patient")
+            return (html.Div(f"Study folder {selected_study} not found."), None, None, None)
         
         logger.info(f"Loaded keys: {list(parquet_data.keys())}")
-        # Also update in-memory cache for this process
-        loaded_parquet_data[selected_study] = parquet_data
         logger.info(f"Data mode: {parquet_data.get('_mode', 'unknown')}")
         
         if not parquet_data:
-            return (html.Div(f"No parquet files found for {selected_study}."), None, None, "patient")
+            return (html.Div(f"No parquet files found for {selected_study}."), None, None, None)
         
         # Detect data mode from loaded data
         data_mode = parquet_data.get("_mode", "patient")
@@ -220,21 +203,34 @@ def register_data_loading_callbacks(
             # Convert list columns to strings
             df_dashboard = convert_list_columns_to_strings(df_dashboard)
             
-            # Apply default filters
-            default_heritages = ["procedure_occurrence", "measurement", "drug_exposure"]
+            # Apply persisted filters (or defaults when none provided)
             available_heritages = set()
             if "HERITAGE" in df_dashboard.columns:
                 for heritage in df_dashboard["HERITAGE"].dropna().unique():
                     if heritage is not None and str(heritage).strip():
                         available_heritages.add(str(heritage))
-            
-            selected_heritages = [h for h in default_heritages if h in available_heritages]
-            if not selected_heritages and available_heritages:
-                selected_heritages = list(available_heritages)
-            
-            selected_heritages_set = set(selected_heritages)
-            target_min, target_max = 10, 100
-            ratio_min, ratio_max = 5, 100
+
+            selected_heritages_input = (
+                selected_heritages
+                if isinstance(selected_heritages, (list, tuple, set))
+                else []
+            )
+            if not selected_heritages_input:
+                # First load (or transient empty store): select all available domains.
+                selected_heritages_list = sorted(list(available_heritages))
+            else:
+                # Persist explicit user-selected domains (intersect with available for current study).
+                selected_heritages_list = [
+                    h for h in selected_heritages_input if h in available_heritages
+                ]
+
+            selected_heritages_set = set(selected_heritages_list)
+            if not available_heritages:
+                selected_heritages_set = {""}
+            target_min = target_prevalence_range[0] if target_prevalence_range and len(target_prevalence_range) >= 1 else 10
+            target_max = target_prevalence_range[1] if target_prevalence_range and len(target_prevalence_range) >= 2 else 100
+            ratio_min = ratio_range[0] if ratio_range and len(ratio_range) >= 1 else 5
+            ratio_max = ratio_range[1] if ratio_range and len(ratio_range) >= 2 else 100
             
             # Vectorized filtering
             target_prev = df_dashboard["TARGET_SUBJECT_PREVALENCE_PCT"].fillna(0)
@@ -243,7 +239,7 @@ def register_data_loading_callbacks(
             
             matches_target = (target_prev >= target_min) & (target_prev <= target_max)
             matches_ratio = (ratio >= ratio_min) & (ratio <= ratio_max)
-            matches_heritage = heritage_str.isin(selected_heritages_set)
+            matches_heritage = heritage_str.isin(selected_heritages_set) if selected_heritages_set else False
             
             df_dashboard["_show"] = matches_target & matches_ratio & matches_heritage
     
@@ -535,29 +531,30 @@ def register_data_loading_callbacks(
             # Convert list columns to strings
             df_dashboard = convert_list_columns_to_strings(df_dashboard)
             
-            # Apply filters - use provided values or defaults
-            # Default heritage selections: procedures, measurements, drugs
-            default_heritages = ["procedure_occurrence", "measurement", "drug_exposure"]
+            # Apply filters - use provided values or sensible defaults
             # Get available heritages from data
             available_heritages = set()
             if "HERITAGE" in df_dashboard.columns:
                 for heritage in df_dashboard["HERITAGE"].dropna().unique():
                     if heritage is not None and str(heritage).strip():
                         available_heritages.add(str(heritage))
-            
-            # Use provided heritages or defaults
-            if selected_heritages:
-                # Use provided heritages that exist in the data
-                selected_heritages_list = [h for h in selected_heritages if h in available_heritages]
-                if not selected_heritages_list and available_heritages:
-                    selected_heritages_list = list(available_heritages)
+
+            # Preserve existing domain filters when present; empty selection defaults to all.
+            selected_heritages_input = (
+                selected_heritages
+                if isinstance(selected_heritages, (list, tuple, set))
+                else []
+            )
+            if not selected_heritages_input:
+                selected_heritages_list = sorted(list(available_heritages))
             else:
-                # Use default heritages that exist in the data, or all if none match
-                selected_heritages_list = [h for h in default_heritages if h in available_heritages]
-                if not selected_heritages_list and available_heritages:
-                    selected_heritages_list = list(available_heritages)
+                selected_heritages_list = [
+                    h for h in selected_heritages_input if h in available_heritages
+                ]
             
             selected_heritages_set = set(selected_heritages_list)
+            if not available_heritages:
+                selected_heritages_set = {""}
             
             # Use provided filter ranges or defaults
             target_min = target_prevalence_range[0] if target_prevalence_range and len(target_prevalence_range) >= 1 else 10
@@ -812,6 +809,24 @@ def register_data_loading_callbacks(
                 "resizable": True,
             },
         ]
+        correlation_suggestion_column_defs = []
+        for col_def in suggestion_column_defs:
+            col_copy = dict(col_def)
+            field = col_copy.get("field")
+            if field == "SCORE":
+                col_copy["headerName"] = "Correlation"
+            elif field == "AUX_VALUE":
+                col_copy["headerName"] = "Median gap"
+            correlation_suggestion_column_defs.append(col_copy)
+        hierarchy_suggestion_column_defs = []
+        for col_def in suggestion_column_defs:
+            col_copy = dict(col_def)
+            field = col_copy.get("field")
+            if field == "SCORE":
+                col_copy["headerName"] = "Parent prevalence (%)"
+            elif field == "AUX_VALUE":
+                col_copy["headerName"] = "Max hierarchy depth"
+            hierarchy_suggestion_column_defs.append(col_copy)
 
         mapping_table_content = html.Div([
             html.H3("Concept Mappings", style={"marginBottom": "10px", "color": "#2c3e50"}),
@@ -958,10 +973,25 @@ def register_data_loading_callbacks(
                                                         value="",
                                                         placeholder="Output folder path (for example /tmp/LungCancer_1Y_mapped)",
                                                         style={
-                                                            "flex": "1 1 420px",
+                                                            "flex": "1 1 340px",
                                                             "padding": "7px",
                                                             "borderRadius": "4px",
                                                             "border": "1px solid #cbd5e0",
+                                                        },
+                                                    ),
+                                                    html.Button(
+                                                        "Browse...",
+                                                        id="browse-save-study-path-btn",
+                                                        n_clicks=0,
+                                                        style={
+                                                            "padding": "8px 12px",
+                                                            "backgroundColor": "#6c757d",
+                                                            "color": "white",
+                                                            "border": "none",
+                                                            "borderRadius": "6px",
+                                                            "fontSize": "13px",
+                                                            "fontWeight": "600",
+                                                            "cursor": "pointer",
                                                         },
                                                     ),
                                                     html.Button(
@@ -1043,7 +1073,7 @@ def register_data_loading_callbacks(
                                             AgGrid(
                                                 id="hierarchy-suggestion-table",
                                                 rowData=[],
-                                                columnDefs=suggestion_column_defs,
+                                                columnDefs=hierarchy_suggestion_column_defs,
                                                 defaultColDef={
                                                     "sortable": True,
                                                     "filter": True,
@@ -1139,7 +1169,7 @@ def register_data_loading_callbacks(
                                             AgGrid(
                                                 id="correlation-suggestion-table",
                                                 rowData=[],
-                                                columnDefs=suggestion_column_defs,
+                                                columnDefs=correlation_suggestion_column_defs,
                                                 defaultColDef={
                                                     "sortable": True,
                                                     "filter": True,
@@ -1242,11 +1272,12 @@ def register_data_loading_callbacks(
                 dcc.RadioItems(
                     id="trajectory-order-mode",
                     options=[
+                        {"label": "Cluster trajectory", "value": "cluster"},
                         {"label": "Overall order", "value": "order"},
                         {"label": "Top movers", "value": "movers"},
                         {"label": "Most stable", "value": "stable"},
                     ],
-                    value="order",
+                    value="cluster",
                     inline=True,
                     inputStyle={"marginRight": "5px", "marginLeft": "12px"},
                     style={"display": "inline-flex", "gap": "6px"}

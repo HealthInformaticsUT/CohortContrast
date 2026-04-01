@@ -129,9 +129,13 @@ def register_view_state_callbacks(app) -> None:
 
     @app.callback(
         Output("heritage-checkboxes", "children"),
-        Input("dashboard-data-store", "data")
+        Input("dashboard-data-store", "data"),
+        State("heritage-selection-store", "data"),
     )
-    def populate_heritage_checkboxes(dashboard_data: Optional[List[Dict]]) -> List:
+    def populate_heritage_checkboxes(
+        dashboard_data: Optional[List[Dict]],
+        selected_heritages_store: Optional[List[str]],
+    ) -> List:
         if not dashboard_data:
             return []
 
@@ -146,18 +150,25 @@ def register_view_state_callbacks(app) -> None:
         if not heritages:
             return [html.P("No heritage types available", style={"color": "#999", "fontSize": "12px", "padding": "5px"})]
 
-        default_heritages = ["procedure_occurrence", "measurement", "drug_exposure"]
+        selected_set = (
+            set(selected_heritages_store)
+            if isinstance(selected_heritages_store, (list, tuple, set))
+            else set()
+        )
+        # Default behavior: all domains selected on first load (empty/None store).
+        if not selected_set:
+            selected_set = set(heritages)
 
         checkboxes = []
         for heritage in heritages:
             formatted_label = format_heritage_label(heritage)
-            is_default = heritage in default_heritages
+            is_selected = heritage in selected_set
             checkboxes.append(
                 html.Div([
                     dcc.Checklist(
                         id={"type": "heritage-checkbox", "index": heritage},
                         options=[{"label": formatted_label, "value": heritage}],
-                        value=[heritage] if is_default else [],
+                        value=[heritage] if is_selected else [],
                         style={"display": "inline-block", "marginRight": "10px"},
                     )
                 ], style={"marginBottom": "8px", "padding": "5px", "backgroundColor": "#fff", "borderRadius": "4px"})
@@ -222,17 +233,37 @@ def register_view_state_callbacks(app) -> None:
     @app.callback(
         Output("heritage-selection-store", "data"),
         Input({"type": "heritage-checkbox", "index": dash.ALL}, "value"),
+        State({"type": "heritage-checkbox", "index": dash.ALL}, "id"),
+        State("heritage-selection-store", "data"),
         prevent_initial_call=False
     )
-    def collect_heritage_selections(heritage_values: List[List[str]]) -> List[str]:
-        if not heritage_values:
-            return []
+    def collect_heritage_selections(
+        heritage_values: List[List[str]],
+        heritage_ids: List[Dict],
+        existing_selection: Optional[List[str]],
+    ) -> List[str]:
+        previous = (
+            set(existing_selection)
+            if isinstance(existing_selection, (list, tuple, set))
+            else set()
+        )
+        if not heritage_values or not heritage_ids:
+            return sorted(previous)
 
-        selected = []
+        visible_domains = {
+            str(item.get("index"))
+            for item in heritage_ids
+            if isinstance(item, dict) and item.get("index") is not None
+        }
+        visible_selected = set()
         for value_list in heritage_values:
             if value_list:
-                selected.extend(value_list)
-        return selected
+                visible_selected.update(str(v) for v in value_list if v is not None)
+
+        # Preserve domains not currently visible (for cross-study filter persistence),
+        # while updating the visible domain selection from the current checkboxes.
+        merged = (previous - visible_domains) | visible_selected
+        return sorted(merged)
 
     @app.callback(
         Output("composite-plot-container", "style", allow_duplicate=True),
@@ -244,10 +275,13 @@ def register_view_state_callbacks(app) -> None:
         if tab_value == "dashboard" and plot_figure:
             plot_height = plot_figure.get("layout", {}).get("height", 400)
             if plot_height:
+                container_chrome_height = 320
+                container_min_height = int(plot_height) + container_chrome_height
                 return {
                     "width": "100%",
                     "marginBottom": "60px",
                     "overflow": "visible",
-                    "height": f"{plot_height}px",
+                    "height": "auto",
+                    "minHeight": f"{container_min_height}px",
                 }
         return no_update

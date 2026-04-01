@@ -5,23 +5,46 @@ from typing import Optional
 from dash import dcc, html
 
 
+def build_welcome_content() -> html.Div:
+    """Build the default welcome panel shown before a study is selected."""
+    return html.Div([
+        html.H3("Welcome to CohortContrast Viewer", style={
+            "marginBottom": "20px",
+            "color": "#2c3e50",
+            "fontWeight": "600"
+        }),
+        html.P(
+            "Select a study from the left sidebar to begin exploring the data.",
+            style={
+                "fontSize": "16px",
+                "color": "#666",
+                "marginTop": "10px",
+                "lineHeight": "1.6"
+            }
+        )
+    ], style={
+        "padding": "40px",
+        "textAlign": "left"
+    })
+
+
 def build_app_layout(default_study: Optional[str]) -> html.Div:
     return html.Div([
         dcc.Store(id="session-id-store", data=None, storage_type="session"),
         dcc.Store(id="session-heartbeat-store", data=None, storage_type="memory"),
         dcc.Store(id="selected-study-store", data=default_study),
         dcc.Store(id="dashboard-data-store", data=None),  # Store full dashboard data for filtering
-        dcc.Store(id="heritage-selection-store", data=[]),  # Store selected heritages
+        dcc.Store(id="heritage-selection-store", data=None),  # Store selected heritages
         dcc.Store(id="loading-message-store", data=""),  # Store current loading message
         dcc.Store(id="clustering-results-store", data=None),  # Store clustering results
         dcc.Store(id="clustering-concepts-store", data=None),  # Store which concepts were used for clustering
         dcc.Store(id="clustering-trigger-store", data=None),  # Trigger for initial clustering
         dcc.Store(id="plots-update-trigger-store", data=None),  # Trigger for plot updates after filter changes
-        dcc.Store(id="data-mode-store", data="patient"),  # Track current data mode: "patient" or "summary"
+        dcc.Store(id="data-mode-store", data=None),  # Track current data mode: "patient" or "summary"
         dcc.Store(id="cluster-view-store", data="all"),  # Store cluster view selection ("all" or "C1", "C2", etc.)
         dcc.Interval(id="session-heartbeat-interval", interval=5 * 60 * 1000, n_intervals=0),
         html.Div([
-        html.H1("Contrast Viewer", style={
+        html.H1("CohortContrast Viewer", style={
             "textAlign": "center",
                 "marginBottom": "0px",
             "padding": "10px",
@@ -491,27 +514,7 @@ def build_app_layout(default_study: Optional[str]) -> html.Div:
                     type="circle",
                     children=html.Div(
                         id="table-container",
-                        children=[
-                            html.Div([
-                                html.H3("Welcome to Contrast Viewer", style={
-                                    "marginBottom": "20px",
-                                    "color": "#2c3e50",
-                                    "fontWeight": "600"
-                                }),
-                                html.P(
-                                    "Select a study from the left sidebar to begin exploring the data.",
-                                    style={
-                                        "fontSize": "16px",
-                                        "color": "#666",
-                                        "marginTop": "10px",
-                                        "lineHeight": "1.6"
-                                    }
-                                )
-                            ], style={
-                                "padding": "40px",
-                                "textAlign": "left"
-                            })
-                        ],
+                        children=[build_welcome_content()],
                         style={"margin": "20px"}
                     ),
                     fullscreen=True,

@@ -300,23 +300,3 @@ runClustering <- function(all_phases) {
   all_phases$cluster <- as.integer(stats::cutree(hc, k = best_k))
   all_phases
 }
-
-#' @keywords internal
-preprocess_data <- function(data, collapse_size = 0) {
-  preprocessData(data, collapse_size)
-}
-
-#' @keywords internal
-find_enriched_ngrams <- function(data, n = 2, prev_probs = 1) {
-  findEnrichedNgrams(data, n, prev_probs)
-}
-
-#' @keywords internal
-running_ngrams <- function(collapsed_long, map_v, global_prev = 0.01) {
-  runningNgrams(collapsed_long, map_v, global_prev)
-}
-
-#' @keywords internal
-run_clustering <- function(all_phases) {
-  runClustering(all_phases)
-}

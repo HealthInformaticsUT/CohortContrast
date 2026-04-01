@@ -8,8 +8,7 @@ configurePython(
   pythonPath = NULL,
   virtualenvName = "r-cohortcontrast-viewer",
   createVenv = TRUE,
-  force = FALSE,
-  ...
+  force = FALSE
 )
 }
 \arguments{
@@ -23,9 +22,6 @@ Default is TRUE. Set to FALSE on systems without python3-venv package.}
 
 \item{force}{Logical. If TRUE, recreates the virtual environment even if it exists.
 Default is FALSE.}
-
-\item{...}{Backward-compatible aliases:
-`python_path`, `virtualenv_name`, `create_venv`.}
 }
 \value{
 Invisibly returns TRUE if configuration was successful.
