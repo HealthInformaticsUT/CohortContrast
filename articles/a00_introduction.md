@@ -88,6 +88,11 @@ supplementary article **Air-gapped server setup**:
 
 - [`vignette("a10_air_gapped_server_setup", package = "CohortContrast")`](https://healthinformaticsut.github.io/CohortContrast/articles/a10_air_gapped_server_setup.md)
 
+For a study-output interpretation example using bundled data:
+
+- [`vignette("a11_interpreting_results_lc500", package = "CohortContrast")`](https://healthinformaticsut.github.io/CohortContrast/articles/a11_interpreting_results_lc500.md)
+- [`vignette("a12_interpreting_summary_results_lc500s", package = "CohortContrast")`](https://healthinformaticsut.github.io/CohortContrast/articles/a12_interpreting_summary_results_lc500s.md)
+
 ## Building a target cohort
 
 Let´s say we want to explore our cohort of lung cancer patients. We can

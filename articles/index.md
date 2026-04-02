@@ -22,3 +22,7 @@
   Controls](https://healthinformaticsut.github.io/CohortContrast/articles/a09_sidepanel_controls.md):
 - [Air-gapped Server
   Setup](https://healthinformaticsut.github.io/CohortContrast/articles/a10_air_gapped_server_setup.md):
+- [Interpreting Results with
+  lc500](https://healthinformaticsut.github.io/CohortContrast/articles/a11_interpreting_results_lc500.md):
+- [Interpreting Summary Results with
+  lc500s](https://healthinformaticsut.github.io/CohortContrast/articles/a12_interpreting_summary_results_lc500s.md):

@@ -13,7 +13,9 @@ articles:
   a08_demographics_tab: a08_demographics_tab.html
   a09_sidepanel_controls: a09_sidepanel_controls.html
   a10_air_gapped_server_setup: a10_air_gapped_server_setup.html
-last_built: 2026-04-02T09:54Z
+  a11_interpreting_results_lc500: a11_interpreting_results_lc500.html
+  a12_interpreting_summary_results_lc500s: a12_interpreting_summary_results_lc500s.html
+last_built: 2026-04-02T10:50Z
 urls:
   reference: https://healthinformaticsut.github.io/CohortContrast/reference
   article: https://healthinformaticsut.github.io/CohortContrast/articles
