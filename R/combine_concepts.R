@@ -1,6 +1,8 @@
 #' @keywords internal
 combineSelectedConcepts <- function(newConceptName, newConceptId = NULL, selectedIds = NULL, abstractionLevel = -1, data = NULL, type = "custom") {
     if(is.null(data)) return(NULL)
+    assertPackagesAvailable("reshape2", "concept aggregation in combineSelectedConcepts()")
+
     # TODO: make tests modular and apply
     data_features <- data.table::as.data.table(data$data_features)
     data_patients <- data.table::as.data.table(data$data_patients)

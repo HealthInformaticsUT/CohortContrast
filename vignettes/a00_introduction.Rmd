@@ -85,6 +85,11 @@ If you are deploying on an offline or air-gapped environment, see the supplement
 
 - `vignette("a10_air_gapped_server_setup", package = "CohortContrast")`
 
+For a study-output interpretation example using bundled data:
+
+- `vignette("a11_interpreting_results_lc500", package = "CohortContrast")`
+- `vignette("a12_interpreting_summary_results_lc500s", package = "CohortContrast")`
+
 ## Building a target cohort
 
 Let´s say we want to explore our cohort of lung cancer patients. We can import this target cohort multiple ways:

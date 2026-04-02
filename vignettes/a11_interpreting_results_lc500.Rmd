@@ -1,0 +1,372 @@
+---
+title: "Interpreting Results with lc500"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Interpreting Results with lc500}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  echo = FALSE
+)
+
+isMissingOrEmpty <- function(x) {
+  length(x) == 0 || is.na(x[1]) || !nzchar(x[1])
+}
+
+readParquetIfExists <- function(path) {
+  if (!file.exists(path)) {
+    return(NULL)
+  }
+  as.data.frame(nanoparquet::read_parquet(path), stringsAsFactors = FALSE)
+}
+
+deserializeTimeColumn <- function(df) {
+  if (!is.data.frame(df) || !("TIME_TO_EVENT" %in% colnames(df))) {
+    return(df)
+  }
+  if (!is.character(df$TIME_TO_EVENT)) {
+    return(df)
+  }
+  df$TIME_TO_EVENT <- lapply(df$TIME_TO_EVENT, function(x) {
+    if (is.null(x) || (length(x) == 1 && is.na(x)) || !nzchar(x)) {
+      return(numeric(0))
+    }
+    parsed <- tryCatch(jsonlite::fromJSON(x), error = function(e) NULL)
+    if (is.null(parsed)) x else parsed
+  })
+  df
+}
+
+loadStudyFallback <- function(root, studyName) {
+  studyPathLocal <- file.path(root, studyName)
+  dataPatients <- deserializeTimeColumn(readParquetIfExists(file.path(studyPathLocal, "data_patients.parquet")))
+  dataFeatures <- deserializeTimeColumn(readParquetIfExists(file.path(studyPathLocal, "data_features.parquet")))
+  dataInitial <- readParquetIfExists(file.path(studyPathLocal, "data_initial.parquet"))
+  dataPerson <- readParquetIfExists(file.path(studyPathLocal, "data_person.parquet"))
+  mapping <- readParquetIfExists(file.path(studyPathLocal, "complementaryMappingTable.parquet"))
+  if (!is.data.frame(mapping)) {
+    mapping <- data.frame()
+  }
+
+  metadataPath <- file.path(studyPathLocal, "metadata.json")
+  metadata <- if (file.exists(metadataPath)) jsonlite::fromJSON(metadataPath, simplifyVector = TRUE) else NULL
+
+  selectedFeatures <- readParquetIfExists(file.path(studyPathLocal, "selected_features.parquet"))
+  if (!is.data.frame(selectedFeatures)) {
+    selectedFeatures <- dataFeatures
+  }
+
+  selectedFeatureData <- list(
+    selectedFeatureNames = if (is.data.frame(selectedFeatures) && "CONCEPT_NAME" %in% colnames(selectedFeatures)) unique(selectedFeatures$CONCEPT_NAME) else character(0),
+    selectedFeatureIds = if (is.data.frame(selectedFeatures) && "CONCEPT_ID" %in% colnames(selectedFeatures)) selectedFeatures$CONCEPT_ID else numeric(0),
+    selectedFeatures = if (is.data.frame(selectedFeatures)) selectedFeatures else data.frame()
+  )
+
+  conceptAncestor <- readParquetIfExists(file.path(studyPathLocal, "concepts_concept_ancestor.parquet"))
+  concept <- readParquetIfExists(file.path(studyPathLocal, "concepts_concept.parquet"))
+
+  obj <- list(
+    data_patients = if (is.data.frame(dataPatients)) dataPatients else data.frame(),
+    data_initial = if (is.data.frame(dataInitial)) dataInitial else data.frame(),
+    data_person = if (is.data.frame(dataPerson)) dataPerson else data.frame(),
+    data_features = if (is.data.frame(dataFeatures)) dataFeatures else data.frame(),
+    conceptsData = list(concept_ancestor = conceptAncestor, concept = concept),
+    complementaryMappingTable = mapping,
+    selectedFeatureData = selectedFeatureData,
+    trajectoryDataList = selectedFeatureData,
+    config = list(complName = studyName, metadata = metadata)
+  )
+  class(obj) <- "CohortContrastObject"
+  obj
+}
+
+exampleRoot <- system.file("example", "st", package = "CohortContrast")
+if (isMissingOrEmpty(exampleRoot) && dir.exists("inst/example/st")) {
+  exampleRoot <- normalizePath("inst/example/st")
+}
+studyPath <- file.path(exampleRoot, "lc500")
+
+if (isMissingOrEmpty(exampleRoot) || !dir.exists(studyPath)) {
+  cat("Bundled example study 'lc500' is not available in this build.\n")
+  knitr::knit_exit()
+}
+
+data <- tryCatch(
+  CohortContrast::loadCohortContrastStudy(
+    studyName = "lc500",
+    pathToResults = exampleRoot
+  ),
+  error = function(e) {
+    msg <- conditionMessage(e)
+    if (grepl("topKInt", msg, fixed = TRUE) || grepl("missing value where TRUE/FALSE needed", msg, fixed = TRUE)) {
+      loadStudyFallback(exampleRoot, "lc500")
+    } else {
+      stop(e)
+    }
+  }
+)
+```
+
+## Goal
+
+This vignette explains what each patient-mode output dataframe stores in the
+bundled `lc500` study.
+
+For each dataframe:
+
+- You get markdown column descriptions.
+- You see `head(...)` output.
+
+## Object Overview
+
+`CohortContrast::loadCohortContrastStudy()` returns a `CohortContrastObject`
+with these key components:
+
+- `data_initial`
+- `data_person`
+- `data_features`
+- `data_patients`
+- `complementaryMappingTable`
+- `selectedFeatureData`
+- `conceptsData`
+- `config`
+
+```{r}
+names(data)
+```
+
+## `data_initial`
+
+One row per cohort episode per subject.
+
+Column descriptions:
+
+- `COHORT_DEFINITION_ID`: Cohort label (`target` or `control`).
+- `SUBJECT_ID`: Subject identifier.
+- `COHORT_START_DATE`: Start date of follow-up for that cohort episode.
+- `COHORT_END_DATE`: End date of follow-up for that cohort episode.
+
+```{r}
+utils::head(data$data_initial, 10)
+```
+
+## `data_person`
+
+One row per person with demographics.
+
+Column descriptions:
+
+- `PERSON_ID`: Person identifier.
+- `GENDER_CONCEPT_ID`: OMOP concept id for gender.
+- `YEAR_OF_BIRTH`: Year of birth.
+
+```{r}
+utils::head(data$data_person, 10)
+```
+
+## `data_features`
+
+One row per concept (per abstraction level) with enrichment statistics.
+
+Column descriptions:
+
+- `CONCEPT_ID`: Concept identifier.
+- `CONCEPT_NAME`: Concept name.
+- `ABSTRACTION_LEVEL`: Concept abstraction level (`-1` is base/import level).
+- `TARGET_SUBJECT_COUNT`: Number of target subjects with concept present.
+- `CONTROL_SUBJECT_COUNT`: Number of control subjects with concept present.
+- `TIME_TO_EVENT`: List of pooled event times (days from cohort start) for the concept.
+- `TARGET_SUBJECT_PREVALENCE`: Target prevalence proportion.
+- `CONTROL_SUBJECT_PREVALENCE`: Control prevalence proportion.
+- `PREVALENCE_DIFFERENCE_RATIO`: Target/control prevalence ratio.
+- `CHI2Y`: Significant in chi-squared (Yates-corrected) test.
+- `CHI2Y_P_VALUE`: P-value from chi-squared test.
+- `LOGITTEST`: Significant in logistic regression test.
+- `LOGITTEST_P_VALUE`: P-value from logistic regression test.
+- `HERITAGE`: Domain/heritage (for example `condition_occurrence`, `death`, `visit_detail`).
+
+```{r}
+utils::head(data$data_features, 10)
+```
+
+## `data_patients`
+
+One row per patient-concept record.
+
+Column descriptions:
+
+- `COHORT_DEFINITION_ID`: Cohort label for the patient (`target`/`control`).
+- `PERSON_ID`: Patient identifier.
+- `CONCEPT_ID`: Concept identifier.
+- `CONCEPT_NAME`: Concept name.
+- `HERITAGE`: Concept domain.
+- `ABSTRACTION_LEVEL`: Abstraction level.
+- `PREVALENCE`: Number of occurrences for this patient-concept.
+- `TIME_TO_EVENT`: List of event times (days from cohort start) for this patient-concept.
+
+```{r}
+utils::head(data$data_patients, 10)
+```
+
+## `complementaryMappingTable`
+
+Mapping history table for concept merges.
+
+Column descriptions:
+
+- `CONCEPT_ID`: Original concept id.
+- `CONCEPT_NAME`: Original concept name.
+- `NEW_CONCEPT_ID`: Mapped concept id.
+- `NEW_CONCEPT_NAME`: Mapped concept name.
+- `TYPE`: Mapping type (`custom`, `hierarchy`, `correlation`, etc.).
+- `HERITAGE`: Mapping heritage/domain.
+
+```{r}
+utils::head(data$complementaryMappingTable, 10)
+```
+
+## `selectedFeatureData`
+
+`selectedFeatureData` stores the selected concept subset used by downstream
+analyses.
+
+List elements:
+
+- `selectedFeatureNames`: Character vector of selected concept names.
+- `selectedFeatureIds`: Numeric vector of selected concept ids.
+- `selectedFeatures`: Dataframe with one row per selected concept.
+
+### `selectedFeatureData$selectedFeatureNames` preview
+
+```{r}
+if (length(data$selectedFeatureData$selectedFeatureNames) > 0) {
+  utils::head(data.frame(CONCEPT_NAME = data$selectedFeatureData$selectedFeatureNames, stringsAsFactors = FALSE), 10)
+} else {
+  cat("No selected feature names available in this study.\n")
+}
+```
+
+### `selectedFeatureData$selectedFeatureIds` preview
+
+```{r}
+if (length(data$selectedFeatureData$selectedFeatureIds) > 0) {
+  utils::head(data.frame(CONCEPT_ID = data$selectedFeatureData$selectedFeatureIds, stringsAsFactors = FALSE), 10)
+} else {
+  cat("No selected feature ids available in this study.\n")
+}
+```
+
+### `selectedFeatureData$selectedFeatures`
+
+`selectedFeatures` has the same schema as `data_features`, but only for selected
+concepts.
+
+Column descriptions:
+
+- `CONCEPT_ID`: Concept identifier.
+- `CONCEPT_NAME`: Concept name.
+- `ABSTRACTION_LEVEL`: Abstraction level.
+- `TARGET_SUBJECT_COUNT`: Number of target subjects with concept present.
+- `CONTROL_SUBJECT_COUNT`: Number of control subjects with concept present.
+- `TIME_TO_EVENT`: List of pooled concept time-to-event values.
+- `TARGET_SUBJECT_PREVALENCE`: Target prevalence proportion.
+- `CONTROL_SUBJECT_PREVALENCE`: Control prevalence proportion.
+- `PREVALENCE_DIFFERENCE_RATIO`: Target/control prevalence ratio.
+- `CHI2Y`: Chi-squared significance flag.
+- `CHI2Y_P_VALUE`: Chi-squared p-value.
+- `LOGITTEST`: Logistic regression significance flag.
+- `LOGITTEST_P_VALUE`: Logistic regression p-value.
+- `HERITAGE`: Concept heritage/domain.
+
+```{r}
+utils::head(data$selectedFeatureData$selectedFeatures, 10)
+```
+
+## `conceptsData`
+
+`conceptsData` stores optional OMOP vocabulary context tables.
+
+### `conceptsData$concept_ancestor`
+
+Column descriptions:
+
+- `ancestor_concept_id`: Ancestor concept id in hierarchy.
+- `descendant_concept_id`: Descendant concept id in hierarchy.
+- `min_levels_of_separation`: Minimum hierarchy distance.
+- `max_levels_of_separation`: Maximum hierarchy distance.
+
+```{r}
+if (is.data.frame(data$conceptsData$concept_ancestor)) {
+  utils::head(data$conceptsData$concept_ancestor, 10)
+} else {
+  cat("No `concept_ancestor` table available in this study.\n")
+}
+```
+
+### `conceptsData$concept`
+
+Typical OMOP concept columns:
+
+- `concept_id`: Concept identifier.
+- `concept_name`: Human-readable concept name.
+- `domain_id`: Domain label.
+- `vocabulary_id`: Vocabulary source.
+- `concept_class_id`: Concept class.
+- `standard_concept`: Standard concept flag.
+- `concept_code`: Source code inside vocabulary.
+- `valid_start_date`: Validity start date.
+- `valid_end_date`: Validity end date.
+- `invalid_reason`: Invalidation code (if concept is retired).
+
+```{r}
+if (is.data.frame(data$conceptsData$concept)) {
+  utils::head(data$conceptsData$concept, 10)
+} else {
+  cat("No `concept` table available in this study.\n")
+}
+```
+
+## `config`
+
+`config` stores study-level metadata loaded with the saved study.
+
+Top-level fields:
+
+- `complName`: Loaded study folder name.
+- `metadata`: Sidecar metadata from `metadata.json`.
+
+```{r}
+configOverview <- data.frame(
+  field = c("complName", "has_metadata"),
+  value = c(as.character(data$config$complName), !is.null(data$config$metadata)),
+  stringsAsFactors = FALSE
+)
+configOverview
+```
+
+### `config$metadata` scalar fields preview
+
+```{r}
+if (is.list(data$config$metadata)) {
+  scalarMetadata <- Filter(function(x) length(x) == 1 && !is.list(x), data$config$metadata)
+  if (length(scalarMetadata) > 0) {
+    utils::head(
+      data.frame(
+        field = names(scalarMetadata),
+        value = unlist(scalarMetadata, use.names = FALSE),
+        stringsAsFactors = FALSE
+      ),
+      10
+    )
+  } else {
+    cat("No scalar metadata fields available for preview.\n")
+  }
+} else {
+  cat("No metadata block available in config.\n")
+}
+```

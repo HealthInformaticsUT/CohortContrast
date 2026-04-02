@@ -93,7 +93,7 @@ passed to `automaticCorrelationCombineConcepts()` (for example
 `maxDaysInBetween = 1`, and `heritageDriftAllowed = FALSE`.}
 
 \item{numCores}{Number of cores to allocate to parallel processing.
-Defaults to 20% of detected cores (minimum 1).}
+Defaults to 20 percent of detected cores (minimum 1).}
 }
 \description{
 Run CohortContrast Analysis

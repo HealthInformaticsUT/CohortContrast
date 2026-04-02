@@ -9,6 +9,7 @@ format_results <-
            applyChi2YTest = FALSE,
            applyLogitTest = FALSE,
            abstractionLevel = -1) {
+    assertPackagesAvailable("reshape2", "reshaping cohort tables in format_results()")
     data_copy = data
     data_copy$data_initial <-
       data.table::as.data.table(data_copy$data_initial)
@@ -373,6 +374,8 @@ updateFeatures <- function(features, scaled_prev) {
 
 #' @keywords internal
 prepareFilteredTarget <- function(filtered_target = NULL, correlation_threshold = 0.95) {
+  assertPackagesAvailable("igraph", "correlation clustering in prepareFilteredTarget()")
+
   if (is.null(filtered_target) || nrow(filtered_target$target_row_annotation) == 0) {
     filtered_target$correlation_analysis$ordered_matrix = NULL
     warning("After filtering there are no concepts left.")

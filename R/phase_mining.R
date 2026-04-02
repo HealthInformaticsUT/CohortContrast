@@ -4,6 +4,11 @@
 #' @param collapse_size integer for days to use for collapse same concept ids
 #' @export
 nGramDiscovery <- function(data, collapse_size = 0) {
+  assertPackagesAvailable(
+    c("Matrix", "vegan", "cluster"),
+    "n-gram clustering in nGramDiscovery()"
+  )
+
   pre <- preprocessData(data, collapse_size)
   collapsed_long <- pre$collapsed
   map_v <- pre$features %>%
@@ -246,6 +251,11 @@ runningNgrams <- function(collapsed_long, map_v, global_prev = 0.01) {
 
 #' @keywords internal
 runClustering <- function(all_phases) {
+  assertPackagesAvailable(
+    c("Matrix", "vegan", "cluster"),
+    "n-gram clustering in runClustering()"
+  )
+
   all_concepts <- sort(unique(unlist(all_phases$concept_names)))
   all_patients <- sort(unique(unlist(all_phases$person_ids)))
 

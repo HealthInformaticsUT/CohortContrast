@@ -1,0 +1,270 @@
+---
+title: "Interpreting Summary Results with lc500s"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Interpreting Summary Results with lc500s}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  echo = FALSE
+)
+
+isMissingOrEmpty <- function(x) {
+  length(x) == 0 || is.na(x[1]) || !nzchar(x[1])
+}
+
+readSummaryParquet <- function(path) {
+  as.data.frame(nanoparquet::read_parquet(path), stringsAsFactors = FALSE)
+}
+
+exampleRoot <- system.file("example", "st", package = "CohortContrast")
+if (isMissingOrEmpty(exampleRoot) && dir.exists("inst/example/st")) {
+  exampleRoot <- normalizePath("inst/example/st")
+}
+studyPath <- file.path(exampleRoot, "lc500s")
+
+if (isMissingOrEmpty(exampleRoot) || !dir.exists(studyPath)) {
+  cat("Bundled summary example 'lc500s' is not available in this build.\n")
+  knitr::knit_exit()
+}
+
+metadata <- jsonlite::fromJSON(file.path(studyPath, "metadata.json"), simplifyVector = FALSE)
+
+conceptSummaries <- readSummaryParquet(file.path(studyPath, "concept_summaries.parquet"))
+ordinalSummaries <- readSummaryParquet(file.path(studyPath, "ordinal_summaries.parquet"))
+mappingTable <- readSummaryParquet(file.path(studyPath, "complementaryMappingTable.parquet"))
+
+k2Summary <- readSummaryParquet(file.path(studyPath, "clustering_k2_summary.parquet"))
+k3Summary <- readSummaryParquet(file.path(studyPath, "clustering_k3_summary.parquet"))
+k4Summary <- readSummaryParquet(file.path(studyPath, "clustering_k4_summary.parquet"))
+k5Summary <- readSummaryParquet(file.path(studyPath, "clustering_k5_summary.parquet"))
+
+k2Overlap <- readSummaryParquet(file.path(studyPath, "clustering_k2_pairwise_overlap.parquet"))
+k3Overlap <- readSummaryParquet(file.path(studyPath, "clustering_k3_pairwise_overlap.parquet"))
+k4Overlap <- readSummaryParquet(file.path(studyPath, "clustering_k4_pairwise_overlap.parquet"))
+k5Overlap <- readSummaryParquet(file.path(studyPath, "clustering_k5_pairwise_overlap.parquet"))
+```
+
+## Goal
+
+This vignette explains what each summary-mode dataframe stores in the bundled
+`lc500s` study.
+
+For each dataframe:
+
+- You get markdown column descriptions.
+- You see `head(...)` output.
+
+## Summary Folder Metadata (`metadata.json`)
+
+This JSON file is not a dataframe, but it controls how all summary tables should
+be interpreted.
+
+Top-level fields:
+
+- `study_name`: Summary study folder name.
+- `original_study_name`: Source patient-level study.
+- `source_path`: Path to source study used during precompute.
+- `mode`: Expected value is `summary`.
+- `demographics`: Cohort and age/sex summary block.
+- `clustering`: Clustering quality and cluster-size summaries by `k`.
+- `cluster_k_values`: List of precomputed `k` values.
+- `concept_limit`: Max concepts used in clustering pipeline.
+- `min_cell_count`: Suppression threshold used in precompute.
+- `significant_concepts`: Count of significant concepts retained.
+- `clustering_guardrails`: Guardrails for matrix and overlap computations.
+
+```{r}
+str(metadata, max.level = 2)
+```
+
+## `concept_summaries.parquet`
+
+One row per concept with overall summary statistics.
+
+Column descriptions:
+
+- `CONCEPT_ID`: Concept identifier.
+- `HERITAGE`: Domain/heritage of concept.
+- `time_count`: Number of timing observations used.
+- `time_min`: Minimum time-to-event.
+- `time_max`: Maximum time-to-event.
+- `time_mean`: Mean time-to-event.
+- `time_median`: Median time-to-event.
+- `time_std`: Standard deviation of time-to-event.
+- `time_q1`: 25th percentile of time-to-event.
+- `time_q3`: 75th percentile of time-to-event.
+- `time_iqr`: Interquartile range of time-to-event.
+- `patient_count`: Number of target patients with concept.
+- `CONCEPT_NAME`: Concept name.
+- `time_histogram_bins`: JSON text for histogram bin edges.
+- `time_histogram_counts`: JSON text for histogram counts.
+- `time_kde_x`: JSON text for KDE x-grid.
+- `time_kde_y`: JSON text for KDE y-values.
+- `age_mean`: Mean age for concept-positive patients.
+- `age_median`: Median age for concept-positive patients.
+- `age_std`: Age standard deviation.
+- `age_q1`: 25th percentile of age.
+- `age_q3`: 75th percentile of age.
+- `n_ages`: Number of non-missing ages used.
+- `male_proportion`: Male proportion for concept-positive patients.
+- `TARGET_SUBJECT_PREVALENCE`: Target prevalence.
+- `CONTROL_SUBJECT_PREVALENCE`: Control prevalence.
+- `PREVALENCE_DIFFERENCE_RATIO`: Target/control prevalence ratio.
+
+```{r}
+utils::head(conceptSummaries, 10)
+```
+
+## `ordinal_summaries.parquet`
+
+One row per ordinalized concept event (for repeated occurrences like 1st, 2nd, 3rd).
+
+Column descriptions:
+
+- `CONCEPT_ID`: Ordinal concept identifier (derived).
+- `HERITAGE`: Domain/heritage.
+- `ORDINAL`: Ordinal index (`1`, `2`, ...).
+- `time_count`: Number of timing observations.
+- `time_min`: Minimum time-to-event.
+- `time_max`: Maximum time-to-event.
+- `time_mean`: Mean time-to-event.
+- `time_median`: Median time-to-event.
+- `time_std`: Standard deviation of time-to-event.
+- `time_q1`: 25th percentile of time-to-event.
+- `time_q3`: 75th percentile of time-to-event.
+- `time_iqr`: Interquartile range of time-to-event.
+- `patient_count`: Number of target patients with this ordinal event.
+- `age_mean`: Mean age.
+- `age_median`: Median age.
+- `age_std`: Age standard deviation.
+- `age_q1`: 25th percentile of age.
+- `age_q3`: 75th percentile of age.
+- `n_ages`: Number of non-missing ages used.
+- `male_proportion`: Male proportion.
+- `ordinal_name_suffix`: Human-readable ordinal suffix (`1st`, `2nd`, ...).
+- `ORIGINAL_CONCEPT_ID`: Base concept id before ordinal expansion.
+- `CONCEPT_NAME`: Ordinalized concept name (for example `Death 2nd`).
+- `IS_ORDINAL`: Flag for ordinal rows (`TRUE` here).
+- `time_histogram_bins`: JSON text for histogram bin edges.
+- `time_histogram_counts`: JSON text for histogram counts.
+- `time_kde_x`: JSON text for KDE x-grid.
+- `time_kde_y`: JSON text for KDE y-values.
+- `TARGET_SUBJECT_PREVALENCE`: Target prevalence.
+- `CONTROL_SUBJECT_PREVALENCE`: Control prevalence.
+- `PREVALENCE_DIFFERENCE_RATIO`: Target/control prevalence ratio.
+
+```{r}
+utils::head(ordinalSummaries, 10)
+```
+
+## `clustering_k*_summary.parquet`
+
+Each file contains one row per concept per cluster for a fixed `k`.
+
+Shared columns (`k=2,3,4,5`):
+
+- `CONCEPT_ID`: Concept identifier.
+- `cluster`: Cluster label (`C1`, `C2`, ...).
+- `patient_count`: Number of patients in that cluster with concept present.
+- `time_median`: Median time-to-event for concept within cluster.
+- `time_q1`: 25th percentile of time-to-event within cluster.
+- `time_q3`: 75th percentile of time-to-event within cluster.
+- `time_min`: Minimum time-to-event within cluster.
+- `time_max`: Maximum time-to-event within cluster.
+- `total_cluster_patients`: Cluster size.
+- `CONCEPT_NAME`: Concept name.
+- `ORIGINAL_CONCEPT_ID`: Base concept id.
+- `ORDINAL`: Ordinal index (0 for non-ordinal rows).
+- `IS_ORDINAL`: Ordinal flag.
+- `age_mean`: Mean age for concept-positive patients in cluster.
+- `age_std`: Age standard deviation in cluster.
+- `male_proportion`: Male proportion in cluster.
+- `prevalence`: `patient_count / total_cluster_patients`.
+
+### `clustering_k2_summary.parquet`
+
+```{r}
+utils::head(k2Summary, 10)
+```
+
+### `clustering_k3_summary.parquet`
+
+```{r}
+utils::head(k3Summary, 10)
+```
+
+### `clustering_k4_summary.parquet`
+
+```{r}
+utils::head(k4Summary, 10)
+```
+
+### `clustering_k5_summary.parquet`
+
+```{r}
+utils::head(k5Summary, 10)
+```
+
+## `clustering_k*_pairwise_overlap.parquet`
+
+Each file contains concept-pair overlap metrics for `overall` and each cluster
+group for fixed `k`.
+
+Shared columns (`k=2,3,4,5`):
+
+- `concept_id_1`: First concept in pair.
+- `concept_id_2`: Second concept in pair.
+- `jaccard`: Jaccard overlap for pair.
+- `phi_correlation`: Phi correlation for pair.
+- `prevalence`: Single-concept prevalence (diagonal rows where concept1 == concept2).
+- `patient_count`: Single-concept patient count (diagonal rows).
+- `group`: `overall` or cluster (`C1`, `C2`, ...).
+- `co_occurrence`: Co-occurrence count (typically off-diagonal rows).
+- `union`: Union count (typically off-diagonal rows).
+
+### `clustering_k2_pairwise_overlap.parquet`
+
+```{r}
+utils::head(k2Overlap, 10)
+```
+
+### `clustering_k3_pairwise_overlap.parquet`
+
+```{r}
+utils::head(k3Overlap, 10)
+```
+
+### `clustering_k4_pairwise_overlap.parquet`
+
+```{r}
+utils::head(k4Overlap, 10)
+```
+
+### `clustering_k5_pairwise_overlap.parquet`
+
+```{r}
+utils::head(k5Overlap, 10)
+```
+
+## `complementaryMappingTable.parquet`
+
+Concept mapping history table (same schema as patient mode). In `lc500s` it is empty.
+
+Column descriptions:
+
+- `CONCEPT_ID`: Original concept id.
+- `CONCEPT_NAME`: Original concept name.
+- `NEW_CONCEPT_ID`: Mapped concept id.
+- `NEW_CONCEPT_NAME`: Mapped concept name.
+- `TYPE`: Mapping type.
+- `HERITAGE`: Heritage/domain.
+
+```{r}
+utils::head(mappingTable, 10)
+```

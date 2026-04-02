@@ -1,6 +1,6 @@
 Package: CohortContrast
 Type: Package
-Title: Feature Selection and Enrichment Analysis for OMOP CDM Cohorts
+Title: Enrichment Analysis of Clinically Relevant Concepts in 'OMOP CDM' Data
 Version: 1.0.0
 Maintainer: Markus Haug <markus.haug@ut.ee>
 Authors@R: c(
@@ -9,12 +9,13 @@ Authors@R: c(
     person("Raivo", "Kolde", , "raivo.kolde@ut.ee", 
     role = c("aut"), comment = c(ORCID = "0000-0003-2886-6298"))
     )
-Description: Defines target and control cohorts and extracts medical interventions
+Description: An R package for enrichment-based identification of clinically relevant concepts in OMOP CDM data.
+    Defines target and control cohorts and extracts medical interventions
     that are over-represented in the target cohort during the observation period.
     Users can tune filtering and selection with arguments such as topK, presenceFilter,
     and prevalenceCutOff. The workflow includes CHI2Y tests (chi-squared tests for
-    two proportions with Yates continuity correction), logistic tests, and optional
-    visual exploration helpers.
+    two proportions with Yates continuity correction), logistic tests, hierarchy and correlation mappings
+    for relevant concepts. The results can be optionally explored using the bundled graphical user interface.
 License: Apache License (>= 2) | file LICENSE
 Encoding: UTF-8
 RoxygenNote: 7.3.3
@@ -35,14 +36,7 @@ Imports:
     parallel,
     foreach,
     data.table (>= 1.14.0),
-    reshape2,
     cli,
-    bit64,
-    igraph,
-    Matrix,
-    cluster,
-    vegan,
-    reticulate (>= 1.26),
     jsonlite (>= 1.8.0),
     nanoparquet (>= 0.4.0)
 Suggests: 
@@ -54,8 +48,16 @@ Suggests:
     readr,
     knitr,
     rmarkdown,
-    processx
+    processx,
+    bit64,
+    reshape2,
+    igraph,
+    Matrix,
+    cluster,
+    vegan,
+    reticulate (>= 1.26)
 Config/testthat/edition: 3
 Config/testthat/parallel: false
 URL: https://healthinformaticsut.github.io/CohortContrast/
+BugReports: https://github.com/HealthInformaticsUT/CohortContrast/issues
 VignetteBuilder: knitr

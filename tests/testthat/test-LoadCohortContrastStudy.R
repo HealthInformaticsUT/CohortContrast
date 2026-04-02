@@ -110,3 +110,43 @@ test_that("loadCohortContrastStudy reloads saved study state", {
   expect_true(is.list(loaded$conceptsData))
   expect_true(is.data.frame(loaded$conceptsData$concept))
 })
+
+test_that("reconstructSelectedFeatureData handles missing topK with metadata fallback", {
+  data_features <- data.frame(
+    CONCEPT_ID = c(101L, 102L, 103L),
+    CONCEPT_NAME = c("Concept A", "Concept B", "Concept C"),
+    ABSTRACTION_LEVEL = c(-1L, -1L, -1L),
+    PREVALENCE_DIFFERENCE_RATIO = c(3.0, 2.0, 1.0),
+    CHI2Y = c(FALSE, FALSE, FALSE),
+    LOGITTEST = c(FALSE, FALSE, FALSE),
+    stringsAsFactors = FALSE
+  )
+
+  data_patients <- data.frame(
+    COHORT_DEFINITION_ID = c("target", "target", "target"),
+    PERSON_ID = c(1L, 1L, 2L),
+    CONCEPT_ID = c(101L, 102L, 103L),
+    CONCEPT_NAME = c("Concept A", "Concept B", "Concept C"),
+    PREVALENCE = c(1, 1, 1),
+    ABSTRACTION_LEVEL = c(-1L, -1L, -1L),
+    stringsAsFactors = FALSE
+  )
+
+  config <- list(
+    topK = NULL,
+    prevalenceCutOff = 0,
+    runChi2YTests = FALSE,
+    runLogitTests = FALSE,
+    metadata = list(topKInt = 2)
+  )
+
+  reconstructed <- CohortContrast:::reconstructSelectedFeatureData(
+    dataFeatures = data_features,
+    dataPatients = data_patients,
+    config = config
+  )
+
+  expect_true(is.list(reconstructed))
+  expect_length(reconstructed$selectedFeatureIds, 2)
+  expect_setequal(as.integer(reconstructed$selectedFeatureIds), c(101L, 102L))
+})

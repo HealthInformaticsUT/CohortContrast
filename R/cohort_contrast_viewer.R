@@ -85,6 +85,7 @@ configurePython <- function(pythonPath = NULL,
                             virtualenvName = "r-cohortcontrast-viewer",
                             createVenv = TRUE,
                             force = FALSE) {
+  assertPackagesAvailable("reticulate", "CohortContrast Viewer Python configuration")
 
   message("Configuring Python environment for CohortContrast Viewer...")
 
@@ -173,6 +174,7 @@ configurePython <- function(pythonPath = NULL,
 #'
 #' @export
 getPythonInfo <- function() {
+  assertPackagesAvailable("reticulate", "retrieving CohortContrast Viewer Python configuration")
   config <- reticulate::py_config()
 
   list(
@@ -211,6 +213,7 @@ getPythonInfo <- function() {
 #'
 #' @export
 installPythonDeps <- function(upgrade = FALSE, quiet = FALSE, user = NULL) {
+  assertPackagesAvailable("reticulate", "CohortContrast Viewer Python dependency installation")
 
   if (!.ccv_env$python_configured) {
     message("Python not configured. Running configurePython() first...")
@@ -275,6 +278,7 @@ installPythonDeps <- function(upgrade = FALSE, quiet = FALSE, user = NULL) {
 #'
 #' @export
 checkPythonDeps <- function() {
+  assertPackagesAvailable("reticulate", "checking CohortContrast Viewer Python dependencies")
   required_packages <- c(
     "dash",
     "dash_bootstrap_components",
@@ -349,6 +353,7 @@ checkPythonDeps <- function() {
 installPythonDepsOffline <- function(packagesDir = NULL,
                                      platform = "linux_x86_64",
                                      cleanup = TRUE) {
+  assertPackagesAvailable("reticulate", "offline CohortContrast Viewer Python dependency installation")
 
   if (!.ccv_env$python_configured) {
     message("Python not configured. Running configurePython() first...")
@@ -477,6 +482,7 @@ runCohortContrastViewer <- function(dataDir = NULL,
                                 allowExports = TRUE,
                                 openBrowser = TRUE,
                                 background = TRUE) {
+  assertPackagesAvailable("reticulate", "running CohortContrast Viewer")
 
   mode <- match.arg(mode)
 
@@ -739,6 +745,7 @@ precomputeSummary <- function(studyPath,
                               minCellCount = 0,
                               maxParallelJobs = 1,
                               minibatchKMeansCutoffPatients = 50000) {
+  assertPackagesAvailable("reticulate", "summary precomputation")
 
   # Check Python configuration
   if (!.ccv_env$python_configured) {

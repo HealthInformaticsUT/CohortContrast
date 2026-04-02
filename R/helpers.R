@@ -4,6 +4,23 @@
 #
 ################################################################################
 
+#' @keywords internal
+assertPackagesAvailable <- function(packages, feature) {
+  missing <- packages[!vapply(packages, requireNamespace, logical(1), quietly = TRUE)]
+  if (length(missing) == 0) {
+    return(invisible(TRUE))
+  }
+
+  pkg_list <- paste0("'", missing, "'", collapse = ", ")
+  stop(
+    "Package(s) ", pkg_list, " are required for ", feature, ". ",
+    "Install with: install.packages(c(",
+    paste0("\"", missing, "\"", collapse = ", "),
+    "))",
+    call. = FALSE
+  )
+}
+
 #' Build study metadata for CSV/JSON sidecar files
 #'
 #' @param object Object to save

@@ -39,7 +39,7 @@
 #'   `abstractionLevel = -1`, `minCorrelation = 0.7`,
 #'   `maxDaysInBetween = 1`, and `heritageDriftAllowed = FALSE`.
 #' @param numCores Number of cores to allocate to parallel processing.
-#'   Defaults to 20% of detected cores (minimum 1).
+#'   Defaults to 20 percent of detected cores (minimum 1).
 #' @importFrom dplyr %>%
 #' @importFrom foreach %dopar%
 #' @export

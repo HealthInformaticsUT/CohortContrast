@@ -185,6 +185,19 @@ reconstructSelectedFeatureData <- function(dataFeatures, dataPatients, config) {
     prevalenceCutOff <- 0
   }
   topK <- config$topK
+  if (is.null(topK) && is.list(config$metadata) && !is.null(config$metadata$topKInt)) {
+    topK <- config$metadata$topKInt
+  }
+
+  topKInt <- 0L
+  useTopK <- FALSE
+  if (!is.null(topK) && length(topK) > 0 && !isFALSE(topK)) {
+    parsedTopK <- suppressWarnings(as.integer(topK[[1]]))
+    if (!is.na(parsedTopK) && parsedTopK > 0) {
+      topKInt <- parsedTopK
+      useTopK <- TRUE
+    }
+  }
 
   features <- dataFeatures
   if (runChi2YTests || runLogitTests) {
@@ -198,16 +211,11 @@ reconstructSelectedFeatureData <- function(dataFeatures, dataPatients, config) {
     features <- features[keep, , drop = FALSE]
   }
 
-  if (isFALSE(topK)) {
+  if (!useTopK) {
     if ("PREVALENCE_DIFFERENCE_RATIO" %in% colnames(features)) {
       features <- features[features$PREVALENCE_DIFFERENCE_RATIO > prevalenceCutOff, , drop = FALSE]
     }
   } else {
-    topKInt <- suppressWarnings(as.integer(topK))
-    if (is.na(topKInt) || topKInt <= 0) {
-      topKInt <- 0
-    }
-
     if (topKInt > 0 && "PREVALENCE_DIFFERENCE_RATIO" %in% colnames(features)) {
       ordered <- features[order(features$PREVALENCE_DIFFERENCE_RATIO, decreasing = TRUE), , drop = FALSE]
       topConceptIds <- utils::head(ordered$CONCEPT_ID, topKInt)
