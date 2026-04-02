@@ -6,7 +6,7 @@
 \usage{
 automaticCorrelationCombineConcepts(
   data,
-  abstraction_level = -1,
+  abstractionLevel = -1,
   minCorrelation = 0.7,
   maxDaysInBetween = 1,
   heritageDriftAllowed = FALSE
@@ -15,7 +15,7 @@ automaticCorrelationCombineConcepts(
 \arguments{
 \item{data}{CohortContrastObject}
 
-\item{abstraction_level}{abstraction level to use for mapping}
+\item{abstractionLevel}{abstraction level to use for mapping}
 
 \item{minCorrelation}{minimum correlation to use for automatic concept combining}
 

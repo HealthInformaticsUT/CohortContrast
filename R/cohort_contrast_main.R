@@ -27,16 +27,16 @@
 #'   `automaticHierarchyCombineConcepts()` after temporal-bias processing.
 #' @param automaticHierarchyCombineConceptsArgs A list of additional arguments
 #'   passed to `automaticHierarchyCombineConcepts()` (for example
-#'   `abstraction_level`, `minDepthAllowed`, `allowOnlyMinors`). Missing
-#'   arguments default to `abstraction_level = -1`, `minDepthAllowed = 0`,
+#'   `abstractionLevel`, `minDepthAllowed`, `allowOnlyMinors`). Missing
+#'   arguments default to `abstractionLevel = -1`, `minDepthAllowed = 0`,
 #'   and `allowOnlyMinors = TRUE`.
 #' @param runAutomaticCorrelationCombineConcepts Logical; when `TRUE`, runs
 #'   `automaticCorrelationCombineConcepts()` after hierarchy combining.
 #' @param automaticCorrelationCombineConceptsArgs A list of additional arguments
 #'   passed to `automaticCorrelationCombineConcepts()` (for example
-#'   `abstraction_level`, `minCorrelation`, `maxDaysInBetween`,
+#'   `abstractionLevel`, `minCorrelation`, `maxDaysInBetween`,
 #'   `heritageDriftAllowed`). Missing arguments default to
-#'   `abstraction_level = -1`, `minCorrelation = 0.7`,
+#'   `abstractionLevel = -1`, `minCorrelation = 0.7`,
 #'   `maxDaysInBetween = 1`, and `heritageDriftAllowed = FALSE`.
 #' @param numCores Number of cores to allocate to parallel processing.
 #'   Defaults to 20% of detected cores (minimum 1).
@@ -403,12 +403,12 @@ runOptionalWorkflowSteps <- function(data,
     removeIdentified = TRUE
   )
   automaticHierarchyDefaults <- list(
-    abstraction_level = -1,
+    abstractionLevel = -1,
     minDepthAllowed = 0,
     allowOnlyMinors = TRUE
   )
   automaticCorrelationDefaults <- list(
-    abstraction_level = -1,
+    abstractionLevel = -1,
     minCorrelation = 0.7,
     maxDaysInBetween = 1,
     heritageDriftAllowed = FALSE

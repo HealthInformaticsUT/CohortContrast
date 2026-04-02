@@ -1,5 +1,5 @@
 #' @keywords internal
-combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, selected_ids = NULL, abstraction_level = -1, data = NULL, type = "custom") {
+combineSelectedConcepts <- function(newConceptName, newConceptId = NULL, selectedIds = NULL, abstractionLevel = -1, data = NULL, type = "custom") {
     if(is.null(data)) return(NULL)
     # TODO: make tests modular and apply
     data_features <- data.table::as.data.table(data$data_features)
@@ -9,16 +9,16 @@ combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, sel
     complementary_mapping <- data.table::as.data.table(data$complementaryMappingTable)
     # Assuming data_initial, data_features, and processed_table are data.tables
 
-    # check if new_concept_name can be used
-    used_concept_names <- unique(data_patients %>% dplyr::filter(!(.data$CONCEPT_ID %in% selected_ids)) %>%  dplyr::pull(CONCEPT_NAME))
+    # check if newConceptName can be used
+    used_concept_names <- unique(data_patients %>% dplyr::filter(!(.data$CONCEPT_ID %in% selectedIds)) %>%  dplyr::pull(CONCEPT_NAME))
     counter = 2
-    maybe_new_concept_name = new_concept_name
+    maybe_new_concept_name = newConceptName
     while(maybe_new_concept_name %in% used_concept_names){
-      maybe_new_concept_name = paste(new_concept_name, counter, sep = " ")
+      maybe_new_concept_name = paste(newConceptName, counter, sep = " ")
       counter = counter + 1
-      cli::cli_alert_warning(paste0("Mapped '", gsub("\\{", "{{", gsub("\\}", "}}", new_concept_name)), "' to '",  gsub("\\{", "{{", gsub("\\}", "}}", maybe_new_concept_name)), "' because of duplicate concept names for differing ids!"))
+      cli::cli_alert_warning(paste0("Mapped '", gsub("\\{", "{{", gsub("\\}", "}}", newConceptName)), "' to '",  gsub("\\{", "{{", gsub("\\}", "}}", maybe_new_concept_name)), "' because of duplicate concept names for differing ids!"))
     }
-    new_concept_name = maybe_new_concept_name
+    newConceptName = maybe_new_concept_name
 
     # Step 1: Grouping and summarizing, followed by reshaping
     n_patients_temp <- data_initial[, .N, by = COHORT_DEFINITION_ID]
@@ -27,17 +27,17 @@ combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, sel
     count_target <- n_patients$target
     count_control <- n_patients$control
 
-    processed_table <- data_features[ABSTRACTION_LEVEL == abstraction_level]
+    processed_table <- data_features[ABSTRACTION_LEVEL == abstractionLevel]
 
     selected_concept_ids = NA
     selected_concept_names = NA
-    representingConceptId = new_concept_id
+    representingConceptId = newConceptId
     representingHeritage = NA
     representingChi2Y = NA
     representingLogitTest = NA
 
     # Step 3: Filtering processed_table and selecting concept IDs
-    selected_concept_ids <- as.numeric(selected_ids)
+    selected_concept_ids <- as.numeric(selectedIds)
     selected_concept_names <- processed_table[CONCEPT_ID %in% selected_concept_ids, CONCEPT_NAME]
 
     if(is.null(representingConceptId)){
@@ -54,19 +54,19 @@ combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, sel
 
     new_row <- data.table::data.table(
       CONCEPT_ID = representingConceptId,
-      CONCEPT_NAME = new_concept_name,
-      ABSTRACTION_LEVEL = abstraction_level,
+      CONCEPT_NAME = newConceptName,
+      ABSTRACTION_LEVEL = abstractionLevel,
       CHI2Y = representingChi2Y,
       LOGITTEST = representingLogitTest,
       HERITAGE = representingHeritage
     )
 
     # Remove row if there was for representingConceptId
-    data_features <- data_features[!(CONCEPT_ID %in% c(selected_concept_ids, representingConceptId) & ABSTRACTION_LEVEL == abstraction_level)]
+    data_features <- data_features[!(CONCEPT_ID %in% c(selected_concept_ids, representingConceptId) & ABSTRACTION_LEVEL == abstractionLevel)]
 
     data_features <- rbind(data_features, new_row, fill = TRUE)
     rows_to_update <- data_patients[
-      , CONCEPT_ID %in% selected_concept_ids & ABSTRACTION_LEVEL == abstraction_level
+      , CONCEPT_ID %in% selected_concept_ids & ABSTRACTION_LEVEL == abstractionLevel
     ]
 
     # Step 4: Update rows and group by relevant columns, then summarize
@@ -74,7 +74,7 @@ combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, sel
       rows_to_update,
       `:=`(
         CONCEPT_ID = representingConceptId,
-        CONCEPT_NAME = new_concept_name,
+        CONCEPT_NAME = newConceptName,
         HERITAGE = representingHeritage
       )
     ]
@@ -132,9 +132,9 @@ combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, sel
     data_features <- data_features[!is.na(CONCEPT_NAME)]
 
     # Step 5: Determining CHI2Y and LOGITTEST values
-    total_concepts = data_features %>% dplyr::filter(.data$ABSTRACTION_LEVEL == abstraction_level) %>% nrow()
+    total_concepts = data_features %>% dplyr::filter(.data$ABSTRACTION_LEVEL == abstractionLevel) %>% nrow()
     # CHI2Y
-    concept_row <- data_features[CONCEPT_ID == representingConceptId & ABSTRACTION_LEVEL == abstraction_level, .(TARGET_SUBJECT_COUNT, CONTROL_SUBJECT_COUNT)]
+    concept_row <- data_features[CONCEPT_ID == representingConceptId & ABSTRACTION_LEVEL == abstractionLevel, .(TARGET_SUBJECT_COUNT, CONTROL_SUBJECT_COUNT)]
     target_subject_count <- concept_row$TARGET_SUBJECT_COUNT
     control_subject_count <- concept_row$CONTROL_SUBJECT_COUNT
 
@@ -157,7 +157,7 @@ combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, sel
     representingLogitTestPValue = 1
     # Create the dataset for logistic regression
     concept_data <- data_patients %>%
-      dplyr::filter(.data$ABSTRACTION_LEVEL == abstraction_level, .data$CONCEPT_ID == representingConceptId) %>%
+      dplyr::filter(.data$ABSTRACTION_LEVEL == abstractionLevel, .data$CONCEPT_ID == representingConceptId) %>%
       dplyr::mutate(
         PREVALENCE = 1,
         TARGET = dplyr::if_else(.data$COHORT_DEFINITION_ID == "target", 1, 0),
@@ -205,7 +205,7 @@ combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, sel
       }
     }
     # Update a specific row with new values for example columns
-    data_features[CONCEPT_ID == representingConceptId & ABSTRACTION_LEVEL == abstraction_level, `:=`(
+    data_features[CONCEPT_ID == representingConceptId & ABSTRACTION_LEVEL == abstractionLevel, `:=`(
       CHI2Y = representingChi2Y,
       CHI2Y_P_VALUE = representingChi2YPValue,
       LOGITTEST = representingLogitTest,
@@ -214,20 +214,20 @@ combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, sel
     )]
 
     # Update complementaryMappingTable
-    new_rows <- data.frame(CONCEPT_ID = selected_concept_ids, CONCEPT_NAME = selected_concept_names, NEW_CONCEPT_ID = representingConceptId, NEW_CONCEPT_NAME = new_concept_name, ABSTRACTION_LEVEL = abstraction_level, TYPE = type, stringsAsFactors = FALSE)
+    new_rows <- data.frame(CONCEPT_ID = selected_concept_ids, CONCEPT_NAME = selected_concept_names, NEW_CONCEPT_ID = representingConceptId, NEW_CONCEPT_NAME = newConceptName, ABSTRACTION_LEVEL = abstractionLevel, TYPE = type, stringsAsFactors = FALSE)
     complementary_mapping <- rbind(complementary_mapping, new_rows)
 
     # Step 1: Identify related concepts
     related_concepts <- complementary_mapping[
-      complementary_mapping$CONCEPT_ID %in% selected_concept_ids & complementary_mapping$ABSTRACTION_LEVEL == abstraction_level,
+      complementary_mapping$CONCEPT_ID %in% selected_concept_ids & complementary_mapping$ABSTRACTION_LEVEL == abstractionLevel,
       "NEW_CONCEPT_NAME"
     ]
 
     # Step 2: Update CONCEPT_NAME for related concepts
     complementary_mapping = data.table::as.data.table(complementary_mapping)
     complementary_mapping[
-      complementary_mapping$NEW_CONCEPT_NAME %in% related_concepts & complementary_mapping$ABSTRACTION_LEVEL == abstraction_level,
-      NEW_CONCEPT_NAME := new_concept_name
+      complementary_mapping$NEW_CONCEPT_NAME %in% related_concepts & complementary_mapping$ABSTRACTION_LEVEL == abstractionLevel,
+      NEW_CONCEPT_NAME := newConceptName
     ]
 
     # Step 3: Remove duplicates
@@ -244,11 +244,11 @@ combineSelectedConcepts <- function(new_concept_name, new_concept_id = NULL, sel
 #' Function for automatically combining concepts by hierarchy mapping
 #'
 #' @param data CohortContrastObject
-#' @param abstraction_level abstraction level to use for mapping
+#' @param abstractionLevel abstraction level to use for mapping
 #' @param minDepthAllowed integer for restricting the mapping, if a concept is part of a hierarchy tree then minDepthAllowed value will prune the tree from said depth value upwards
 #' @param allowOnlyMinors allows only mappping if child has smaller prevalence than parent
 #' @export
-automaticHierarchyCombineConcepts <- function(data, abstraction_level = -1, minDepthAllowed = 0, allowOnlyMinors = FALSE) {
+automaticHierarchyCombineConcepts <- function(data, abstractionLevel = -1, minDepthAllowed = 0, allowOnlyMinors = FALSE) {
 
   concept_table = data.table::as.data.table(data$conceptsData$concept)
   concept_ancestor = data.table::as.data.table(data$conceptsData$concept_ancestor)
@@ -281,7 +281,7 @@ automaticHierarchyCombineConcepts <- function(data, abstraction_level = -1, minD
   while (TRUE) {
     cli::cli_alert_warning(paste0("Automatic hierarchy mapping iteration ", counter))
 
-    data_features = data$data_features %>% dplyr::filter(ABSTRACTION_LEVEL == abstraction_level,
+    data_features = data$data_features %>% dplyr::filter(ABSTRACTION_LEVEL == abstractionLevel,
                                                          CONCEPT_ID %in% concept_ancestor_allowed)
     counter = counter + 1
 
@@ -344,10 +344,10 @@ automaticHierarchyCombineConcepts <- function(data, abstraction_level = -1, minD
         selected_parent_name <- as.character(row[['PARENT_NAME']])
 
         data <- combineSelectedConcepts(
-          new_concept_name = selected_parent_name,
-          new_concept_id = selected_parent_id,
-          selected_ids = selected_concept_ids,
-          abstraction_level = abstraction_level,
+          newConceptName = selected_parent_name,
+          newConceptId = selected_parent_id,
+          selectedIds = selected_concept_ids,
+          abstractionLevel = abstractionLevel,
           data = data,
           type = "hierarchy"
         )
@@ -363,13 +363,13 @@ automaticHierarchyCombineConcepts <- function(data, abstraction_level = -1, minD
 #' Function for automatically combining concepts by hierarchy mapping
 #'
 #' @param data CohortContrastObject
-#' @param abstraction_level abstraction level to use for mapping
+#' @param abstractionLevel abstraction level to use for mapping
 #' @param minCorrelation minimum correlation to use for automatic concept combining
 #' @param maxDaysInBetween minimum days between concepts to use for automatic concept combining
 #' @param heritageDriftAllowed boolean for allowing heritage drift (combining concepts from differing heritages)
 #' @export
 automaticCorrelationCombineConcepts <- function(data,
-                                                abstraction_level = -1,
+                                                abstractionLevel = -1,
                                                 minCorrelation = 0.7,
                                                 maxDaysInBetween = 1,
                                                 heritageDriftAllowed = FALSE) {
@@ -386,7 +386,7 @@ automaticCorrelationCombineConcepts <- function(data,
                                                       applyInverseTarget = FALSE,
                                                       applyChi2YTest = run_chi2y,
                                                       applyLogitTest = data$config$runLogitTests,
-                                                      abstractionLevel = abstraction_level)
+                                                      abstractionLevel = abstractionLevel)
     filter_target = filter_target(target = target_filtered, prevalence_threshold = data$config$presenceFilter,
                                                    prevalence_ratio_threshold = data$config$prevalenceCutOff,removeUntreated = FALSE)
 
@@ -397,7 +397,7 @@ automaticCorrelationCombineConcepts <- function(data,
     correlationSuggestionsTable <- mergeCorrelationWithTransitions(correlation_data = result_corr, transition_data = result_time)
 
 
-    data_features = data$data_features %>% dplyr::filter(ABSTRACTION_LEVEL == abstraction_level)
+    data_features = data$data_features %>% dplyr::filter(ABSTRACTION_LEVEL == abstractionLevel)
     counter = counter + 1
 
     mappingsToExecute <- filterCorrelationMappings(
@@ -426,10 +426,10 @@ automaticCorrelationCombineConcepts <- function(data,
         selected_parent_name <- paste(as.character(unlist(row[['CONCEPT_NAMES']])), collapse = " + ")
 
         data <- combineSelectedConcepts(
-          new_concept_name = selected_parent_name,
-          new_concept_id = selected_parent_id,
-          selected_ids = selected_concept_ids,
-          abstraction_level = abstraction_level,
+          newConceptName = selected_parent_name,
+          newConceptId = selected_parent_id,
+          selectedIds = selected_concept_ids,
+          abstractionLevel = abstractionLevel,
           data = data,
           type = "correlation"
         )

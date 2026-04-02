@@ -6,7 +6,7 @@
 \usage{
 automaticHierarchyCombineConcepts(
   data,
-  abstraction_level = -1,
+  abstractionLevel = -1,
   minDepthAllowed = 0,
   allowOnlyMinors = FALSE
 )
@@ -14,7 +14,7 @@ automaticHierarchyCombineConcepts(
 \arguments{
 \item{data}{CohortContrastObject}
 
-\item{abstraction_level}{abstraction level to use for mapping}
+\item{abstractionLevel}{abstraction level to use for mapping}
 
 \item{minDepthAllowed}{integer for restricting the mapping, if a concept is part of a hierarchy tree then minDepthAllowed value will prune the tree from said depth value upwards}
 

@@ -78,8 +78,8 @@ as an optional post-processing step.}
 
 \item{automaticHierarchyCombineConceptsArgs}{A list of additional arguments
 passed to `automaticHierarchyCombineConcepts()` (for example
-`abstraction_level`, `minDepthAllowed`, `allowOnlyMinors`). Missing
-arguments default to `abstraction_level = -1`, `minDepthAllowed = 0`,
+`abstractionLevel`, `minDepthAllowed`, `allowOnlyMinors`). Missing
+arguments default to `abstractionLevel = -1`, `minDepthAllowed = 0`,
 and `allowOnlyMinors = TRUE`.}
 
 \item{runAutomaticCorrelationCombineConcepts}{Logical; when `TRUE`, runs
@@ -87,9 +87,9 @@ and `allowOnlyMinors = TRUE`.}
 
 \item{automaticCorrelationCombineConceptsArgs}{A list of additional arguments
 passed to `automaticCorrelationCombineConcepts()` (for example
-`abstraction_level`, `minCorrelation`, `maxDaysInBetween`,
+`abstractionLevel`, `minCorrelation`, `maxDaysInBetween`,
 `heritageDriftAllowed`). Missing arguments default to
-`abstraction_level = -1`, `minCorrelation = 0.7`,
+`abstractionLevel = -1`, `minCorrelation = 0.7`,
 `maxDaysInBetween = 1`, and `heritageDriftAllowed = FALSE`.}
 
 \item{numCores}{Number of cores to allocate to parallel processing.

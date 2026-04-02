@@ -4,10 +4,10 @@
 \alias{sanitize}
 \title{Sanitize filenames not in correct format}
 \usage{
-sanitize(input_strings)
+sanitize(inputStrings)
 }
 \arguments{
-\item{input_strings}{A vector of state label names}
+\item{inputStrings}{A vector of state label names}
 }
 \description{
 Sanitize filenames not in correct format

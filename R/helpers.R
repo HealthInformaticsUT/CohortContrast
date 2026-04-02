@@ -10,7 +10,7 @@
 #' @param studyName Optional study name override
 #' @keywords internal
 
-build_study_metadata <- function(object, studyName = NULL) {
+buildStudyMetadata <- function(object, studyName = NULL) {
 
   # Calculate the number of unique patients in target and control cohorts
   rows_target <- object$data_initial %>%
@@ -40,8 +40,8 @@ build_study_metadata <- function(object, studyName = NULL) {
 #' @param path Path to CSV file
 #' @param studyName Optional study name override
 #' @keywords internal
-save_object_metadata <- function(object, path, studyName = NULL) {
-  metadata <- build_study_metadata(object = object, studyName = studyName)
+saveObjectMetadata <- function(object, path, studyName = NULL) {
+  metadata <- buildStudyMetadata(object = object, studyName = studyName)
   temp <- as.data.frame(metadata, stringsAsFactors = FALSE)
   # Mutate file
   path <- sub("\\.rds$", ".csv", path)
@@ -56,8 +56,8 @@ save_object_metadata <- function(object, path, studyName = NULL) {
 #' @param path Path to JSON file
 #' @param studyName Optional study name override
 #' @keywords internal
-save_object_metadata_json <- function(object, path, studyName = NULL) {
-  metadata <- build_study_metadata(object = object, studyName = studyName)
+saveObjectMetadataJson <- function(object, path, studyName = NULL) {
+  metadata <- buildStudyMetadata(object = object, studyName = studyName)
   jsonlite::write_json(metadata, path = path, auto_unbox = TRUE, pretty = TRUE)
   invisible(metadata)
 }
@@ -72,7 +72,7 @@ writeStudyStateArtifacts <- function(data, studyPath, studyName = NULL) {
     }
   }
 
-  save_object_metadata_json(
+  saveObjectMetadataJson(
     object = data,
     path = file.path(studyPath, "metadata.json"),
     studyName = studyName
@@ -275,11 +275,11 @@ printCustomMessage <- function(message) {
 }
 
 #' Function to sanitize a single string
-#' @param input_string A  state label name
+#' @param inputString A state label name
 #' @keywords internal
 
-sanitize_single <- function(input_string) {
-  safe_string <- gsub("[^A-Za-z0-9_.-]", "_", input_string)  # Corrected regex
+sanitizeSingle <- function(inputString) {
+  safe_string <- gsub("[^A-Za-z0-9_.-]", "_", inputString)  # Corrected regex
   if (substr(safe_string, 1, 1) == '.') {
     safe_string <- paste0('_', safe_string)
   }
@@ -288,12 +288,12 @@ sanitize_single <- function(input_string) {
 
 #' Sanitize filenames not in correct format
 #'
-#' @param input_strings A vector of state label names
+#' @param inputStrings A vector of state label names
 #' @keywords internal
 
-sanitize <- function(input_strings) {
+sanitize <- function(inputStrings) {
   # Apply the sanitization function to each element of the vector
-  sapply(input_strings, sanitize_single)
+  sapply(inputStrings, sanitizeSingle)
 }
 
 #' @keywords internal

@@ -12,7 +12,7 @@ NULL
 #' Get the package's Python directory path
 #'
 #' @return Character string with the path to the Python code
-#' @keywords internal
+#' @noRd
 .getPythonDir <- function() {
   # Check multiple possible locations for the Python files
 
@@ -40,7 +40,7 @@ NULL
 #' Get the path to the requirements.txt file
 #'
 #' @return Character string with the path to requirements.txt
-#' @keywords internal
+#' @noRd
 .getRequirementsPath <- function() {
   python_dir <- .getPythonDir()
   req_path <- file.path(python_dir, "requirements.txt")
