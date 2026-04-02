@@ -5,7 +5,7 @@ Build study metadata for CSV/JSON sidecar files
 ## Usage
 
 ``` r
-build_study_metadata(object, studyName = NULL)
+buildStudyMetadata(object, studyName = NULL)
 ```
 
 ## Arguments

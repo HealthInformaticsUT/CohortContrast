@@ -5,7 +5,7 @@ Save study metadata to CSV
 ## Usage
 
 ``` r
-save_object_metadata(object, path, studyName = NULL)
+saveObjectMetadata(object, path, studyName = NULL)
 ```
 
 ## Arguments

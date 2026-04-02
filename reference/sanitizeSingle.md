@@ -5,11 +5,11 @@ Function to sanitize a single string
 ## Usage
 
 ``` r
-sanitize_single(input_string)
+sanitizeSingle(inputString)
 ```
 
 ## Arguments
 
-- input_string:
+- inputString:
 
   A state label name

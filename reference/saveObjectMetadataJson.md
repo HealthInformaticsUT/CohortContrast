@@ -5,7 +5,7 @@ Save study metadata to JSON
 ## Usage
 
 ``` r
-save_object_metadata_json(object, path, studyName = NULL)
+saveObjectMetadataJson(object, path, studyName = NULL)
 ```
 
 ## Arguments

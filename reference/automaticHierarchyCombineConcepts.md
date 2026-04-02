@@ -7,7 +7,7 @@ Function for automatically combining concepts by hierarchy mapping
 ``` r
 automaticHierarchyCombineConcepts(
   data,
-  abstraction_level = -1,
+  abstractionLevel = -1,
   minDepthAllowed = 0,
   allowOnlyMinors = FALSE
 )
@@ -19,7 +19,7 @@ automaticHierarchyCombineConcepts(
 
   CohortContrastObject
 
-- abstraction_level:
+- abstractionLevel:
 
   abstraction level to use for mapping
 

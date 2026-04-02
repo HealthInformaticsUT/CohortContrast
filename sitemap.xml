@@ -19,7 +19,7 @@
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/CohortContrastViewer.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/automaticCorrelationCombineConcepts.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/automaticHierarchyCombineConcepts.html</loc></url>
-<url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/build_study_metadata.html</loc></url>
+<url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/buildStudyMetadata.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/calculateDataFeatures.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/checkDataMode.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/checkPythonDeps.html</loc></url>
@@ -34,8 +34,6 @@
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/createControlCohortMatching.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/createDataFeatures.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/createPathToResults.html</loc></url>
-<url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/dot-getPythonDir.html</loc></url>
-<url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/dot-getRequirementsPath.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/filterTemporalBiasConcepts.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/generateMappingTable.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/generateSourceTables.html</loc></url>
@@ -61,10 +59,10 @@
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/resolveConceptNameOverlap.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/runCohortContrastViewer.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/sanitize.html</loc></url>
-<url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/sanitize_single.html</loc></url>
+<url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/sanitizeSingle.html</loc></url>
+<url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/saveObjectMetadata.html</loc></url>
+<url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/saveObjectMetadataJson.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/saveResult.html</loc></url>
-<url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/save_object_metadata.html</loc></url>
-<url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/save_object_metadata_json.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/stopCohortContrastViewer.html</loc></url>
 </urlset>
 

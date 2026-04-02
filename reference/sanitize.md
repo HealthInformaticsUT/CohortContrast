@@ -5,11 +5,11 @@ Sanitize filenames not in correct format
 ## Usage
 
 ``` r
-sanitize(input_strings)
+sanitize(inputStrings)
 ```
 
 ## Arguments
 
-- input_strings:
+- inputStrings:
 
   A vector of state label names
