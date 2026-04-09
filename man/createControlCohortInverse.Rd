@@ -11,9 +11,41 @@ createControlCohortInverse(cdm, targetTable)
 
 \item{targetTable}{A cohort tibble which contains subjects' cohort data}
 }
+\value{
+A data frame representing inverse control time windows for the target
+  subjects. The returned table contains cohort_definition_id, subject_id,
+  cohort_start_date, and cohort_end_date columns, where each row captures an
+  observation-period segment outside the target cohort interval.
+}
 \description{
 Function for creating automatic matches based on inverse control logic
 }
 \examples{
-\dontrun{createControlCohortInverse(cdm = cdm, targetTable = targetTable)}
+\donttest{
+if (requireNamespace("CDMConnector", quietly = TRUE) &&
+    requireNamespace("DBI", quietly = TRUE) &&
+    requireNamespace("duckdb", quietly = TRUE) &&
+    CDMConnector::eunomiaIsAvailable("GiBleed")) {
+  pathToJSON <- system.file(
+    "example", "example_json", "diclofenac",
+    package = "CohortContrast"
+  )
+  con <- DBI::dbConnect(
+    duckdb::duckdb(),
+    dbdir = CDMConnector::eunomiaDir("GiBleed")
+  )
+  cdm <- CDMConnector::cdmFromCon(
+    con = con,
+    cdmName = "eunomia",
+    cdmSchema = "main",
+    writeSchema = "main"
+  )
+
+  targetTable <- cohortFromJSON(pathToJSON = pathToJSON, cdm = cdm)
+  controlTable <- createControlCohortInverse(cdm = cdm, targetTable = targetTable)
+  head(controlTable)
+
+  DBI::dbDisconnect(con, shutdown = TRUE)
+}
+}
 }

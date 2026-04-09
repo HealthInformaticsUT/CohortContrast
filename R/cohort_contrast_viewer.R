@@ -68,16 +68,12 @@ NULL
 #' @return Invisibly returns TRUE if configuration was successful.
 #'
 #' @examples
-#' \dontrun{
-#' # Use auto-detected Python with a new virtual environment
-#' configurePython()
-#'
-#' # Use a specific Python installation without virtual environment
-#' # (useful on servers without python3-venv package)
-#' configurePython(pythonPath = "/usr/bin/python3", createVenv = FALSE)
-#'
-#' # Use an existing conda environment
-#' configurePython(virtualenvName = "my-conda-env", createVenv = FALSE)
+#' \donttest{
+#' if (requireNamespace("reticulate", quietly = TRUE) &&
+#'     (nzchar(Sys.which("python3")) || nzchar(Sys.which("python")))) {
+#'   configurePython(createVenv = FALSE)
+#'   getPythonInfo()
+#' }
 #' }
 #'
 #' @export
@@ -168,8 +164,12 @@ configurePython <- function(pythonPath = NULL,
 #' @return A list with Python configuration details
 #'
 #' @examples
-#' \dontrun{
-#' getPythonInfo()
+#' \donttest{
+#' if (requireNamespace("reticulate", quietly = TRUE) &&
+#'     (nzchar(Sys.which("python3")) || nzchar(Sys.which("python")))) {
+#'   configurePython(createVenv = FALSE)
+#'   getPythonInfo()
+#' }
 #' }
 #'
 #' @export
@@ -200,15 +200,13 @@ getPythonInfo <- function() {
 #' @return Invisibly returns TRUE if installation was successful.
 #'
 #' @examples
-#' \dontrun{
-#' # First configure Python
-#' configurePython()
-#'
-#' # Then install dependencies
-#' installPythonDeps()
-#'
-#' # Install to user directory (no admin rights needed)
-#' installPythonDeps(user = TRUE)
+#' \donttest{
+#' if (interactive() &&
+#'     requireNamespace("reticulate", quietly = TRUE) &&
+#'     (nzchar(Sys.which("python3")) || nzchar(Sys.which("python")))) {
+#'   configurePython(createVenv = FALSE)
+#'   installPythonDeps(user = TRUE)
+#' }
 #' }
 #'
 #' @export
@@ -272,8 +270,12 @@ installPythonDeps <- function(upgrade = FALSE, quiet = FALSE, user = NULL) {
 #' @return A data frame with package names and their installation status.
 #'
 #' @examples
-#' \dontrun{
-#' checkPythonDeps()
+#' \donttest{
+#' if (requireNamespace("reticulate", quietly = TRUE) &&
+#'     (nzchar(Sys.which("python3")) || nzchar(Sys.which("python")))) {
+#'   configurePython(createVenv = FALSE)
+#'   checkPythonDeps()
+#' }
 #' }
 #'
 #' @export
@@ -343,10 +345,15 @@ checkPythonDeps <- function() {
 #' }
 #'
 #' @examples
-#' \dontrun{
-#' # Install from custom location
-#' configurePython(createVenv = FALSE)
-#' installPythonDepsOffline(packagesDir = "/path/to/packages")
+#' \donttest{
+#' packagesDir <- Sys.getenv("COHORT_CONTRAST_WHEELS")
+#' if (interactive() &&
+#'     requireNamespace("reticulate", quietly = TRUE) &&
+#'     nzchar(packagesDir) &&
+#'     dir.exists(packagesDir)) {
+#'   configurePython(createVenv = FALSE)
+#'   installPythonDepsOffline(packagesDir = packagesDir)
+#' }
 #' }
 #'
 #' @export
@@ -460,17 +467,23 @@ installPythonDepsOffline <- function(packagesDir = NULL,
 #'   If FALSE, blocks until the server is stopped.
 #'
 #' @examples
-#' \dontrun{
-#' # Configure and launch with defaults
-#' configurePython()
-#' installPythonDeps()
-#' runCohortContrastViewer()
-#'
-#' # Launch with custom data directory
-#' runCohortContrastViewer(dataDir = "/path/to/my/data")
-#'
-#' # Launch on a different port
-#' runCohortContrastViewer(port = 8080)
+#' \donttest{
+#' if (interactive() &&
+#'     requireNamespace("reticulate", quietly = TRUE) &&
+#'     requireNamespace("processx", quietly = TRUE) &&
+#'     (nzchar(Sys.which("python3")) || nzchar(Sys.which("python")))) {
+#'   configurePython(createVenv = FALSE)
+#'   deps <- checkPythonDeps()
+#'   if (all(deps$installed)) {
+#'     summaryDir <- system.file("example", "st", "lc500s", package = "CohortContrast")
+#'     runCohortContrastViewer(
+#'       dataDir = summaryDir,
+#'       openBrowser = FALSE,
+#'       background = TRUE
+#'     )
+#'     stopCohortContrastViewer()
+#'   }
+#' }
 #' }
 #'
 #' @export
@@ -642,8 +655,23 @@ runCohortContrastViewer <- function(dataDir = NULL,
 #' @return Invisibly returns TRUE if the server was stopped.
 #'
 #' @examples
-#' \dontrun{
-#' stopCohortContrastViewer()
+#' \donttest{
+#' if (interactive() &&
+#'     requireNamespace("reticulate", quietly = TRUE) &&
+#'     requireNamespace("processx", quietly = TRUE) &&
+#'     (nzchar(Sys.which("python3")) || nzchar(Sys.which("python")))) {
+#'   configurePython(createVenv = FALSE)
+#'   deps <- checkPythonDeps()
+#'   if (all(deps$installed)) {
+#'     summaryDir <- system.file("example", "st", "lc500s", package = "CohortContrast")
+#'     runCohortContrastViewer(
+#'       dataDir = summaryDir,
+#'       openBrowser = FALSE,
+#'       background = TRUE
+#'     )
+#'     stopCohortContrastViewer()
+#'   }
+#' }
 #' }
 #'
 #' @export
@@ -717,24 +745,24 @@ stopCohortContrastViewer <- function() {
 #'   \item{metadata}{Study metadata including demographics and clustering info}
 #'
 #' @examples
-#' \dontrun{
-#' # Generate summary data for a study (no suppression)
-#' result <- precomputeSummary(
-#'   studyPath = "results_parquet/Breast_cancer",
-#'   outputPath = "summaries/Breast_cancer"
-#' )
-#'
-#' # With small cell suppression (counts 1-4 become 5)
-#' result <- precomputeSummary(
-#'   studyPath = "results_parquet/Breast_cancer",
-#'   minCellCount = 5
-#' )
-#'
-#' # View generated files
-#' print(result$files)
-#'
-#' # Run viewer with summary data (no patient data needed)
-#' runCohortContrastViewer(dataDir = "summaries")
+#' \donttest{
+#' if (requireNamespace("reticulate", quietly = TRUE) &&
+#'     (nzchar(Sys.which("python3")) || nzchar(Sys.which("python")))) {
+#'   configurePython(createVenv = FALSE)
+#'   deps <- checkPythonDeps()
+#'   if (all(deps$installed)) {
+#'     studyPath <- system.file("example", "st", "lc500", package = "CohortContrast")
+#'     outputPath <- file.path(tempdir(), "lc500_summary")
+#'     result <- precomputeSummary(
+#'       studyPath = studyPath,
+#'       outputPath = outputPath,
+#'       clusterKValues = c(2, 3),
+#'       conceptLimit = 20,
+#'       maxParallelJobs = 1
+#'     )
+#'     result$outputPath
+#'   }
+#' }
 #' }
 #'
 #' @export
@@ -869,10 +897,9 @@ print("__RESULT_END__")
 #'   \item{clusterKValues}{Vector of available k values for clustering}
 #'
 #' @examples
-#' \dontrun{
-#' info <- checkDataMode("results_parquet/Breast_cancer")
-#' print(info$mode)  # "patient" or "summary"
-#' }
+#' studyPath <- system.file("example", "st", "lc500s", package = "CohortContrast")
+#' info <- checkDataMode(studyPath)
+#' info$mode
 #'
 #' @export
 checkDataMode <- function(dataDir) {

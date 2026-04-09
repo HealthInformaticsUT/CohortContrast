@@ -13,8 +13,12 @@ A list with Python configuration details
 Returns information about the current Python configuration for the CohortContrast Viewer.
 }
 \examples{
-\dontrun{
-getPythonInfo()
+\donttest{
+if (requireNamespace("reticulate", quietly = TRUE) &&
+    (nzchar(Sys.which("python3")) || nzchar(Sys.which("python")))) {
+  configurePython(createVenv = FALSE)
+  getPythonInfo()
+}
 }
 
 }

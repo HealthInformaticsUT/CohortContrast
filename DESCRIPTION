@@ -9,14 +9,17 @@ Authors@R: c(
     person("Raivo", "Kolde", , "raivo.kolde@ut.ee", 
     role = c("aut"), comment = c(ORCID = "0000-0003-2886-6298"))
     )
-Description: An R package for enrichment-based identification of clinically relevant concepts in OMOP CDM data.
-    Defines target and control cohorts and extracts medical interventions
-    that are over-represented in the target cohort during the observation period.
-    Users can tune filtering and selection with arguments such as topK, presenceFilter,
-    and prevalenceCutOff. The workflow includes CHI2Y tests (chi-squared tests for
-    two proportions with Yates continuity correction), logistic tests, hierarchy and correlation mappings
-    for relevant concepts. The results can be optionally explored using the bundled graphical user interface.
-License: Apache License (>= 2) | file LICENSE
+Description: Identifies clinically relevant concepts in Observational Medical
+    Outcomes Partnership Common Data Model (OMOP CDM) data using an
+    enrichment-based workflow. Defines target and control cohorts and extracts
+    medical interventions that are over-represented in the target cohort during
+    the observation period. Users can tune filtering and selection with
+    arguments such as topK, presenceFilter, and prevalenceCutOff. The workflow
+    includes chi-squared tests for two proportions with Yates continuity
+    correction, logistic tests, and hierarchy and correlation mappings for
+    relevant concepts. The results can be optionally explored using the bundled
+    graphical user interface.
+License: Apache License 2.0
 Encoding: UTF-8
 RoxygenNote: 7.3.3
 SystemRequirements: Python (>= 3.8)

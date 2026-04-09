@@ -21,15 +21,13 @@ Invisibly returns TRUE if installation was successful.
 Installs the required Python packages for the CohortContrast Viewer.
 }
 \examples{
-\dontrun{
-# First configure Python
-configurePython()
-
-# Then install dependencies
-installPythonDeps()
-
-# Install to user directory (no admin rights needed)
-installPythonDeps(user = TRUE)
+\donttest{
+if (interactive() &&
+    requireNamespace("reticulate", quietly = TRUE) &&
+    (nzchar(Sys.which("python3")) || nzchar(Sys.which("python")))) {
+  configurePython(createVenv = FALSE)
+  installPythonDeps(user = TRUE)
+}
 }
 
 }

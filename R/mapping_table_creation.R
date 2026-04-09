@@ -1,7 +1,34 @@
 #' Create a mapping table with predefined maximum abstraction level
 #' @param abstractionLevel Maximum abstraction level allowed
 #' @param data CohortContrastObject returned by CohortContrast function
-#' @param maxMinDataFrame A dataframe with columns descendant_concept_id and max_levels_of_separation
+#' @param maxMinDataFrame Optional data frame describing the maximum available
+#'   abstraction depth per descendant concept. Must contain columns
+#'   `descendant_concept_id` and `maximum_minimal_separation`. If `NULL`,
+#'   the summary is computed automatically from `data$conceptsData$concept_ancestor`.
+#' @return A data frame describing hierarchy-based concept mappings. Each row
+#'   maps an original concept to a replacement concept through the columns
+#'   CONCEPT_ID, CONCEPT_NAME, NEW_CONCEPT_ID, NEW_CONCEPT_NAME,
+#'   ABSTRACTION_LEVEL, and TYPE. An empty data frame is returned if no
+#'   concepts need to be mapped at the requested abstraction level.
+#' @examples
+#' if (requireNamespace("nanoparquet", quietly = TRUE)) {
+#'   studyDir <- system.file("example", "st", package = "CohortContrast")
+#'   study <- loadCohortContrastStudy("lc500", pathToResults = studyDir)
+#'
+#'   maxMinDataFrame <- data.frame(
+#'     descendant_concept_id = c(
+#'       4008211, 4176729, 2107967, 2107968, 2108158, 32280, 32815
+#'     ),
+#'     maximum_minimal_separation = c(0, 1, 0, 1, 1, 0, 1)
+#'   )
+#'
+#'   mappingTable <- generateMappingTable(
+#'     abstractionLevel = 0,
+#'     data = study,
+#'     maxMinDataFrame = maxMinDataFrame
+#'   )
+#'   mappingTable
+#' }
 #' @export
 generateMappingTable <- function(abstractionLevel = 10, data = NULL, maxMinDataFrame = NULL){
   printCustomMessage("Generating mapping table list ...")

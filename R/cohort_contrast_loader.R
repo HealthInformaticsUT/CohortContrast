@@ -8,6 +8,12 @@
 #'   Defaults to current working directory.
 #'
 #' @return A `CohortContrastObject`.
+#' @examples
+#' if (requireNamespace("nanoparquet", quietly = TRUE)) {
+#'   studyDir <- system.file("example", "st", package = "CohortContrast")
+#'   study <- loadCohortContrastStudy("lc500", pathToResults = studyDir)
+#'   class(study)
+#' }
 #' @export
 loadCohortContrastStudy <- function(studyName, pathToResults = getwd()) {
   if (!is.character(studyName) || length(studyName) != 1 || !nzchar(studyName)) {

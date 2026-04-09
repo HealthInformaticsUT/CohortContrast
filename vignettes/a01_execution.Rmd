@@ -18,6 +18,20 @@ knitr::opts_chunk$set(
 
 Now as we have initiated [database connection](https://healthinformaticsut.github.io/CohortContrast/articles/a00_introduction.html) and created the `targetTable` as well as the `controlTable` we are ready to execute the study.
 
+The chunk below shows what a saved study looks like after execution by loading the bundled `lc500` example results:
+
+```{r}
+if (requireNamespace("nanoparquet", quietly = TRUE)) {
+  studyDir <- system.file("example", "st", package = "CohortContrast")
+  study <- CohortContrast::loadCohortContrastStudy("lc500", pathToResults = studyDir)
+
+  # Inspect the main exported components created by a completed run.
+  names(study)
+}
+```
+
+This is the same type of output object you can reload from your own saved study directory after running `CohortContrast()`.
+
 
 ```{r, include = TRUE, eval=FALSE, echo=TRUE}
 

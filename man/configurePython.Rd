@@ -31,16 +31,12 @@ Sets up the Python environment for running the CohortContrast Viewer dashboard.
 This function can create a new virtual environment or use an existing Python installation.
 }
 \examples{
-\dontrun{
-# Use auto-detected Python with a new virtual environment
-configurePython()
-
-# Use a specific Python installation without virtual environment
-# (useful on servers without python3-venv package)
-configurePython(pythonPath = "/usr/bin/python3", createVenv = FALSE)
-
-# Use an existing conda environment
-configurePython(virtualenvName = "my-conda-env", createVenv = FALSE)
+\donttest{
+if (requireNamespace("reticulate", quietly = TRUE) &&
+    (nzchar(Sys.which("python3")) || nzchar(Sys.which("python")))) {
+  configurePython(createVenv = FALSE)
+  getPythonInfo()
+}
 }
 
 }

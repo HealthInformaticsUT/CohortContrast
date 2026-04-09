@@ -26,6 +26,24 @@ CohortContrast::runCohortContrastViewer(
 )
 ```
 
+The bundled example studies include both patient-level and summary-mode outputs:
+
+```{r}
+patientStudyPath <- system.file("example", "st", "lc500", package = "CohortContrast")
+summaryStudyPath <- system.file("example", "st", "lc500s", package = "CohortContrast")
+
+# Check which mode the Viewer would detect for each bundled study.
+data.frame(
+  study = c("lc500", "lc500s"),
+  mode = c(
+    CohortContrast::checkDataMode(patientStudyPath)$mode,
+    CohortContrast::checkDataMode(summaryStudyPath)$mode
+  )
+)
+```
+
+This mirrors the mode badge shown in the Viewer after a study is selected.
+
 ## Select a study and mode
 
 Use the **Studies** panel to pick a study. The badge next to the title confirms whether the data is loaded in **Patient Level Data** mode or **Summary Mode**.

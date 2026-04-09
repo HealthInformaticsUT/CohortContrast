@@ -45,18 +45,51 @@ The function applies Bonferroni correction for multiple testing, adjusting the
 significance level by dividing alpha by the number of concepts being tested.
 }
 \examples{
-\dontrun{
-# Run CohortContrast analysis
-data <- CohortContrast(cdm, targetTable, controlTable, pathToResults, ...)
+\donttest{
+if (requireNamespace("CDMConnector", quietly = TRUE) &&
+    requireNamespace("DBI", quietly = TRUE) &&
+    requireNamespace("duckdb", quietly = TRUE) &&
+    CDMConnector::eunomiaIsAvailable("GiBleed")) {
+  pathToJSON <- system.file(
+    "example", "example_json", "diclofenac",
+    package = "CohortContrast"
+  )
+  con <- DBI::dbConnect(
+    duckdb::duckdb(),
+    dbdir = CDMConnector::eunomiaDir("GiBleed")
+  )
+  cdm <- CDMConnector::cdmFromCon(
+    con = con,
+    cdmName = "eunomia",
+    cdmSchema = "main",
+    writeSchema = "main"
+  )
 
-# Identify temporal bias concepts
-result <- removeTemporalBias(data, cdm, ratio = 1)
+  targetTable <- cohortFromJSON(pathToJSON = pathToJSON, cdm = cdm)
+  controlTable <- createControlCohortInverse(cdm = cdm, targetTable = targetTable)
+  data <- CohortContrast(
+    cdm = cdm,
+    targetTable = targetTable,
+    controlTable = controlTable,
+    pathToResults = tempdir(),
+    prevalenceCutOff = 1,
+    topK = 3,
+    presenceFilter = FALSE,
+    runChi2YTests = TRUE,
+    runLogitTests = TRUE,
+    createOutputFiles = FALSE,
+    numCores = 1
+  )
 
-# View identified concepts
-print(result$temporal_bias_concepts)
+  result_filtered <- removeTemporalBias(
+    data = data,
+    cdm = cdm,
+    ratio = 1,
+    removeIdentified = TRUE
+  )
+  head(result_filtered$data$data_features)
 
-# Remove identified concepts and get filtered data
-result_filtered <- removeTemporalBias(data, cdm, removeIdentified = TRUE)
-filtered_data <- result_filtered$data
+  DBI::dbDisconnect(con, shutdown = TRUE)
+}
 }
 }

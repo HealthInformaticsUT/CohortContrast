@@ -18,12 +18,7 @@ a tbl object for further CohortContrast usage
 Read cohort from data.frame object
 }
 \examples{
-\dontrun{
-# Load necessary package
-library(tibble)
-
-# Create the dataframe
-data <- tribble(
+data <- tibble::tribble(
   ~cohort_definition_id, ~subject_id, ~cohort_start_date, ~cohort_end_date,
   1, 4804, '1997-03-23', '2018-10-29',
   1, 4861, '1982-06-02', '2019-05-23',
@@ -37,5 +32,5 @@ data <- tribble(
   2, 2168, '1977-06-25', '2018-11-22'
 )
 targetTable <- cohortFromDataTable(data = data, cohortId = 2)
-}
+targetTable
 }

@@ -13,8 +13,12 @@ A data frame with package names and their installation status.
 Checks if all required Python packages are installed.
 }
 \examples{
-\dontrun{
-checkPythonDeps()
+\donttest{
+if (requireNamespace("reticulate", quietly = TRUE) &&
+    (nzchar(Sys.which("python3")) || nzchar(Sys.which("python")))) {
+  configurePython(createVenv = FALSE)
+  checkPythonDeps()
+}
 }
 
 }

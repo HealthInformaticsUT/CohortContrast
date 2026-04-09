@@ -95,68 +95,58 @@ passed to `automaticCorrelationCombineConcepts()` (for example
 \item{numCores}{Number of cores to allocate to parallel processing.
 Defaults to 20 percent of detected cores (minimum 1).}
 }
+\value{
+A CohortContrastObject. This is a list with the main analysis tables
+  data_patients, data_initial, data_person, data_features, conceptsData,
+  complementaryMappingTable, selectedFeatureData, trajectoryDataList, and
+  config. Together these components contain the processed cohort-level,
+  person-level, feature-level, optional mapping, and configuration outputs
+  produced by the workflow.
+}
 \description{
 Run CohortContrast Analysis
 }
 \examples{
-\dontrun{
-control <- data.frame(
-  cohort_definition_id = c(1, 1, 1, 1, 1),
-  subject_id = c(5325, 3743, 2980, 1512, 2168),
-  cohort_start_date = as.Date(c("1982-06-02", "1997-03-23",
-   "2004-09-29", "2006-08-11", "1977-06-25")),
-  cohort_end_date = as.Date(c("2019-03-17", "2018-10-07",
-   "2018-04-01", "2017-11-29", "2018-11-22"))
-)
+\donttest{
+if (requireNamespace("CDMConnector", quietly = TRUE) &&
+    requireNamespace("DBI", quietly = TRUE) &&
+    requireNamespace("duckdb", quietly = TRUE) &&
+    CDMConnector::eunomiaIsAvailable("GiBleed")) {
+  pathToJSON <- system.file(
+    "example", "example_json", "diclofenac",
+    package = "CohortContrast"
+  )
+  con <- DBI::dbConnect(
+    duckdb::duckdb(),
+    dbdir = CDMConnector::eunomiaDir("GiBleed")
+  )
+  cdm <- CDMConnector::cdmFromCon(
+    con = con,
+    cdmName = "eunomia",
+    cdmSchema = "main",
+    writeSchema = "main"
+  )
 
-target <- data.frame(
-  cohort_definition_id = c(1, 1, 1, 1, 1),
-  subject_id = c(4804, 4861, 1563, 2830, 1655),
-  cohort_start_date = as.Date(c("1997-03-23", "1982-06-02",
-   "1977-06-25", "2006-08-11", "2004-09-29")),
-  cohort_end_date = as.Date(c("2018-10-29", "2019-05-23",
-   "2019-04-20", "2019-01-14", "2019-05-24"))
-)
+  targetTable <- cohortFromJSON(pathToJSON = pathToJSON, cdm = cdm)
+  controlTable <- createControlCohortInverse(cdm = cdm, targetTable = targetTable)
 
-control$cohort_definition_id = 100
-target$cohort_definition_id = 500
+  result <- CohortContrast(
+    cdm = cdm,
+    targetTable = targetTable,
+    controlTable = controlTable,
+    pathToResults = tempdir(),
+    prevalenceCutOff = 1,
+    topK = 3,
+    presenceFilter = FALSE,
+    runChi2YTests = TRUE,
+    runLogitTests = TRUE,
+    createOutputFiles = FALSE,
+    numCores = 1
+  )
 
-cohort = rbind(control, target)
-
-con <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomia_dir("GiBleed"))
-DBI::dbExecute(con, "CREATE SCHEMA IF NOT EXISTS example")
-DBI::dbWriteTable(con,   DBI::SQL('"example"."cohort"'), cohort)
-
-cdm <- CDMConnector::cdmFromCon(con = con, cdmName = "eunomia",
- cdmSchema = "main", writeSchema = "main")
-
- targetTable <- cohortFromCohortTable(cdm = cdm, db = con,
-  tableName = "cohort", schemaName = 'example', cohortId = 500)
-controlTable <- cohortFromCohortTable(cdm = cdm, db = con,
- tableName = "cohort", schemaName = 'example', cohortId = 100)
-
-
-pathToResults = getwd()
-
-data = CohortContrast(
-  cdm,
-  targetTable = targetTable,
-  controlTable = controlTable,
-  pathToResults,
-  domainsIncluded = c(
-    "Drug"
-  ),
-  prevalenceCutOff = 0.1,
-  topK = FALSE,
-  presenceFilter = 0.005,
-  complementaryMappingTable = NULL,
-  runChi2YTests = FALSE,
-  runLogitTests = FALSE,
-  createOutputFiles = FALSE,
-  numCores = 1
-)
-
-DBI::dbDisconnect(con)
+  head(result$data_features)
+  DBI::dbDisconnect(con, shutdown = TRUE)
+}
 }
 
 }

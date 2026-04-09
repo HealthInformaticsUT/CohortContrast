@@ -18,6 +18,47 @@ knitr::opts_chunk$set(
 
 The **Overlap** tab shows how often active concepts co-occur in the same patients.
 
+The following example computes pairwise patient overlap for the three most common concepts in the bundled `lc500` study.
+
+```{r}
+if (requireNamespace("nanoparquet", quietly = TRUE)) {
+  studyDir <- system.file("example", "st", package = "CohortContrast")
+  study <- CohortContrast::loadCohortContrastStudy("lc500", pathToResults = studyDir)
+
+  conceptCounts <- sort(table(study$data_patients$CONCEPT_NAME), decreasing = TRUE)
+  topConcepts <- names(conceptCounts)[1:3]
+  patientsByConcept <- lapply(
+    topConcepts,
+    function(conceptName) {
+      unique(study$data_patients$PERSON_ID[
+        study$data_patients$CONCEPT_NAME == conceptName
+      ])
+    }
+  )
+  names(patientsByConcept) <- topConcepts
+
+  # Build a small pairwise overlap table like the one shown in the Overlap tab.
+  conceptPairs <- utils::combn(topConcepts, 2, simplify = FALSE)
+  overlapPreview <- do.call(
+    rbind,
+    lapply(conceptPairs, function(pair) {
+      data.frame(
+        concept_a = pair[1],
+        concept_b = pair[2],
+        shared_patients = length(intersect(
+          patientsByConcept[[pair[1]]],
+          patientsByConcept[[pair[2]]]
+        ))
+      )
+    })
+  )
+
+  overlapPreview
+}
+```
+
+In the Viewer, these overlaps are extended to all active concepts and can be inspected as both a matrix and a sortable table.
+
 ![Overlap matrix](../man/figures/a05_overlap_matrix.png)
 
 ## Components

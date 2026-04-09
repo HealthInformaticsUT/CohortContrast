@@ -15,6 +15,42 @@ matchCohortsByAge(cdm, sourceTable, tableToMatch, maxAllowedAgeDifference = 0)
 
 \item{maxAllowedAgeDifference}{Value for maximum allowed age difference to be mapped to}
 }
+\value{
+A list with two data frames named source and tableToMatch. Each data
+  frame contains the matched rows from the corresponding input table after
+  age-based sampling, preserving the original column structure of the input
+  cohort tables.
+}
 \description{
 Function for matching the control to target by age
+}
+\examples{
+cdm <- list(
+  person = tibble::tibble(
+    person_id = 1:13,
+    year_of_birth = c(1980L, 1981L, 1982L, 1983L, 1984L,
+                      1980L, 1981L, 1982L, 1985L, 1986L, 1982L, 1983L, 1984L)
+  )
+)
+sourceTable <- tibble::tibble(
+  cohort_definition_id = 1L,
+  subject_id = c(1L, 2L, 3L, 4L, 5L),
+  cohort_start_date = as.Date(rep("2020-01-01", 5)),
+  cohort_end_date = as.Date(rep("2020-01-10", 5))
+)
+tableToMatch <- tibble::tibble(
+  cohort_definition_id = 2L,
+  subject_id = c(6L, 7L, 8L, 9L, 10L, 11L, 12L, 13L),
+  cohort_start_date = as.Date(rep("2020-01-01", 8)),
+  cohort_end_date = as.Date(rep("2020-01-10", 8))
+)
+
+matched <- matchCohortsByAge(
+  cdm = cdm,
+  sourceTable = sourceTable,
+  tableToMatch = tableToMatch,
+  maxAllowedAgeDifference = 1
+)
+nrow(tableToMatch)
+matched
 }

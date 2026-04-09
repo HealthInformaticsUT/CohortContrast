@@ -30,6 +30,23 @@ In the **Studies** table, the `Mode` column shows this in one word: `Patient` or
 - **Patient mode**: produced directly by `CohortContrast(..., createOutputFiles = TRUE)`.
 - **Summary mode**: produced by `precomputeSummary(studyPath = ..., outputPath = ...)`.
 
+The bundled example studies include one patient-mode study and one summary-mode study:
+
+```{r}
+patientStudyPath <- system.file("example", "st", "lc500", package = "CohortContrast")
+summaryStudyPath <- system.file("example", "st", "lc500s", package = "CohortContrast")
+
+data.frame(
+  study = c("lc500", "lc500s"),
+  mode = c(
+    CohortContrast::checkDataMode(patientStudyPath)$mode,
+    CohortContrast::checkDataMode(summaryStudyPath)$mode
+  )
+)
+```
+
+This mirrors the distinction shown in the Viewer study-selection table.
+
 ```{r, include = TRUE, eval=FALSE, echo=TRUE}
 summary_result <- CohortContrast::precomputeSummary(
   studyPath = file.path(getwd(), "studies", "LungCancer_1Y"),

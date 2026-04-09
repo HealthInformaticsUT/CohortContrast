@@ -11,6 +11,24 @@ nGramClusterSummarization(result, top_n = 5)
 
 \item{top_n}{integer for number of most frequent concept to show per cluster}
 }
+\value{
+A data frame with one row per n-gram cluster. The table reports the
+  number of n-grams in each cluster, average number of persons per n-gram,
+  total unique patients represented in the cluster, average timing, and a
+  concatenated label of the most frequent concepts in that cluster.
+}
 \description{
 Function for summarizing ngrams from nGramDiscovery output
+}
+\examples{
+if (requireNamespace("nanoparquet", quietly = TRUE) &&
+    requireNamespace("Matrix", quietly = TRUE) &&
+    requireNamespace("vegan", quietly = TRUE) &&
+    requireNamespace("cluster", quietly = TRUE)) {
+  studyDir <- system.file("example", "st", package = "CohortContrast")
+  study <- loadCohortContrastStudy("lc500", pathToResults = studyDir)
+  ngrams <- nGramDiscovery(study)
+  clusterSummary <- suppressWarnings(nGramClusterSummarization(ngrams))
+  head(clusterSummary)
+}
 }

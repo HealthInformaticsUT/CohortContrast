@@ -17,3 +17,21 @@ A dataframe like cohort table with resolved overlaps
 \description{
 Resolve overlaps inside the cohort table
 }
+\examples{
+cohortTable <- data.frame(
+  cohort_definition_id = c(1L, 1L, 1L),
+  subject_id = c(1L, 1L, 2L),
+  cohort_start_date = as.Date(c("2020-01-01", "2020-01-05", "2020-02-01")),
+  cohort_end_date = as.Date(c("2020-01-10", "2020-01-20", "2020-02-10"))
+)
+cdm <- list(
+  observation_period = data.frame(
+    person_id = c(1L, 2L),
+    observation_period_start_date = as.Date(c("2020-01-03", "2020-01-15")),
+    observation_period_end_date = as.Date(c("2020-01-18", "2020-02-20"))
+  )
+)
+
+resolveCohortTableOverlaps(cohortTable, cdm)
+
+}

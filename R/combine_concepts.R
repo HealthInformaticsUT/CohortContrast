@@ -11,17 +11,6 @@ combineSelectedConcepts <- function(newConceptName, newConceptId = NULL, selecte
     complementary_mapping <- data.table::as.data.table(data$complementaryMappingTable)
     # Assuming data_initial, data_features, and processed_table are data.tables
 
-    # check if newConceptName can be used
-    used_concept_names <- unique(data_patients %>% dplyr::filter(!(.data$CONCEPT_ID %in% selectedIds)) %>%  dplyr::pull(CONCEPT_NAME))
-    counter = 2
-    maybe_new_concept_name = newConceptName
-    while(maybe_new_concept_name %in% used_concept_names){
-      maybe_new_concept_name = paste(newConceptName, counter, sep = " ")
-      counter = counter + 1
-      cli::cli_alert_warning(paste0("Mapped '", gsub("\\{", "{{", gsub("\\}", "}}", newConceptName)), "' to '",  gsub("\\{", "{{", gsub("\\}", "}}", maybe_new_concept_name)), "' because of duplicate concept names for differing ids!"))
-    }
-    newConceptName = maybe_new_concept_name
-
     # Step 1: Grouping and summarizing, followed by reshaping
     n_patients_temp <- data_initial[, .N, by = COHORT_DEFINITION_ID]
     n_patients <- reshape2::dcast(n_patients_temp, formula = 1 ~ COHORT_DEFINITION_ID, value.var = "N", fill = 0)
@@ -32,6 +21,7 @@ combineSelectedConcepts <- function(newConceptName, newConceptId = NULL, selecte
     processed_table <- data_features[ABSTRACTION_LEVEL == abstractionLevel]
 
     selected_concept_ids = NA
+    concept_ids_to_merge = NA
     selected_concept_names = NA
     representingConceptId = newConceptId
     representingHeritage = NA
@@ -39,20 +29,40 @@ combineSelectedConcepts <- function(newConceptName, newConceptId = NULL, selecte
     representingLogitTest = NA
 
     # Step 3: Filtering processed_table and selecting concept IDs
-    selected_concept_ids <- as.numeric(selectedIds)
-    selected_concept_names <- processed_table[CONCEPT_ID %in% selected_concept_ids, CONCEPT_NAME]
+    selected_concept_ids <- unique(as.numeric(selectedIds))
+    concept_ids_to_merge <- unique(c(selected_concept_ids, representingConceptId))
+    selected_concept_names <- processed_table[
+      match(selected_concept_ids, CONCEPT_ID),
+      CONCEPT_NAME
+    ]
+
+    # check if newConceptName can be used
+    used_concept_names <- unique(
+      data_patients %>%
+        dplyr::filter(!(.data$CONCEPT_ID %in% concept_ids_to_merge)) %>%
+        dplyr::pull(CONCEPT_NAME)
+    )
+    counter = 2
+    maybe_new_concept_name = newConceptName
+    while(maybe_new_concept_name %in% used_concept_names){
+      maybe_new_concept_name = paste(newConceptName, counter, sep = " ")
+      counter = counter + 1
+      cli::cli_alert_warning(paste0("Mapped '", gsub("\\{", "{{", gsub("\\}", "}}", newConceptName)), "' to '",  gsub("\\{", "{{", gsub("\\}", "}}", maybe_new_concept_name)), "' because of duplicate concept names for differing ids!"))
+    }
+    newConceptName = maybe_new_concept_name
 
     if(is.null(representingConceptId)){
       representingConceptId <- selected_concept_ids[
         which.max(as.numeric(processed_table[CONCEPT_ID %in% selected_concept_ids, PREVALENCE_DIFFERENCE_RATIO]))
       ]
+      concept_ids_to_merge <- unique(c(selected_concept_ids, representingConceptId))
     }
-    representingHeritage <- processed_table[CONCEPT_ID %in% selected_concept_ids, HERITAGE][
-      which.max(as.numeric(processed_table[CONCEPT_ID %in% selected_concept_ids, PREVALENCE_DIFFERENCE_RATIO]))]
+    representingHeritage <- processed_table[CONCEPT_ID %in% concept_ids_to_merge, HERITAGE][
+      which.max(as.numeric(processed_table[CONCEPT_ID %in% concept_ids_to_merge, PREVALENCE_DIFFERENCE_RATIO]))]
 
     # Step 4: Determining CHI2Y and LOGITTEST values
-    representingChi2Y <- any(processed_table[CONCEPT_ID %in% selected_concept_ids, CHI2Y])
-    representingLogitTest <- any(processed_table[CONCEPT_ID %in% selected_concept_ids, LOGITTEST])
+    representingChi2Y <- any(processed_table[CONCEPT_ID %in% concept_ids_to_merge, CHI2Y])
+    representingLogitTest <- any(processed_table[CONCEPT_ID %in% concept_ids_to_merge, LOGITTEST])
 
     new_row <- data.table::data.table(
       CONCEPT_ID = representingConceptId,
@@ -64,11 +74,11 @@ combineSelectedConcepts <- function(newConceptName, newConceptId = NULL, selecte
     )
 
     # Remove row if there was for representingConceptId
-    data_features <- data_features[!(CONCEPT_ID %in% c(selected_concept_ids, representingConceptId) & ABSTRACTION_LEVEL == abstractionLevel)]
+    data_features <- data_features[!(CONCEPT_ID %in% concept_ids_to_merge & ABSTRACTION_LEVEL == abstractionLevel)]
 
     data_features <- rbind(data_features, new_row, fill = TRUE)
     rows_to_update <- data_patients[
-      , CONCEPT_ID %in% selected_concept_ids & ABSTRACTION_LEVEL == abstractionLevel
+      , CONCEPT_ID %in% concept_ids_to_merge & ABSTRACTION_LEVEL == abstractionLevel
     ]
 
     # Step 4: Update rows and group by relevant columns, then summarize
@@ -249,6 +259,84 @@ combineSelectedConcepts <- function(newConceptName, newConceptId = NULL, selecte
 #' @param abstractionLevel abstraction level to use for mapping
 #' @param minDepthAllowed integer for restricting the mapping, if a concept is part of a hierarchy tree then minDepthAllowed value will prune the tree from said depth value upwards
 #' @param allowOnlyMinors allows only mappping if child has smaller prevalence than parent
+#' @return A CohortContrastObject with hierarchy-based concept merges applied.
+#'   The returned object keeps the same overall structure as the input, while
+#'   updating the patient-, feature-, and cohort-level tables together with the
+#'   complementary mapping table to reflect the executed hierarchy mappings.
+#' @examples
+#' study <- structure(
+#'   list(
+#'     data_initial = data.frame(
+#'       COHORT_DEFINITION_ID = c("target", "target", "control", "control"),
+#'       SUBJECT_ID = 1:4,
+#'       COHORT_START_DATE = as.Date(rep("2020-01-01", 4)),
+#'       COHORT_END_DATE = as.Date(rep("2020-01-10", 4))
+#'     ),
+#'     data_patients = data.frame(
+#'       COHORT_DEFINITION_ID = c(
+#'         "target", "target", "target", "target", "target", "target",
+#'         "control", "control", "control", "control", "control", "control"
+#'       ),
+#'       PERSON_ID = c(1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4),
+#'       CONCEPT_ID = c(1, 2, 10, 1, 2, 10, 1, 2, 10, 1, 2, 10),
+#'       CONCEPT_NAME = c(
+#'         "Concept A", "Concept B", "Parent concept",
+#'         "Concept A", "Concept B", "Parent concept",
+#'         "Concept A", "Concept B", "Parent concept",
+#'         "Concept A", "Concept B", "Parent concept"
+#'       ),
+#'       HERITAGE = rep("drug_exposure", 12),
+#'       ABSTRACTION_LEVEL = rep(-1, 12),
+#'       PREVALENCE = rep(1, 12),
+#'       TIME_TO_EVENT = I(rep(list(c(0, 2)), 12))
+#'     ),
+#'     data_features = data.frame(
+#'       CONCEPT_ID = c(1, 2, 10),
+#'       CONCEPT_NAME = c("Concept A", "Concept B", "Parent concept"),
+#'       ABSTRACTION_LEVEL = c(-1, -1, -1),
+#'       TARGET_SUBJECT_COUNT = c(2, 2, 2),
+#'       CONTROL_SUBJECT_COUNT = c(2, 2, 2),
+#'       TIME_TO_EVENT = I(list(c(0, 2), c(0, 2), c(0, 2))),
+#'       TARGET_SUBJECT_PREVALENCE = c(1, 1, 1),
+#'       CONTROL_SUBJECT_PREVALENCE = c(1, 1, 1),
+#'       PREVALENCE_DIFFERENCE_RATIO = c(1, 1, 1),
+#'       CHI2Y = c(TRUE, TRUE, TRUE),
+#'       CHI2Y_P_VALUE = c(1, 1, 1),
+#'       LOGITTEST = c(FALSE, FALSE, FALSE),
+#'       LOGITTEST_P_VALUE = c(1, 1, 1),
+#'       HERITAGE = c("drug_exposure", "drug_exposure", "drug_exposure")
+#'     ),
+#'     data_person = data.frame(),
+#'     conceptsData = list(
+#'       concept = data.frame(
+#'         concept_id = c(1, 2, 10),
+#'         concept_name = c("Concept A", "Concept B", "Parent concept"),
+#'         invalid_reason = c(NA, NA, NA)
+#'       ),
+#'       concept_ancestor = data.frame(
+#'         ancestor_concept_id = c(1, 2, 10, 10, 10),
+#'         descendant_concept_id = c(1, 2, 10, 1, 2),
+#'         min_levels_of_separation = c(0, 0, 0, 1, 1),
+#'         max_levels_of_separation = c(0, 0, 0, 1, 1)
+#'       )
+#'     ),
+#'     complementaryMappingTable = data.frame(
+#'       CONCEPT_ID = integer(),
+#'       CONCEPT_NAME = character(),
+#'       NEW_CONCEPT_ID = integer(),
+#'       NEW_CONCEPT_NAME = character(),
+#'       ABSTRACTION_LEVEL = integer(),
+#'       TYPE = character()
+#'     )
+#'   ),
+#'   class = "CohortContrastObject"
+#' )
+#'
+#' combined <- suppressWarnings(
+#'   automaticHierarchyCombineConcepts(study, abstractionLevel = -1)
+#' )
+#' combined$data_features
+#' combined$complementaryMappingTable
 #' @export
 automaticHierarchyCombineConcepts <- function(data, abstractionLevel = -1, minDepthAllowed = 0, allowOnlyMinors = FALSE) {
 
@@ -339,10 +427,15 @@ automaticHierarchyCombineConcepts <- function(data, abstractionLevel = -1, minDe
     # Explicit for loop replaces apply
     for (i in seq_len(nrow(mappingsToExecute))) {
       row <- mappingsToExecute[i, ]
+      selected_parent_id <- as.numeric(row[['PARENT_ID']])
       selected_concept_ids <- as.numeric(unlist(row[['CONCEPT_IDS']]))
+      selected_concept_ids <- selected_concept_ids[selected_concept_ids != selected_parent_id]
+
+      if (length(selected_concept_ids) == 0) {
+        next
+      }
 
       if (!any(is.na(selected_concept_ids))) {
-        selected_parent_id <- as.numeric(row[['PARENT_ID']])
         selected_parent_name <- as.character(row[['PARENT_NAME']])
 
         data <- combineSelectedConcepts(
@@ -369,6 +462,82 @@ automaticHierarchyCombineConcepts <- function(data, abstractionLevel = -1, minDe
 #' @param minCorrelation minimum correlation to use for automatic concept combining
 #' @param maxDaysInBetween minimum days between concepts to use for automatic concept combining
 #' @param heritageDriftAllowed boolean for allowing heritage drift (combining concepts from differing heritages)
+#' @return A CohortContrastObject with correlation-based concept merges applied.
+#'   The returned object keeps the same overall structure as the input, while
+#'   updating the patient-, feature-, and cohort-level tables together with the
+#'   complementary mapping table to reflect the executed correlation mappings.
+#' @examples
+#' study <- structure(
+#'   list(
+#'     data_initial = data.frame(
+#'       COHORT_DEFINITION_ID = c(rep("target", 4), rep("control", 4)),
+#'       SUBJECT_ID = 1:8,
+#'       COHORT_START_DATE = as.Date(rep("2020-01-01", 8)),
+#'       COHORT_END_DATE = as.Date(rep("2020-01-10", 8))
+#'     ),
+#'     data_patients = data.frame(
+#'       COHORT_DEFINITION_ID = c(
+#'         "target", "target", "target", "target", "target", "target",
+#'         "control", "control", "control"
+#'       ),
+#'       PERSON_ID = c(1, 1, 2, 2, 3, 4, 5, 6, 7),
+#'       CONCEPT_ID = c(1, 2, 1, 2, 1, 2, 1, 2, 1),
+#'       CONCEPT_NAME = c(
+#'         "Concept A", "Concept B", "Concept A", "Concept B", "Concept A",
+#'         "Concept B", "Concept A", "Concept B", "Concept A"
+#'       ),
+#'       HERITAGE = rep("drug_exposure", 9),
+#'       ABSTRACTION_LEVEL = rep(-1, 9),
+#'       PREVALENCE = rep(1, 9),
+#'       TIME_TO_EVENT = I(list(0, 1, 0, 1, 0, 1, 0, 1, 0))
+#'     ),
+#'     data_features = data.frame(
+#'       CONCEPT_ID = c(1, 2),
+#'       CONCEPT_NAME = c("Concept A", "Concept B"),
+#'       ABSTRACTION_LEVEL = c(-1, -1),
+#'       TARGET_SUBJECT_COUNT = c(3, 3),
+#'       CONTROL_SUBJECT_COUNT = c(2, 1),
+#'       TIME_TO_EVENT = I(list(c(0, 0, 0), c(1, 1, 1))),
+#'       TARGET_SUBJECT_PREVALENCE = c(0.75, 0.75),
+#'       CONTROL_SUBJECT_PREVALENCE = c(0.5, 0.25),
+#'       PREVALENCE_DIFFERENCE_RATIO = c(1.5, 3),
+#'       CHI2Y = c(TRUE, TRUE),
+#'       CHI2Y_P_VALUE = c(0.1, 0.01),
+#'       LOGITTEST = c(FALSE, FALSE),
+#'       LOGITTEST_P_VALUE = c(1, 1),
+#'       HERITAGE = c("drug_exposure", "drug_exposure")
+#'     ),
+#'     data_person = data.frame(
+#'       PERSON_ID = 1:8,
+#'       YEAR_OF_BIRTH = 1980:1987,
+#'       GENDER_CONCEPT_ID = c(8507, 8532, 8507, 8532, 8507, 8532, 8507, 8532)
+#'     ),
+#'     complementaryMappingTable = data.frame(
+#'       CONCEPT_ID = integer(),
+#'       CONCEPT_NAME = character(),
+#'       NEW_CONCEPT_ID = integer(),
+#'       NEW_CONCEPT_NAME = character(),
+#'       ABSTRACTION_LEVEL = integer(),
+#'       TYPE = character()
+#'     ),
+#'     config = list(
+#'       runChi2YTests = TRUE,
+#'       runLogitTests = FALSE,
+#'       presenceFilter = 0,
+#'       prevalenceCutOff = 0
+#'     )
+#'   ),
+#'   class = "CohortContrastObject"
+#' )
+#'
+#' combined <- automaticCorrelationCombineConcepts(
+#'   study,
+#'   abstractionLevel = -1,
+#'   minCorrelation = 0.5,
+#'   maxDaysInBetween = 2
+#' )
+#' combined$data_features
+#' combined$complementaryMappingTable
 #' @export
 automaticCorrelationCombineConcepts <- function(data,
                                                 abstractionLevel = -1,

@@ -426,13 +426,6 @@ print.CohortContrastObject <- function(x, ...) {
 #'          on Windows systems by setting `winslash = "/"`.
 #'
 #' @keywords internal
-#'
-#' @examples
-#' \dontrun{
-#'   relative_path <- "relative/path/to/file.txt"
-#'   absolute_path <- convertToAbsolutePath(relative_path)
-#'   print(absolute_path)
-#' }
 convertToAbsolutePath <- function(path) {
   # normalizePath() will convert a relative path to an absolute one
   absolute_path <- normalizePath(path, winslash = "/", mustWork = TRUE)

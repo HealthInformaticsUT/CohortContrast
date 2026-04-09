@@ -23,11 +23,4 @@ The function utilizes `normalizePath()` to handle both Windows and Unix-based
          an absolute path. It ensures that paths are formatted with forward slashes
          on Windows systems by setting `winslash = "/"`.
 }
-\examples{
-\dontrun{
-  relative_path <- "relative/path/to/file.txt"
-  absolute_path <- convertToAbsolutePath(relative_path)
-  print(absolute_path)
-}
-}
 \keyword{internal}

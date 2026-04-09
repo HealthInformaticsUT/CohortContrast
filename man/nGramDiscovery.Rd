@@ -11,6 +11,24 @@ nGramDiscovery(data, collapse_size = 0)
 
 \item{collapse_size}{integer for days to use for collapse same concept ids}
 }
+\value{
+A data frame of enriched n-grams, or NULL if no significant n-grams
+  are found. The returned table contains one row per detected n-gram with
+  cluster assignment, concept identifiers and names, observed and expected
+  counts, over-representation statistics, person counts, timing summaries,
+  and p-values used to flag significant patterns.
+}
 \description{
 Function for discovering ngrams from the extracted data from CohortContrast function
+}
+\examples{
+if (requireNamespace("nanoparquet", quietly = TRUE) &&
+    requireNamespace("Matrix", quietly = TRUE) &&
+    requireNamespace("vegan", quietly = TRUE) &&
+    requireNamespace("cluster", quietly = TRUE)) {
+  studyDir <- system.file("example", "st", package = "CohortContrast")
+  study <- loadCohortContrastStudy("lc500", pathToResults = studyDir)
+  ngrams <- nGramDiscovery(study)
+  head(ngrams)
+}
 }

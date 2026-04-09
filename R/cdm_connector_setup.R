@@ -5,9 +5,43 @@
 #' @param targetTable A cohort tibble which contains subjects' cohort data
 #' @param max Maximum ratio to use
 #' @param min Minimum ratio to use
+#' @return A data frame representing the matched control cohort. The returned
+#'   table contains cohort_definition_id, subject_id, cohort_start_date, and
+#'   cohort_end_date columns, with one row per matched control interval aligned
+#'   to the target cohort follow-up logic.
 #' @export
 #' @examples
-#' \dontrun{createControlCohortMatching(cdm = cdm, targetTable = targetTable, ratio = 2))}
+#' \donttest{
+#' if (requireNamespace("CDMConnector", quietly = TRUE) &&
+#'     requireNamespace("DBI", quietly = TRUE) &&
+#'     requireNamespace("duckdb", quietly = TRUE) &&
+#'     CDMConnector::eunomiaIsAvailable("GiBleed")) {
+#'   pathToJSON <- system.file(
+#'     "example", "example_json", "diclofenac",
+#'     package = "CohortContrast"
+#'   )
+#'   con <- DBI::dbConnect(
+#'     duckdb::duckdb(),
+#'     dbdir = CDMConnector::eunomiaDir("GiBleed")
+#'   )
+#'   cdm <- CDMConnector::cdmFromCon(
+#'     con = con,
+#'     cdmName = "eunomia",
+#'     cdmSchema = "main",
+#'     writeSchema = "main"
+#'   )
+#'
+#'   targetTable <- cohortFromJSON(pathToJSON = pathToJSON, cdm = cdm)
+#'   controlTable <- createControlCohortMatching(
+#'     cdm = cdm,
+#'     targetTable = targetTable,
+#'     ratio = 1
+#'   )
+#'   head(controlTable)
+#'
+#'   DBI::dbDisconnect(con, shutdown = TRUE)
+#' }
+#' }
 createControlCohortMatching <-
   function(cdm, targetTable, ratio = 1, max = NULL, min = NULL) {
     cdm <- omopgenerics::insertTable(
@@ -105,9 +139,39 @@ createControlCohortMatching <-
 #'
 #' @param cdm Connection to the database (package CDMConnector)
 #' @param targetTable A cohort tibble which contains subjects' cohort data
+#' @return A data frame representing inverse control time windows for the target
+#'   subjects. The returned table contains cohort_definition_id, subject_id,
+#'   cohort_start_date, and cohort_end_date columns, where each row captures an
+#'   observation-period segment outside the target cohort interval.
 #' @export
 #' @examples
-#' \dontrun{createControlCohortInverse(cdm = cdm, targetTable = targetTable)}
+#' \donttest{
+#' if (requireNamespace("CDMConnector", quietly = TRUE) &&
+#'     requireNamespace("DBI", quietly = TRUE) &&
+#'     requireNamespace("duckdb", quietly = TRUE) &&
+#'     CDMConnector::eunomiaIsAvailable("GiBleed")) {
+#'   pathToJSON <- system.file(
+#'     "example", "example_json", "diclofenac",
+#'     package = "CohortContrast"
+#'   )
+#'   con <- DBI::dbConnect(
+#'     duckdb::duckdb(),
+#'     dbdir = CDMConnector::eunomiaDir("GiBleed")
+#'   )
+#'   cdm <- CDMConnector::cdmFromCon(
+#'     con = con,
+#'     cdmName = "eunomia",
+#'     cdmSchema = "main",
+#'     writeSchema = "main"
+#'   )
+#'
+#'   targetTable <- cohortFromJSON(pathToJSON = pathToJSON, cdm = cdm)
+#'   controlTable <- createControlCohortInverse(cdm = cdm, targetTable = targetTable)
+#'   head(controlTable)
+#'
+#'   DBI::dbDisconnect(con, shutdown = TRUE)
+#' }
+#' }
 
 createControlCohortInverse <- function(cdm, targetTable) {
   cdm <- omopgenerics::insertTable(
@@ -156,14 +220,31 @@ createControlCohortInverse <- function(cdm, targetTable) {
 #'
 #' @export
 #' @examples
-#' \dontrun{
-#' targetTable <- cohortFromCohortTable(cdm = cdm, db = db,
-#'  tableName = "cohort", schemaName = 'ohdsi_results', cohortId = 1389)
-#'}
-#' \dontrun{
-#' targetTable <- cohortFromCohortTable(cdm = cdm, db = db,
-#'  tableName = "asthma", schemaName = 'user_peter')
-#'}
+#' if (requireNamespace("DBI", quietly = TRUE) &&
+#'     requireNamespace("duckdb", quietly = TRUE) &&
+#'     requireNamespace("CDMConnector", quietly = TRUE)) {
+#'   db <- DBI::dbConnect(duckdb::duckdb(), dbdir = ":memory:")
+#'   DBI::dbExecute(db, "CREATE SCHEMA example")
+#'
+#'   cohort <- data.frame(
+#'     cohort_definition_id = c(1L, 2L),
+#'     subject_id = c(101L, 202L),
+#'     cohort_start_date = as.Date(c("2020-01-01", "2020-02-01")),
+#'     cohort_end_date = as.Date(c("2020-01-10", "2020-02-10"))
+#'   )
+#'   DBI::dbWriteTable(db, DBI::SQL('"example"."cohort"'), cohort)
+#'
+#'   targetTable <- cohortFromCohortTable(
+#'     cdm = NULL,
+#'     db = db,
+#'     tableName = "cohort",
+#'     schemaName = "example",
+#'     cohortId = 2
+#'   )
+#'   targetTable
+#'
+#'   DBI::dbDisconnect(db, shutdown = TRUE)
+#' }
 cohortFromCohortTable <- function(cdm,
                                   db,
                                   tableName = NULL,
@@ -190,12 +271,7 @@ cohortFromCohortTable <- function(cdm,
 #'
 #' @export
 #' @examples
-#' \dontrun{
-#' # Load necessary package
-#' library(tibble)
-#'
-#' # Create the dataframe
-#' data <- tribble(
+#' data <- tibble::tribble(
 #'   ~cohort_definition_id, ~subject_id, ~cohort_start_date, ~cohort_end_date,
 #'   1, 4804, '1997-03-23', '2018-10-29',
 #'   1, 4861, '1982-06-02', '2019-05-23',
@@ -209,7 +285,7 @@ cohortFromCohortTable <- function(cdm,
 #'   2, 2168, '1977-06-25', '2018-11-22'
 #' )
 #' targetTable <- cohortFromDataTable(data = data, cohortId = 2)
-#'}
+#' targetTable
 cohortFromDataTable <- function(data, cohortId = NULL) {
   cohortTable = data
   if (!is.null(cohortId)) {
@@ -228,12 +304,22 @@ cohortFromDataTable <- function(data, cohortId = NULL) {
 #' @return a tbl object for further CohortContrast usage
 #'
 #' @export
-#' @examples \dontrun{
-#' pathToCsv = './cohorts.csv'
-#' targetTable <- cohortFromCSV(pathToCsv = pathToCsv, cohortId = 2)
-#'}
+#' @examples
+#' if (requireNamespace("readr", quietly = TRUE)) {
+#'   pathToCsv <- tempfile(fileext = ".csv")
+#'   cohort <- data.frame(
+#'     cohort_definition_id = c(1L, 2L),
+#'     subject_id = c(101L, 202L),
+#'     cohort_start_date = as.Date(c("2020-01-01", "2020-02-01")),
+#'     cohort_end_date = as.Date(c("2020-01-10", "2020-02-10"))
+#'   )
+#'   readr::write_csv(cohort, pathToCsv)
+#'
+#'   targetTable <- cohortFromCSV(pathToCsv = pathToCsv, cohortId = 2)
+#'   targetTable
+#' }
 cohortFromCSV <- function(pathToCsv, cohortId = NULL) {
-  cohortTable = readr::read_csv(pathToCsv)
+  cohortTable = readr::read_csv(pathToCsv, show_col_types = FALSE)
   if (!is.null(cohortId)) {
     cohortTable <-
       dplyr::filter(cohortTable, .data$cohort_definition_id == cohortId)
@@ -252,10 +338,30 @@ cohortFromCSV <- function(pathToCsv, cohortId = NULL) {
 #'
 #' @export
 #' @examples
-#' \dontrun{
-#' pathToJSON = './JSON/'
-#' targetTable <- cohortFromJSON(pathToJSON = pathToJSON, cdm, cohortId = 2)
-#'}
+#' if (requireNamespace("CDMConnector", quietly = TRUE) &&
+#'     requireNamespace("DBI", quietly = TRUE) &&
+#'     requireNamespace("duckdb", quietly = TRUE) &&
+#'     CDMConnector::eunomiaIsAvailable("GiBleed")) {
+#'   pathToJSON <- system.file(
+#'     "example", "example_json", "diclofenac",
+#'     package = "CohortContrast"
+#'   )
+#'   con <- DBI::dbConnect(
+#'     duckdb::duckdb(),
+#'     dbdir = CDMConnector::eunomiaDir("GiBleed")
+#'   )
+#'   cdm <- CDMConnector::cdmFromCon(
+#'     con = con,
+#'     cdmName = "eunomia",
+#'     cdmSchema = "main",
+#'     writeSchema = "main"
+#'   )
+#'
+#'   targetTable <- cohortFromJSON(pathToJSON = pathToJSON, cdm = cdm)
+#'   targetTable
+#'
+#'   DBI::dbDisconnect(con, shutdown = TRUE)
+#' }
 cohortFromJSON <- function(pathToJSON, cdm, cohortId = NULL) {
   cohortSet = CDMConnector::readCohortSet(pathToJSON)
   cdm = CDMConnector::generateCohortSet(cdm, cohortSet, "target")
@@ -278,49 +384,6 @@ cohortFromJSON <- function(pathToJSON, cdm, cohortId = NULL) {
 #' @return object of dataframes and updated cdm object
 #'
 #' @keywords internal
-#'
-#' @examples
-#' \dontrun{
-#' user <- Sys.getenv("DB_USERNAME") #TODO
-#' pw <- Sys.getenv("DB_PASSWORD") #TODO
-#' server <- stringr::str_c(Sys.getenv("DB_HOST"), "/", Sys.getenv("DB_NAME")) #TODO
-#' port <- Sys.getenv("DB_PORT") #TODO
-#
-#' cdmSchema <-
-#'   Sys.getenv("OHDSI_CDM")
-#' cdmVocabSchema <-
-#'   Sys.getenv("OHDSI_VOCAB")
-#' cdmResultsSchema <-
-#'   Sys.getenv("OHDSI_RESULTS")
-#' writeSchema <-
-#'   Sys.getenv("OHDSI_WRITE")
-#' writePrefix <- "cc_"
-#'
-#' db = DBI::dbConnect(
-#'   RPostgres::Postgres(),
-#'   dbname = Sys.getenv("DB_NAME"),
-#'   host = Sys.getenv("DB_HOST"),
-#'   user = Sys.getenv("DB_USERNAME"),
-#'   password = Sys.getenv("DB_PASSWORD"),
-#'   port  = port
-#' )
-#'
-#' cdm <- CDMConnector::cdmFromCon(
-#'   con = db,
-#'   cdmSchema = cdmSchema,
-#'   achillesSchema = cdmResultsSchema,
-#'   writeSchema = c(schema = writeSchema, prefix = writePrefix),
-#' )
-#'
-#'
-#' targetTable <- cohortFromCohortTable(cdm = cdm, db = db,
-#'  tableName = "cohort", schemaName = cdmResultsSchema, cohortId = 1)
-#' controlTable <- cohortFromCohortTable(cdm = cdm, db = db,
-#'  tableName = "cohort", schemaName = cdmResultsSchema, cohortId = 2)
-#'
-#' cdm <- createCohortContrastCdm(cdm = cdm, targetTable = targetTable, controlTable = controlTable)
-#' }
-#'
 createCohortContrastCdm <- function(cdm,
                                     targetTable = NULL,
                                     controlTable = NULL) {
@@ -370,19 +433,52 @@ createCohortContrastCdm <- function(cdm,
 #'
 #' @export
 #' @examples
-#' \dontrun{
-#' # Run CohortContrast analysis
-#' data <- CohortContrast(cdm, targetTable, controlTable, pathToResults, ...)
+#' \donttest{
+#' if (requireNamespace("CDMConnector", quietly = TRUE) &&
+#'     requireNamespace("DBI", quietly = TRUE) &&
+#'     requireNamespace("duckdb", quietly = TRUE) &&
+#'     CDMConnector::eunomiaIsAvailable("GiBleed")) {
+#'   pathToJSON <- system.file(
+#'     "example", "example_json", "diclofenac",
+#'     package = "CohortContrast"
+#'   )
+#'   con <- DBI::dbConnect(
+#'     duckdb::duckdb(),
+#'     dbdir = CDMConnector::eunomiaDir("GiBleed")
+#'   )
+#'   cdm <- CDMConnector::cdmFromCon(
+#'     con = con,
+#'     cdmName = "eunomia",
+#'     cdmSchema = "main",
+#'     writeSchema = "main"
+#'   )
 #'
-#' # Identify temporal bias concepts
-#' result <- removeTemporalBias(data, cdm, ratio = 1)
+#'   targetTable <- cohortFromJSON(pathToJSON = pathToJSON, cdm = cdm)
+#'   controlTable <- createControlCohortInverse(cdm = cdm, targetTable = targetTable)
+#'   data <- CohortContrast(
+#'     cdm = cdm,
+#'     targetTable = targetTable,
+#'     controlTable = controlTable,
+#'     pathToResults = tempdir(),
+#'     prevalenceCutOff = 1,
+#'     topK = 3,
+#'     presenceFilter = FALSE,
+#'     runChi2YTests = TRUE,
+#'     runLogitTests = TRUE,
+#'     createOutputFiles = FALSE,
+#'     numCores = 1
+#'   )
 #'
-#' # View identified concepts
-#' print(result$temporal_bias_concepts)
+#'   result_filtered <- removeTemporalBias(
+#'     data = data,
+#'     cdm = cdm,
+#'     ratio = 1,
+#'     removeIdentified = TRUE
+#'   )
+#'   head(result_filtered$data$data_features)
 #'
-#' # Remove identified concepts and get filtered data
-#' result_filtered <- removeTemporalBias(data, cdm, removeIdentified = TRUE)
-#' filtered_data <- result_filtered$data
+#'   DBI::dbDisconnect(con, shutdown = TRUE)
+#' }
 #' }
 removeTemporalBias <- function(data,
                                cdm,
@@ -831,6 +927,39 @@ filterTemporalBiasConcepts <- function(data, temporalBiasConcepts) {
 #' @param sourceTable Table which is used as reference for matching
 #' @param tableToMatch Table which is matched
 #' @param maxAllowedAgeDifference Value for maximum allowed age difference to be mapped to
+#' @return A list with two data frames named source and tableToMatch. Each data
+#'   frame contains the matched rows from the corresponding input table after
+#'   age-based sampling, preserving the original column structure of the input
+#'   cohort tables.
+#' @examples
+#' cdm <- list(
+#'   person = tibble::tibble(
+#'     person_id = 1:13,
+#'     year_of_birth = c(1980L, 1981L, 1982L, 1983L, 1984L,
+#'                       1980L, 1981L, 1982L, 1985L, 1986L, 1982L, 1983L, 1984L)
+#'   )
+#' )
+#' sourceTable <- tibble::tibble(
+#'   cohort_definition_id = 1L,
+#'   subject_id = c(1L, 2L, 3L, 4L, 5L),
+#'   cohort_start_date = as.Date(rep("2020-01-01", 5)),
+#'   cohort_end_date = as.Date(rep("2020-01-10", 5))
+#' )
+#' tableToMatch <- tibble::tibble(
+#'   cohort_definition_id = 2L,
+#'   subject_id = c(6L, 7L, 8L, 9L, 10L, 11L, 12L, 13L),
+#'   cohort_start_date = as.Date(rep("2020-01-01", 8)),
+#'   cohort_end_date = as.Date(rep("2020-01-10", 8))
+#' )
+#'
+#' matched <- matchCohortsByAge(
+#'   cdm = cdm,
+#'   sourceTable = sourceTable,
+#'   tableToMatch = tableToMatch,
+#'   maxAllowedAgeDifference = 1
+#' )
+#' nrow(tableToMatch)
+#' matched
 #' @export
 matchCohortsByAge <- function(cdm, sourceTable, tableToMatch, maxAllowedAgeDifference = 0) {
   cdmPerson <- cdm$person %>% dplyr::collect()
@@ -849,9 +978,6 @@ matchCohortsByAge <- function(cdm, sourceTable, tableToMatch, maxAllowedAgeDiffe
   age_diffs_before <- outer(source_sample$age, match_sample$age, FUN = function(x, y) abs(x - y))
   avg_age_diff_before <- mean(age_diffs_before, na.rm = TRUE)
   cat(sprintf("Average age difference before matching: %.2f years\n", avg_age_diff_before))
-
-  # For reproducibility
-  set.seed(2025)
 
   matched_source_list <- list()
   matched_match_list <- list()

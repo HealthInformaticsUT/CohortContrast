@@ -18,6 +18,24 @@ knitr::opts_chunk$set(
 
 The **Demographics** tab summarizes cohort composition and concept-level demographic shifts.
 
+The next example derives a few cohort-level summary values from the bundled `lc500` patient data. These are the same kinds of inputs shown in the KPI cards and demographic overview panels.
+
+```{r}
+if (requireNamespace("nanoparquet", quietly = TRUE)) {
+  studyDir <- system.file("example", "st", package = "CohortContrast")
+  study <- CohortContrast::loadCohortContrastStudy("lc500", pathToResults = studyDir)
+
+  # Summarize overall cohort size and a couple of basic demographic indicators.
+  data.frame(
+    n_patients = nrow(study$data_person),
+    median_birth_year = stats::median(study$data_person$YEAR_OF_BIRTH),
+    male_proportion = mean(study$data_person$GENDER_CONCEPT_ID == 8507)
+  )
+}
+```
+
+The full Demographics tab expands this with cluster-specific summaries and concept-level age and sex shifts.
+
 ![Demographics overview](../man/figures/a08_demographics_overview.png)
 
 ## Components

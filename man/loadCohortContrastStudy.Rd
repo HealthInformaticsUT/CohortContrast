@@ -19,3 +19,10 @@ A `CohortContrastObject`.
 Loads a saved study folder produced by `CohortContrast()` and reconstructs a
 `CohortContrastObject` for downstream post-processing.
 }
+\examples{
+if (requireNamespace("nanoparquet", quietly = TRUE)) {
+  studyDir <- system.file("example", "st", package = "CohortContrast")
+  study <- loadCohortContrastStudy("lc500", pathToResults = studyDir)
+  class(study)
+}
+}

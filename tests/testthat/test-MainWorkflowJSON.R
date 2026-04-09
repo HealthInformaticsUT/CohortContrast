@@ -12,7 +12,7 @@ test_that("JSON workflow", {
   # Database credentials
   #
   ################################################################################
-  pathToJSON <- paste(pathToResults, '/inst/example/example_json', sep = '')
+  pathToJSON <- paste(pathToResults, '/inst/example/example_json/lung', sep = '')
 
   db <- DBI::dbConnect(duckdb::duckdb(), dbdir = CDMConnector::eunomiaDir("GiBleed"))
 

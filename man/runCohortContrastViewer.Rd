@@ -48,17 +48,23 @@ If background is TRUE, invisibly returns the process object.
 Launches the CohortContrast Viewer interactive dashboard.
 }
 \examples{
-\dontrun{
-# Configure and launch with defaults
-configurePython()
-installPythonDeps()
-runCohortContrastViewer()
-
-# Launch with custom data directory
-runCohortContrastViewer(dataDir = "/path/to/my/data")
-
-# Launch on a different port
-runCohortContrastViewer(port = 8080)
+\donttest{
+if (interactive() &&
+    requireNamespace("reticulate", quietly = TRUE) &&
+    requireNamespace("processx", quietly = TRUE) &&
+    (nzchar(Sys.which("python3")) || nzchar(Sys.which("python")))) {
+  configurePython(createVenv = FALSE)
+  deps <- checkPythonDeps()
+  if (all(deps$installed)) {
+    summaryDir <- system.file("example", "st", "lc500s", package = "CohortContrast")
+    runCohortContrastViewer(
+      dataDir = summaryDir,
+      openBrowser = FALSE,
+      background = TRUE
+    )
+    stopCohortContrastViewer()
+  }
+}
 }
 
 }

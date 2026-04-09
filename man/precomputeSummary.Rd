@@ -58,24 +58,24 @@ The function pre-computes:
 - Cluster overlap and differentiation metrics
 }
 \examples{
-\dontrun{
-# Generate summary data for a study (no suppression)
-result <- precomputeSummary(
-  studyPath = "results_parquet/Breast_cancer",
-  outputPath = "summaries/Breast_cancer"
-)
-
-# With small cell suppression (counts 1-4 become 5)
-result <- precomputeSummary(
-  studyPath = "results_parquet/Breast_cancer",
-  minCellCount = 5
-)
-
-# View generated files
-print(result$files)
-
-# Run viewer with summary data (no patient data needed)
-runCohortContrastViewer(dataDir = "summaries")
+\donttest{
+if (requireNamespace("reticulate", quietly = TRUE) &&
+    (nzchar(Sys.which("python3")) || nzchar(Sys.which("python")))) {
+  configurePython(createVenv = FALSE)
+  deps <- checkPythonDeps()
+  if (all(deps$installed)) {
+    studyPath <- system.file("example", "st", "lc500", package = "CohortContrast")
+    outputPath <- file.path(tempdir(), "lc500_summary")
+    result <- precomputeSummary(
+      studyPath = studyPath,
+      outputPath = outputPath,
+      clusterKValues = c(2, 3),
+      conceptLimit = 20,
+      maxParallelJobs = 1
+    )
+    result$outputPath
+  }
+}
 }
 
 }

@@ -2,6 +2,21 @@
 #'
 #' @param data CohortContrastObject returned by CohortContrast or GUI snapshot
 #' @param collapse_size integer for days to use for collapse same concept ids
+#' @return A data frame of enriched n-grams, or NULL if no significant n-grams
+#'   are found. The returned table contains one row per detected n-gram with
+#'   cluster assignment, concept identifiers and names, observed and expected
+#'   counts, over-representation statistics, person counts, timing summaries,
+#'   and p-values used to flag significant patterns.
+#' @examples
+#' if (requireNamespace("nanoparquet", quietly = TRUE) &&
+#'     requireNamespace("Matrix", quietly = TRUE) &&
+#'     requireNamespace("vegan", quietly = TRUE) &&
+#'     requireNamespace("cluster", quietly = TRUE)) {
+#'   studyDir <- system.file("example", "st", package = "CohortContrast")
+#'   study <- loadCohortContrastStudy("lc500", pathToResults = studyDir)
+#'   ngrams <- nGramDiscovery(study)
+#'   head(ngrams)
+#' }
 #' @export
 nGramDiscovery <- function(data, collapse_size = 0) {
   assertPackagesAvailable(
@@ -48,6 +63,21 @@ nGramDiscovery <- function(data, collapse_size = 0) {
 #'
 #' @param result output from nGramDiscovery
 #' @param top_n integer for number of most frequent concept to show per cluster
+#' @return A data frame with one row per n-gram cluster. The table reports the
+#'   number of n-grams in each cluster, average number of persons per n-gram,
+#'   total unique patients represented in the cluster, average timing, and a
+#'   concatenated label of the most frequent concepts in that cluster.
+#' @examples
+#' if (requireNamespace("nanoparquet", quietly = TRUE) &&
+#'     requireNamespace("Matrix", quietly = TRUE) &&
+#'     requireNamespace("vegan", quietly = TRUE) &&
+#'     requireNamespace("cluster", quietly = TRUE)) {
+#'   studyDir <- system.file("example", "st", package = "CohortContrast")
+#'   study <- loadCohortContrastStudy("lc500", pathToResults = studyDir)
+#'   ngrams <- nGramDiscovery(study)
+#'   clusterSummary <- suppressWarnings(nGramClusterSummarization(ngrams))
+#'   head(clusterSummary)
+#' }
 #' @export
 nGramClusterSummarization <- function(result, top_n = 5) {
   cluster_summary <- result %>%
