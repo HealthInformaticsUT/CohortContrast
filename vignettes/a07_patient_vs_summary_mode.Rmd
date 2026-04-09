@@ -2,7 +2,7 @@
 title: "Patient vs Summary Mode"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{a07_patient_vs_summary_mode}
+  %\VignetteIndexEntry{Patient vs Summary Mode}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

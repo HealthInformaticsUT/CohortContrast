@@ -2,7 +2,7 @@
 title: "Execution"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{a01_execution}
+  %\VignetteIndexEntry{Execution}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

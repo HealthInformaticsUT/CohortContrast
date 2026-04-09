@@ -2,7 +2,7 @@
 title: "Trajectories Tab"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{a04_trajectories_tab}
+  %\VignetteIndexEntry{Trajectories Tab}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
