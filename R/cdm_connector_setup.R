@@ -15,7 +15,11 @@
 #' if (requireNamespace("CDMConnector", quietly = TRUE) &&
 #'     requireNamespace("DBI", quietly = TRUE) &&
 #'     requireNamespace("duckdb", quietly = TRUE) &&
-#'     CDMConnector::eunomiaIsAvailable("GiBleed")) {
+#'     nzchar(Sys.getenv("EUNOMIA_DATA_FOLDER")) &&
+#'     isTRUE(tryCatch(
+#'       CDMConnector::eunomiaIsAvailable("GiBleed"),
+#'       error = function(...) FALSE
+#'     ))) {
 #'   pathToJSON <- system.file(
 #'     "example", "example_json", "diclofenac",
 #'     package = "CohortContrast"
@@ -149,7 +153,11 @@ createControlCohortMatching <-
 #' if (requireNamespace("CDMConnector", quietly = TRUE) &&
 #'     requireNamespace("DBI", quietly = TRUE) &&
 #'     requireNamespace("duckdb", quietly = TRUE) &&
-#'     CDMConnector::eunomiaIsAvailable("GiBleed")) {
+#'     nzchar(Sys.getenv("EUNOMIA_DATA_FOLDER")) &&
+#'     isTRUE(tryCatch(
+#'       CDMConnector::eunomiaIsAvailable("GiBleed"),
+#'       error = function(...) FALSE
+#'     ))) {
 #'   pathToJSON <- system.file(
 #'     "example", "example_json", "diclofenac",
 #'     package = "CohortContrast"
@@ -341,7 +349,11 @@ cohortFromCSV <- function(pathToCsv, cohortId = NULL) {
 #' if (requireNamespace("CDMConnector", quietly = TRUE) &&
 #'     requireNamespace("DBI", quietly = TRUE) &&
 #'     requireNamespace("duckdb", quietly = TRUE) &&
-#'     CDMConnector::eunomiaIsAvailable("GiBleed")) {
+#'     nzchar(Sys.getenv("EUNOMIA_DATA_FOLDER")) &&
+#'     isTRUE(tryCatch(
+#'       CDMConnector::eunomiaIsAvailable("GiBleed"),
+#'       error = function(...) FALSE
+#'     ))) {
 #'   pathToJSON <- system.file(
 #'     "example", "example_json", "diclofenac",
 #'     package = "CohortContrast"
@@ -437,7 +449,11 @@ createCohortContrastCdm <- function(cdm,
 #' if (requireNamespace("CDMConnector", quietly = TRUE) &&
 #'     requireNamespace("DBI", quietly = TRUE) &&
 #'     requireNamespace("duckdb", quietly = TRUE) &&
-#'     CDMConnector::eunomiaIsAvailable("GiBleed")) {
+#'     nzchar(Sys.getenv("EUNOMIA_DATA_FOLDER")) &&
+#'     isTRUE(tryCatch(
+#'       CDMConnector::eunomiaIsAvailable("GiBleed"),
+#'       error = function(...) FALSE
+#'     ))) {
 #'   pathToJSON <- system.file(
 #'     "example", "example_json", "diclofenac",
 #'     package = "CohortContrast"

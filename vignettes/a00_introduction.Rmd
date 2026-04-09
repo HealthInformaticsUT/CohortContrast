@@ -27,10 +27,11 @@ exampleRoot <- system.file("example", "st", package = "CohortContrast")
 data.frame(
   study = exampleStudies,
   mode = vapply(
-    file.path(exampleRoot, exampleStudies),
+    unname(file.path(exampleRoot, exampleStudies)),
     function(path) CohortContrast::checkDataMode(path)$mode,
     character(1)
-  )
+  ),
+  row.names = NULL
 )
 ```
 

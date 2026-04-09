@@ -54,7 +54,11 @@
 #' if (requireNamespace("CDMConnector", quietly = TRUE) &&
 #'     requireNamespace("DBI", quietly = TRUE) &&
 #'     requireNamespace("duckdb", quietly = TRUE) &&
-#'     CDMConnector::eunomiaIsAvailable("GiBleed")) {
+#'     nzchar(Sys.getenv("EUNOMIA_DATA_FOLDER")) &&
+#'     isTRUE(tryCatch(
+#'       CDMConnector::eunomiaIsAvailable("GiBleed"),
+#'       error = function(...) FALSE
+#'     ))) {
 #'   pathToJSON <- system.file(
 #'     "example", "example_json", "diclofenac",
 #'     package = "CohortContrast"

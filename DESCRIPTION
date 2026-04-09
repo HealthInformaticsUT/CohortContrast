@@ -13,12 +13,12 @@ Description: Identifies clinically relevant concepts in Observational Medical
     Outcomes Partnership Common Data Model (OMOP CDM) data using an
     enrichment-based workflow. Defines target and control cohorts and extracts
     medical interventions that are over-represented in the target cohort during
-    the observation period. Users can tune filtering and selection with
-    arguments such as topK, presenceFilter, and prevalenceCutOff. The workflow
-    includes chi-squared tests for two proportions with Yates continuity
+    the observation period. Users can tune filtering and selection thresholds.
+    The workflow includes chi-squared tests for two proportions with Yates continuity
     correction, logistic tests, and hierarchy and correlation mappings for
     relevant concepts. The results can be optionally explored using the bundled
-    graphical user interface.
+    graphical user interface. For workflow details and examples, see
+    <https://healthinformaticsut.github.io/CohortContrast/>.
 License: Apache License 2.0
 Encoding: UTF-8
 RoxygenNote: 7.3.3
