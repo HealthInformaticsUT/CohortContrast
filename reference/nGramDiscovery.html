@@ -34,6 +34,7 @@
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/HealthInformaticsUT/CohortContrast/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-lightswitch" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true" aria-label="Light switch"><span class="fa fa-sun"></span></button>
   <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdown-lightswitch"><li><button class="dropdown-item" data-bs-theme-value="light"><span class="fa fa-sun"></span> Light</button></li>
@@ -49,7 +50,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Function for discovering ngrams from the extracted data from CohortContrast function</h1>
-
+      <small class="dont-index">Source: <a href="https://github.com/HealthInformaticsUT/CohortContrast/blob/HEAD/R/phase_mining.R" class="external-link"><code>R/phase_mining.R</code></a></small>
       <div class="d-none name"><code>nGramDiscovery.Rd</code></div>
     </div>
 
@@ -74,7 +75,49 @@
 <dd><p>integer for days to use for collapse same concept ids</p></dd>
 
 </dl></div>
+    <div class="section level2">
+    <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
+    <p>A data frame of enriched n-grams, or NULL if no significant n-grams
+  are found. The returned table contains one row per detected n-gram with
+  cluster assignment, concept identifiers and names, observed and expected
+  counts, over-representation statistics, person counts, timing summaries,
+  and p-values used to flag significant patterns.</p>
+    </div>
 
+    <div class="section level2">
+    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"nanoparquet"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">&amp;&amp;</span></span></span>
+<span class="r-in"><span>    <span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"Matrix"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">&amp;&amp;</span></span></span>
+<span class="r-in"><span>    <span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"vegan"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">&amp;&amp;</span></span></span>
+<span class="r-in"><span>    <span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"cluster"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span></span>
+<span class="r-in"><span>  <span class="va">studyDir</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"example"</span>, <span class="st">"st"</span>, package <span class="op">=</span> <span class="st">"CohortContrast"</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  <span class="va">study</span> <span class="op">&lt;-</span> <span class="fu"><a href="loadCohortContrastStudy.html">loadCohortContrastStudy</a></span><span class="op">(</span><span class="st">"lc500"</span>, pathToResults <span class="op">=</span> <span class="va">studyDir</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  <span class="va">ngrams</span> <span class="op">&lt;-</span> <span class="fu">nGramDiscovery</span><span class="op">(</span><span class="va">study</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  <span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">ngrams</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="op">}</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">!</span> Running n-gram discovery...</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">!</span> Running n = 2</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">!</span> Running n = 3</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">!</span> Running n = 4</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">!</span> Running n = 5</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BB00;">✔</span> Running n-gram discovery.</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #BBBB00;">!</span> Running n-gram clustering...</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BB00;">✔</span> Running n-gram clustering.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 6 × 15</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   ngram_label           ngram_cluster ngram_ids ngram_names observed_ngram_count</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                         <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;list&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;list&gt;</span>                     <span style="color: #949494; font-style: italic;">&lt;int&gt;</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span> Death + Death Certif…             1 <span style="color: #949494;">&lt;chr [2]&gt;</span> <span style="color: #949494;">&lt;chr [2]&gt;</span>                    156</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">2</span> Death + Palliative c…             1 <span style="color: #949494;">&lt;chr [2]&gt;</span> <span style="color: #949494;">&lt;chr [2]&gt;</span>                    185</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">3</span> Death + Death                     1 <span style="color: #949494;">&lt;chr [2]&gt;</span> <span style="color: #949494;">&lt;chr [2]&gt;</span>                    186</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">4</span> Radiotherapy + Chemo…             2 <span style="color: #949494;">&lt;chr [2]&gt;</span> <span style="color: #949494;">&lt;chr [2]&gt;</span>                    322</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">5</span> Bronchoscopy + Needl…             3 <span style="color: #949494;">&lt;chr [2]&gt;</span> <span style="color: #949494;">&lt;chr [2]&gt;</span>                    228</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">6</span> Malignant tumor of l…             3 <span style="color: #949494;">&lt;chr [2]&gt;</span> <span style="color: #949494;">&lt;chr [2]&gt;</span>                    276</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># ℹ 10 more variables: expected_ngram_count &lt;dbl&gt;, overrep_ratio &lt;dbl&gt;,</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;">#   n_unique_persons &lt;int&gt;, unique_persons_ids &lt;list&gt;, ngram_time_diff &lt;dbl&gt;,</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;">#   ngram_time &lt;dbl&gt;, observed_count_p_value &lt;dbl&gt;, observed_test &lt;lgl&gt;,</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;">#   persons_count_p_value &lt;dbl&gt;, persons_test &lt;lgl&gt;</span></span>
+</code></pre></div>
+    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

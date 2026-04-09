@@ -9,12 +9,15 @@
 
 ## Citation
 
-Haug M, Kolde R (2026). *CohortContrast: Feature Selection and
-Enrichment Analysis for OMOP CDM Cohorts*. R package version 1.0.0,
-<https://healthinformaticsut.github.io/CohortContrast/>.
+Source:
+[`DESCRIPTION`](https://github.com/HealthInformaticsUT/CohortContrast/blob/HEAD/DESCRIPTION)
+
+Haug M, Kolde R (2026). *CohortContrast: Enrichment Analysis of
+Clinically Relevant Concepts in 'OMOP CDM' Data*. R package version
+1.0.0, <https://healthinformaticsut.github.io/CohortContrast/>.
 
     @Manual{,
-      title = {CohortContrast: Feature Selection and Enrichment Analysis for OMOP CDM Cohorts},
+      title = {CohortContrast: Enrichment Analysis of Clinically Relevant Concepts in 'OMOP CDM' Data},
       author = {Markus Haug and Raivo Kolde},
       year = {2026},
       note = {R package version 1.0.0},

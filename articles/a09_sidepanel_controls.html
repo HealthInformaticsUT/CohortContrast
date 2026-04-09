@@ -53,6 +53,7 @@
 <li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json">
 </form></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/HealthInformaticsUT/CohortContrast/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-lightswitch" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true" aria-label="Light switch"><span class="fa fa-sun"></span></button>
   <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdown-lightswitch">
@@ -77,7 +78,7 @@
       <h1>Sidepanel Filters and Controls</h1>
             
       
-
+      <small class="dont-index">Source: <a href="https://github.com/HealthInformaticsUT/CohortContrast/blob/HEAD/vignettes/a09_sidepanel_controls.Rmd" class="external-link"><code>vignettes/a09_sidepanel_controls.Rmd</code></a></small>
       <div class="d-none name"><code>a09_sidepanel_controls.Rmd</code></div>
     </div>
 
@@ -88,6 +89,24 @@
 </h2>
 <p>This vignette documents the <strong>left sidepanel controls</strong>
 in the Viewer and how they interact.</p>
+<p>One important sidepanel dependency is the detected data mode. The
+bundled <code>lc500s</code> example is in summary mode and includes
+precomputed clustering results:</p>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">summaryStudyPath</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"example"</span>, <span class="st">"st"</span>, <span class="st">"lc500s"</span>, package <span class="op">=</span> <span class="st">"CohortContrast"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Summary studies expose the available cluster counts up front.</span></span>
+<span><span class="fu">CohortContrast</span><span class="fu">::</span><span class="fu"><a href="../reference/checkDataMode.html">checkDataMode</a></span><span class="op">(</span><span class="va">summaryStudyPath</span><span class="op">)</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"mode"</span>, <span class="st">"has_clustering"</span>, <span class="st">"clusterKValues"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt; $mode</span></span>
+<span><span class="co">#&gt; [1] "summary"</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $has_clustering</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $clusterKValues</span></span>
+<span><span class="co">#&gt; [1] 2 3 4 5</span></span></code></pre></div>
+<p>This is why controls such as cluster count selection and summary-mode
+filtering can be enabled immediately when the study is loaded.</p>
 <div class="float">
 <img src="../reference/figures/a09_sidepanel_controls.png" alt="Sidepanel controls"><div class="figcaption">Sidepanel controls</div>
 </div>

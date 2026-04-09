@@ -1,6 +1,5 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/404.html</loc></url>
-<url><loc>https://healthinformaticsut.github.io/CohortContrast/LICENSE-text.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/articles/a00_introduction.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/articles/a01_execution.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/articles/a02_interface.html</loc></url>
@@ -41,6 +40,7 @@
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/generateSourceTables.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/generateTables.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/getPythonInfo.html</loc></url>
+<url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/getTopSeparatingConcepts.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/handleFeatureSelection.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/handleMapping.html</loc></url>
 <url><loc>https://healthinformaticsut.github.io/CohortContrast/reference/handleTests.html</loc></url>

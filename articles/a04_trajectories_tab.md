@@ -5,6 +5,49 @@
 The **Trajectories** tab compares concept ordering patterns across
 clusters using median occurrence timing and prevalence.
 
+To illustrate the timing data behind this tab, the next chunk extracts
+the first recorded event day for each concept occurrence and summarizes
+the most common concepts in the bundled `lc500` study.
+
+``` r
+
+if (requireNamespace("nanoparquet", quietly = TRUE)) {
+  studyDir <- system.file("example", "st", package = "CohortContrast")
+  study <- CohortContrast::loadCohortContrastStudy("lc500", pathToResults = studyDir)
+
+  firstEventDay <- function(x) {
+    values <- strsplit(as.character(x), ",")[[1]]
+    as.numeric(trimws(values[1]))
+  }
+
+  patientData <- study$data_patients
+  patientData$FIRST_TIME_TO_EVENT <- vapply(
+    patientData$TIME_TO_EVENT,
+    firstEventDay,
+    numeric(1)
+  )
+
+  conceptCounts <- sort(table(patientData$CONCEPT_NAME), decreasing = TRUE)
+  topConcepts <- names(conceptCounts)[1:5]
+  trajectoryPreview <- patientData[patientData$CONCEPT_NAME %in% topConcepts, ]
+
+  aggregate(
+    FIRST_TIME_TO_EVENT ~ CONCEPT_NAME,
+    data = trajectoryPreview,
+    FUN = median
+  )
+}
+#>              CONCEPT_NAME FIRST_TIME_TO_EVENT
+#> 1            Bronchoscopy                  10
+#> 2         Inpatient Visit                  37
+#> 3 Malignant tumor of lung                   5
+#> 4   Needle biopsy of lung                  10
+#> 5        Outpatient Visit                  23
+```
+
+This is a simplified version of the temporal information the
+Trajectories tab uses for concept ordering comparisons across clusters.
+
 ![Trajectories tab](../reference/figures/a04_trajectories.png)
 
 Trajectories tab

@@ -30,8 +30,32 @@ a tbl object for further CohortContrast usage
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-pathToJSON = './JSON/'
-targetTable <- cohortFromJSON(pathToJSON = pathToJSON, cdm, cohortId = 2)
-} # }
+if (requireNamespace("CDMConnector", quietly = TRUE) &&
+    requireNamespace("DBI", quietly = TRUE) &&
+    requireNamespace("duckdb", quietly = TRUE) &&
+    nzchar(Sys.getenv("EUNOMIA_DATA_FOLDER")) &&
+    isTRUE(tryCatch(
+      CDMConnector::eunomiaIsAvailable("GiBleed"),
+      error = function(...) FALSE
+    ))) {
+  pathToJSON <- system.file(
+    "example", "example_json", "diclofenac",
+    package = "CohortContrast"
+  )
+  con <- DBI::dbConnect(
+    duckdb::duckdb(),
+    dbdir = CDMConnector::eunomiaDir("GiBleed")
+  )
+  cdm <- CDMConnector::cdmFromCon(
+    con = con,
+    cdmName = "eunomia",
+    cdmSchema = "main",
+    writeSchema = "main"
+  )
+
+  targetTable <- cohortFromJSON(pathToJSON = pathToJSON, cdm = cdm)
+  targetTable
+
+  DBI::dbDisconnect(con, shutdown = TRUE)
+}
 ```

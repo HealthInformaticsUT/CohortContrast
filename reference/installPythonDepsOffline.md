@@ -53,9 +53,14 @@ For offline installation:
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-# Install from custom location
-configurePython(createVenv = FALSE)
-installPythonDepsOffline(packagesDir = "/path/to/packages")
-} # }
+# \donttest{
+packagesDir <- Sys.getenv("COHORT_CONTRAST_WHEELS")
+if (interactive() &&
+    requireNamespace("reticulate", quietly = TRUE) &&
+    nzchar(packagesDir) &&
+    dir.exists(packagesDir)) {
+  configurePython(createVenv = FALSE)
+  installPythonDepsOffline(packagesDir = packagesDir)
+}
+# }
 ```

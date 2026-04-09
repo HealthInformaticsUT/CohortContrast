@@ -262,15 +262,15 @@ List elements:
 ### `selectedFeatureData$selectedFeatureNames` preview
 
     #>                  CONCEPT_NAME
-    #> 1     Malignant tumor of lung
-    #> 2                       Death
-    #> 3           Death Certificate
-    #> 4  Diffusion capacity of lung
-    #> 5             Palliative care
-    #> 6                Bronchoscopy
-    #> 7                Chemotherapy
-    #> 8                   Lobectomy
-    #> 9           Lobectomy of lung
+    #> 1                Bronchoscopy
+    #> 2                Chemotherapy
+    #> 3                       Death
+    #> 4           Death Certificate
+    #> 5  Diffusion capacity of lung
+    #> 6             Inpatient Visit
+    #> 7                   Lobectomy
+    #> 8           Lobectomy of lung
+    #> 9     Malignant tumor of lung
     #> 10      Needle biopsy of lung
 
 ### `selectedFeatureData$selectedFeatureIds` preview
@@ -423,7 +423,17 @@ Typical OMOP concept columns:
 
 &nbsp;
 
-    #> No `concept` table available in this study.
+    #>    concept_id            concept_name invalid_reason
+    #> 1        9201         Inpatient Visit           <NA>
+    #> 2        9202        Outpatient Visit           <NA>
+    #> 3       32280                   Death           <NA>
+    #> 4       32815       Death Certificate           <NA>
+    #> 5      443388 Malignant tumor of lung           <NA>
+    #> 6     2107967               Lobectomy           <NA>
+    #> 7     2107968       Lobectomy of lung           <NA>
+    #> 8     2108158   Partial pneumonectomy           <NA>
+    #> 9     4008211            Radiotherapy           <NA>
+    #> 10    4008226            Chemotherapy           <NA>
 
 ## `config`
 

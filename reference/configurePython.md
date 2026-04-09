@@ -44,15 +44,37 @@ Invisibly returns TRUE if configuration was successful.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-# Use auto-detected Python with a new virtual environment
-configurePython()
-
-# Use a specific Python installation without virtual environment
-# (useful on servers without python3-venv package)
-configurePython(pythonPath = "/usr/bin/python3", createVenv = FALSE)
-
-# Use an existing conda environment
-configurePython(virtualenvName = "my-conda-env", createVenv = FALSE)
-} # }
+# \donttest{
+if (requireNamespace("reticulate", quietly = TRUE) &&
+    (nzchar(Sys.which("python3")) || nzchar(Sys.which("python")))) {
+  configurePython(createVenv = FALSE)
+  getPythonInfo()
+}
+#> Configuring Python environment for CohortContrast Viewer...
+#> Using system Python: /opt/homebrew/bin/python3
+#> Python configuration complete.
+#> Python version: 3.13
+#> Python path: /opt/homebrew/bin/python3
+#> $python_version
+#> [1] ‘3.13’
+#> 
+#> $pythonPath
+#> [1] "/opt/homebrew/bin/python3"
+#> 
+#> $virtualenv
+#> NULL
+#> 
+#> $configured
+#> [1] TRUE
+#> 
+#> $numpy_available
+#> [1] FALSE
+#> 
+#> $pandas_available
+#> [1] FALSE
+#> 
+#> $dash_available
+#> [1] FALSE
+#> 
+# }
 ```

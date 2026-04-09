@@ -53,6 +53,7 @@
 <li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json">
 </form></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/HealthInformaticsUT/CohortContrast/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-lightswitch" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true" aria-label="Light switch"><span class="fa fa-sun"></span></button>
   <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdown-lightswitch">
@@ -77,7 +78,7 @@
       <h1>Interpreting Results with lc500</h1>
             
       
-
+      <small class="dont-index">Source: <a href="https://github.com/HealthInformaticsUT/CohortContrast/blob/HEAD/vignettes/a11_interpreting_results_lc500.Rmd" class="external-link"><code>vignettes/a11_interpreting_results_lc500.Rmd</code></a></small>
       <div class="d-none name"><code>a11_interpreting_results_lc500.Rmd</code></div>
     </div>
 
@@ -397,15 +398,15 @@ concept.</li>
 <code>selectedFeatureData$selectedFeatureNames</code> preview<a class="anchor" aria-label="anchor" href="#selectedfeaturedataselectedfeaturenames-preview"></a>
 </h3>
 <pre><code><span><span class="co">#&gt;                  CONCEPT_NAME</span></span>
-<span><span class="co">#&gt; 1     Malignant tumor of lung</span></span>
-<span><span class="co">#&gt; 2                       Death</span></span>
-<span><span class="co">#&gt; 3           Death Certificate</span></span>
-<span><span class="co">#&gt; 4  Diffusion capacity of lung</span></span>
-<span><span class="co">#&gt; 5             Palliative care</span></span>
-<span><span class="co">#&gt; 6                Bronchoscopy</span></span>
-<span><span class="co">#&gt; 7                Chemotherapy</span></span>
-<span><span class="co">#&gt; 8                   Lobectomy</span></span>
-<span><span class="co">#&gt; 9           Lobectomy of lung</span></span>
+<span><span class="co">#&gt; 1                Bronchoscopy</span></span>
+<span><span class="co">#&gt; 2                Chemotherapy</span></span>
+<span><span class="co">#&gt; 3                       Death</span></span>
+<span><span class="co">#&gt; 4           Death Certificate</span></span>
+<span><span class="co">#&gt; 5  Diffusion capacity of lung</span></span>
+<span><span class="co">#&gt; 6             Inpatient Visit</span></span>
+<span><span class="co">#&gt; 7                   Lobectomy</span></span>
+<span><span class="co">#&gt; 8           Lobectomy of lung</span></span>
+<span><span class="co">#&gt; 9     Malignant tumor of lung</span></span>
 <span><span class="co">#&gt; 10      Needle biopsy of lung</span></span></code></pre>
 </div>
 <div class="section level3">
@@ -599,7 +600,17 @@ distance.</li>
 <code>invalid_reason</code>: Invalidation code (if concept is
 retired).</li>
 </ul>
-<pre><code><span><span class="co">#&gt; No `concept` table available in this study.</span></span></code></pre>
+<pre><code><span><span class="co">#&gt;    concept_id            concept_name invalid_reason</span></span>
+<span><span class="co">#&gt; 1        9201         Inpatient Visit           &lt;NA&gt;</span></span>
+<span><span class="co">#&gt; 2        9202        Outpatient Visit           &lt;NA&gt;</span></span>
+<span><span class="co">#&gt; 3       32280                   Death           &lt;NA&gt;</span></span>
+<span><span class="co">#&gt; 4       32815       Death Certificate           &lt;NA&gt;</span></span>
+<span><span class="co">#&gt; 5      443388 Malignant tumor of lung           &lt;NA&gt;</span></span>
+<span><span class="co">#&gt; 6     2107967               Lobectomy           &lt;NA&gt;</span></span>
+<span><span class="co">#&gt; 7     2107968       Lobectomy of lung           &lt;NA&gt;</span></span>
+<span><span class="co">#&gt; 8     2108158   Partial pneumonectomy           &lt;NA&gt;</span></span>
+<span><span class="co">#&gt; 9     4008211            Radiotherapy           &lt;NA&gt;</span></span>
+<span><span class="co">#&gt; 10    4008226            Chemotherapy           &lt;NA&gt;</span></span></code></pre>
 </div>
 </div>
 <div class="section level2">

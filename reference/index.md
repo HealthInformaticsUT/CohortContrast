@@ -33,6 +33,8 @@
   : Create a mapping table with predefined maximum abstraction level
 - [`getPythonInfo()`](https://healthinformaticsut.github.io/CohortContrast/reference/getPythonInfo.md)
   : Get Python Configuration Information
+- [`getTopSeparatingConcepts()`](https://healthinformaticsut.github.io/CohortContrast/reference/getTopSeparatingConcepts.md)
+  : Get Top Concepts That Best Separate Clusters
 - [`installPythonDeps()`](https://healthinformaticsut.github.io/CohortContrast/reference/installPythonDeps.md)
   : Install Python Dependencies
 - [`installPythonDepsOffline()`](https://healthinformaticsut.github.io/CohortContrast/reference/installPythonDepsOffline.md)

@@ -5,6 +5,29 @@
 This vignette documents the **left sidepanel controls** in the Viewer
 and how they interact.
 
+One important sidepanel dependency is the detected data mode. The
+bundled `lc500s` example is in summary mode and includes precomputed
+clustering results:
+
+``` r
+
+summaryStudyPath <- system.file("example", "st", "lc500s", package = "CohortContrast")
+
+# Summary studies expose the available cluster counts up front.
+CohortContrast::checkDataMode(summaryStudyPath)[c("mode", "has_clustering", "clusterKValues")]
+#> $mode
+#> [1] "summary"
+#> 
+#> $has_clustering
+#> [1] TRUE
+#> 
+#> $clusterKValues
+#> [1] 2 3 4 5
+```
+
+This is why controls such as cluster count selection and summary-mode
+filtering can be enabled immediately when the study is loaded.
+
 ![Sidepanel controls](../reference/figures/a09_sidepanel_controls.png)
 
 Sidepanel controls

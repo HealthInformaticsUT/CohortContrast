@@ -34,6 +34,7 @@
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/HealthInformaticsUT/CohortContrast/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-lightswitch" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true" aria-label="Light switch"><span class="fa fa-sun"></span></button>
   <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdown-lightswitch"><li><button class="dropdown-item" data-bs-theme-value="light"><span class="fa fa-sun"></span> Light</button></li>
@@ -49,7 +50,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Stop CohortContrast Viewer Dashboard</h1>
-
+      <small class="dont-index">Source: <a href="https://github.com/HealthInformaticsUT/CohortContrast/blob/HEAD/R/cohort_contrast_viewer.R" class="external-link"><code>R/cohort_contrast_viewer.R</code></a></small>
       <div class="d-none name"><code>stopCohortContrastViewer.Rd</code></div>
     </div>
 
@@ -69,9 +70,31 @@
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="fu">stopCohortContrastViewer</span><span class="op">(</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
+<span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/interactive.html" class="external-link">interactive</a></span><span class="op">(</span><span class="op">)</span> <span class="op">&amp;&amp;</span></span></span>
+<span class="r-in"><span>    <span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"reticulate"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">&amp;&amp;</span></span></span>
+<span class="r-in"><span>    <span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"processx"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">&amp;&amp;</span></span></span>
+<span class="r-in"><span>    <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nchar.html" class="external-link">nzchar</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.which.html" class="external-link">Sys.which</a></span><span class="op">(</span><span class="st">"python3"</span><span class="op">)</span><span class="op">)</span> <span class="op">||</span> <span class="fu"><a href="https://rdrr.io/r/base/nchar.html" class="external-link">nzchar</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.which.html" class="external-link">Sys.which</a></span><span class="op">(</span><span class="st">"python"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span></span>
+<span class="r-in"><span>  <span class="fu"><a href="configurePython.html">configurePython</a></span><span class="op">(</span>createVenv <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  <span class="va">deps</span> <span class="op">&lt;-</span> <span class="fu"><a href="checkPythonDeps.html">checkPythonDeps</a></span><span class="op">(</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  <span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="va">deps</span><span class="op">$</span><span class="va">installed</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span></span>
+<span class="r-in"><span>    <span class="va">summaryDir</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"example"</span>, <span class="st">"st"</span>, <span class="st">"lc500s"</span>, package <span class="op">=</span> <span class="st">"CohortContrast"</span><span class="op">)</span></span></span>
+<span class="r-in"><span>    <span class="fu"><a href="runCohortContrastViewer.html">runCohortContrastViewer</a></span><span class="op">(</span></span></span>
+<span class="r-in"><span>      dataDir <span class="op">=</span> <span class="va">summaryDir</span>,</span></span>
+<span class="r-in"><span>      openBrowser <span class="op">=</span> <span class="cn">FALSE</span>,</span></span>
+<span class="r-in"><span>      background <span class="op">=</span> <span class="cn">TRUE</span></span></span>
+<span class="r-in"><span>    <span class="op">)</span></span></span>
+<span class="r-in"><span>    <span class="fu">stopCohortContrastViewer</span><span class="op">(</span><span class="op">)</span></span></span>
+<span class="r-in"><span>  <span class="op">}</span></span></span>
+<span class="r-in"><span><span class="op">}</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Configuring Python environment for CohortContrast Viewer...</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Using system Python: /opt/homebrew/bin/python3</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Python configuration complete.</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Python version: 3.13</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Python path: /opt/homebrew/bin/python3</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Missing packages: dash, dash_bootstrap_components, dash_ag_grid, pandas, numpy, plotly, scipy, sklearn, sklearn_extra, diskcache</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Run installPythonDeps() to install missing packages.</span>
+<span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

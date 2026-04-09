@@ -23,3 +23,14 @@ loadCohortContrastStudy(studyName, pathToResults = getwd())
 ## Value
 
 A \`CohortContrastObject\`.
+
+## Examples
+
+``` r
+if (requireNamespace("nanoparquet", quietly = TRUE)) {
+  studyDir <- system.file("example", "st", package = "CohortContrast")
+  study <- loadCohortContrastStudy("lc500", pathToResults = studyDir)
+  class(study)
+}
+#> [1] "CohortContrastObject"
+```

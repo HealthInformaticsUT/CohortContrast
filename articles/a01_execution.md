@@ -7,6 +7,29 @@ connection](https://healthinformaticsut.github.io/CohortContrast/articles/a00_in
 and created the `targetTable` as well as the `controlTable` we are ready
 to execute the study.
 
+The chunk below shows what a saved study looks like after execution by
+loading the bundled `lc500` example results:
+
+``` r
+
+if (requireNamespace("nanoparquet", quietly = TRUE)) {
+  studyDir <- system.file("example", "st", package = "CohortContrast")
+  study <- CohortContrast::loadCohortContrastStudy("lc500", pathToResults = studyDir)
+
+  # Inspect the main exported components created by a completed run.
+  names(study)
+}
+#> [1] "data_patients"             "data_initial"             
+#> [3] "data_person"               "data_features"            
+#> [5] "conceptsData"              "complementaryMappingTable"
+#> [7] "selectedFeatureData"       "trajectoryDataList"       
+#> [9] "config"
+```
+
+This is the same type of output object you can reload from your own
+saved study directory after running
+[`CohortContrast()`](https://healthinformaticsut.github.io/CohortContrast/reference/CohortContrast.md).
+
 ``` r
 
 

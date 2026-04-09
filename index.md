@@ -38,8 +38,11 @@ The CohortContrast package generates the following outputs:
 2.  Using viewer helpers with `runCohortContrastViewer` generates plots
     from parquet-formatted results.
 3.  Example studies are available under `inst/example/st`.
-4.  Published studies can be explored at
+4.  Public study outputs can be explored at
     <http://omop-apps.cloud.ut.ee/CohortContrast/>.
+5.  A larger example with 1080 diagnosis-level outputs is available in
+    the CohortContrast Atlas at
+    <http://omop-apps.cloud.ut.ee/CohortContrastAtlas/>.
 
 ### More information
 
@@ -48,4 +51,5 @@ the package site for details:
 <https://healthinformaticsut.github.io/CohortContrast/>
 
 For feature requests create issues on Github or contact Markus Haug
-(<markus.haug@ut.ee>) personally.
+(<markus.haug@ut.ee>) personally. Bug reports can be opened at
+<https://github.com/HealthInformaticsUT/CohortContrast/issues>.

@@ -24,6 +24,28 @@ Study selection with mode column
 - **Summary mode**: produced by
   `precomputeSummary(studyPath = ..., outputPath = ...)`.
 
+The bundled example studies include one patient-mode study and one
+summary-mode study:
+
+``` r
+
+patientStudyPath <- system.file("example", "st", "lc500", package = "CohortContrast")
+summaryStudyPath <- system.file("example", "st", "lc500s", package = "CohortContrast")
+
+data.frame(
+  study = c("lc500", "lc500s"),
+  mode = c(
+    CohortContrast::checkDataMode(patientStudyPath)$mode,
+    CohortContrast::checkDataMode(summaryStudyPath)$mode
+  )
+)
+#>    study    mode
+#> 1  lc500 patient
+#> 2 lc500s summary
+```
+
+This mirrors the distinction shown in the Viewer study-selection table.
+
 ``` r
 
 summary_result <- CohortContrast::precomputeSummary(

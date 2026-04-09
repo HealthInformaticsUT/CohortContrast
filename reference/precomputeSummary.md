@@ -81,23 +81,30 @@ k=2,3,4,5 clusters - Cluster overlap and differentiation metrics
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-# Generate summary data for a study (no suppression)
-result <- precomputeSummary(
-  studyPath = "results_parquet/Breast_cancer",
-  outputPath = "summaries/Breast_cancer"
-)
-
-# With small cell suppression (counts 1-4 become 5)
-result <- precomputeSummary(
-  studyPath = "results_parquet/Breast_cancer",
-  minCellCount = 5
-)
-
-# View generated files
-print(result$files)
-
-# Run viewer with summary data (no patient data needed)
-runCohortContrastViewer(dataDir = "summaries")
-} # }
+# \donttest{
+if (requireNamespace("reticulate", quietly = TRUE) &&
+    (nzchar(Sys.which("python3")) || nzchar(Sys.which("python")))) {
+  configurePython(createVenv = FALSE)
+  deps <- checkPythonDeps()
+  if (all(deps$installed)) {
+    studyPath <- system.file("example", "st", "lc500", package = "CohortContrast")
+    outputPath <- file.path(tempdir(), "lc500_summary")
+    result <- precomputeSummary(
+      studyPath = studyPath,
+      outputPath = outputPath,
+      clusterKValues = c(2, 3),
+      conceptLimit = 20,
+      maxParallelJobs = 1
+    )
+    result$outputPath
+  }
+}
+#> Configuring Python environment for CohortContrast Viewer...
+#> Using system Python: /opt/homebrew/bin/python3
+#> Python configuration complete.
+#> Python version: 3.13
+#> Python path: /opt/homebrew/bin/python3
+#> Missing packages: dash, dash_bootstrap_components, dash_ag_grid, pandas, numpy, plotly, scipy, sklearn, sklearn_extra, diskcache
+#> Run installPythonDeps() to install missing packages.
+# }
 ```

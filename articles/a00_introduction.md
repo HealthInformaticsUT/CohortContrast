@@ -9,6 +9,32 @@ one using matching or inverse controls. The package performs
 concept-level enrichment analysis and provides a handy GUI for
 visualization and concept mapping.
 
+The package also includes bundled example studies that can be used to
+explore the file structure and downstream workflows without connecting
+to a live database:
+
+``` r
+
+exampleStudies <- c("lc500", "lc500s")
+exampleRoot <- system.file("example", "st", package = "CohortContrast")
+
+data.frame(
+  study = exampleStudies,
+  mode = vapply(
+    unname(file.path(exampleRoot, exampleStudies)),
+    function(path) CohortContrast::checkDataMode(path)$mode,
+    character(1)
+  ),
+  row.names = NULL
+)
+#>    study    mode
+#> 1  lc500 patient
+#> 2 lc500s summary
+```
+
+These built-in studies are useful for trying the Viewer and for
+reproducing the examples used throughout the package documentation.
+
 ## Load packages
 
 ``` r
@@ -121,9 +147,10 @@ targetTable <- CohortContrast::cohortFromCohortTable(cdm = cdm, db = db,
 ### 2. Target cohort from JSON description file.
 
 If you have the JSON expression of the cohort (exportable from ATLAS),
-you can import the cohort directly. The package also ships an example
-JSON cohort in `inst/example/example_json/cohort.json` (installed path
-shown below).
+you can import the cohort directly. The package also ships example JSON
+cohorts in `inst/example/example_json/`, for example
+`inst/example/example_json/lung/cohort.json` (installed path shown
+below).
 
 ``` r
 
@@ -139,9 +166,9 @@ targetTable <- CohortContrast::cohortFromJSON(pathToJSON = pathToJSON, cdm = cdm
 ``` r
 
 # Example bundled with CohortContrast:
-exampleJsonDir <- system.file("example/example_json", package = "CohortContrast")
+exampleJsonDir <- system.file("example/example_json/lung", package = "CohortContrast")
 list.files(exampleJsonDir, pattern = ".json$", full.names = TRUE)
-# [1] ".../example_json/cohort.json"
+# [1] ".../example_json/lung/cohort.json"
 
 targetTable <- CohortContrast::cohortFromJSON(pathToJSON = exampleJsonDir, cdm = cdm)
 ```

@@ -5,14 +5,14 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Feature Selection and Enrichment Analysis for OMOP CDM Cohorts • CohortContrast</title>
+<title>Enrichment Analysis of Clinically Relevant Concepts in OMOP CDM Data • CohortContrast</title>
 <script src="lightswitch.js"></script><script src="deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="deps/bootstrap-5.3.1/bootstrap.min.css" rel="stylesheet">
 <script src="deps/bootstrap-5.3.1/bootstrap.bundle.min.js"></script><link href="deps/font-awesome-6.5.2/css/all.min.css" rel="stylesheet">
 <link href="deps/font-awesome-6.5.2/css/v4-shims.min.css" rel="stylesheet">
-<script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Feature Selection and Enrichment Analysis for OMOP CDM Cohorts">
-<meta name="description" content="Defines target and control cohorts and extracts medical interventions that are over-represented in the target cohort during the observation period. Users can tune filtering and selection with arguments such as topK, presenceFilter, and prevalenceCutOff. The workflow includes CHI2Y tests (chi-squared tests for two proportions with Yates continuity correction), logistic tests, and optional visual exploration helpers.">
-<meta property="og:description" content="Defines target and control cohorts and extracts medical interventions that are over-represented in the target cohort during the observation period. Users can tune filtering and selection with arguments such as topK, presenceFilter, and prevalenceCutOff. The workflow includes CHI2Y tests (chi-squared tests for two proportions with Yates continuity correction), logistic tests, and optional visual exploration helpers.">
+<script src="deps/headroom-0.11.0/headroom.min.js"></script><script src="deps/headroom-0.11.0/jQuery.headroom.min.js"></script><script src="deps/bootstrap-toc-1.0.1/bootstrap-toc.min.js"></script><script src="deps/clipboard.js-2.0.11/clipboard.min.js"></script><script src="deps/search-1.0.0/autocomplete.jquery.min.js"></script><script src="deps/search-1.0.0/fuse.min.js"></script><script src="deps/search-1.0.0/mark.min.js"></script><!-- pkgdown --><script src="pkgdown.js"></script><meta property="og:title" content="Enrichment Analysis of Clinically Relevant Concepts in OMOP CDM Data">
+<meta name="description" content="Identifies clinically relevant concepts in Observational Medical Outcomes Partnership Common Data Model (OMOP CDM) data using an enrichment-based workflow. Defines target and control cohorts and extracts medical interventions that are over-represented in the target cohort during the observation period. Users can tune filtering and selection thresholds. The workflow includes chi-squared tests for two proportions with Yates continuity correction, logistic tests, and hierarchy and correlation mappings for relevant concepts. The results can be optionally explored using the bundled graphical user interface. For workflow details and examples, see &lt;https://healthinformaticsut.github.io/CohortContrast/&gt;.">
+<meta property="og:description" content="Identifies clinically relevant concepts in Observational Medical Outcomes Partnership Common Data Model (OMOP CDM) data using an enrichment-based workflow. Defines target and control cohorts and extracts medical interventions that are over-represented in the target cohort during the observation period. Users can tune filtering and selection thresholds. The workflow includes chi-squared tests for two proportions with Yates continuity correction, logistic tests, and hierarchy and correlation mappings for relevant concepts. The results can be optionally explored using the bundled graphical user interface. For workflow details and examples, see &lt;https://healthinformaticsut.github.io/CohortContrast/&gt;.">
 </head>
 <body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -55,6 +55,7 @@
 <li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="search.json">
 </form></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/HealthInformaticsUT/CohortContrast/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-lightswitch" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true" aria-label="Light switch"><span class="fa fa-sun"></span></button>
   <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdown-lightswitch">
@@ -102,21 +103,29 @@
 <li>Running <code>CohortContrast</code> returns a list of tables (patient level summarised data for target and control) and saves a study folder with parquet files that can be analysed in the GUI directly.</li>
 <li>Using viewer helpers with <code>runCohortContrastViewer</code> generates plots from parquet-formatted results.</li>
 <li>Example studies are available under <code>inst/example/st</code>.</li>
-<li>Published studies can be explored at <a href="http://omop-apps.cloud.ut.ee/CohortContrast/" class="external-link uri">http://omop-apps.cloud.ut.ee/CohortContrast/</a>.</li>
+<li>Public study outputs can be explored at <a href="http://omop-apps.cloud.ut.ee/CohortContrast/" class="external-link uri">http://omop-apps.cloud.ut.ee/CohortContrast/</a>.</li>
+<li>A larger example with 1080 diagnosis-level outputs is available in the CohortContrast Atlas at <a href="http://omop-apps.cloud.ut.ee/CohortContrastAtlas/" class="external-link uri">http://omop-apps.cloud.ut.ee/CohortContrastAtlas/</a>.</li>
 </ol>
 <div class="section level3">
 <h3 id="more-information">More information<a class="anchor" aria-label="anchor" href="#more-information"></a>
 </h3>
 <p>CohortContrast provides much more insight generation possibilities. See the package site for details: <a href="https://healthinformaticsut.github.io/CohortContrast/" class="uri">https://healthinformaticsut.github.io/CohortContrast/</a></p>
-<p>For feature requests create issues on Github or contact Markus Haug (<a href="mailto:markus.haug@ut.ee" class="email">markus.haug@ut.ee</a>) personally.</p>
+<p>For feature requests create issues on Github or contact Markus Haug (<a href="mailto:markus.haug@ut.ee" class="email">markus.haug@ut.ee</a>) personally. Bug reports can be opened at <a href="https://github.com/HealthInformaticsUT/CohortContrast/issues" class="external-link uri">https://github.com/HealthInformaticsUT/CohortContrast/issues</a>.</p>
 </div>
 </div>
 </div>
-  </main><aside class="col-md-3"><div class="license">
+  </main><aside class="col-md-3"><div class="links">
+<h2 data-toc-skip>Links</h2>
+<ul class="list-unstyled">
+<li><a href="https://github.com/HealthInformaticsUT/CohortContrast/" class="external-link">Browse source code</a></li>
+<li><a href="https://github.com/HealthInformaticsUT/CohortContrast/issues" class="external-link">Report a bug</a></li>
+</ul>
+</div>
+
+<div class="license">
 <h2 data-toc-skip>License</h2>
 <ul class="list-unstyled">
-<li>Apache License (&gt;= 2) | file <a href="LICENSE-text.html">LICENSE</a>
-</li>
+<li>Apache License 2.0</li>
 </ul>
 </div>
 

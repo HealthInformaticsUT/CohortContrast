@@ -6,6 +6,41 @@ The **Dashboard** is the primary analysis surface in CohortContrast. It
 combines effect size, prevalence, timing, and demographics for active
 concepts in one plot and one table.
 
+The example below shows the kind of concept-level summary that feeds the
+Dashboard table. Here we sort the bundled `lc500` study by target
+prevalence to inspect the most common concepts.
+
+``` r
+
+if (requireNamespace("nanoparquet", quietly = TRUE)) {
+  studyDir <- system.file("example", "st", package = "CohortContrast")
+  study <- CohortContrast::loadCohortContrastStudy("lc500", pathToResults = studyDir)
+
+  # Order concepts by target prevalence to mimic a common Dashboard review step.
+  dashboardPreview <- study$data_features[
+    order(study$data_features$TARGET_SUBJECT_PREVALENCE, decreasing = TRUE),
+    c("CONCEPT_ID", "CONCEPT_NAME", "HERITAGE", "TARGET_SUBJECT_PREVALENCE")
+  ]
+
+  utils::head(dashboardPreview, 5)
+}
+#>    CONCEPT_ID               CONCEPT_NAME             HERITAGE
+#> 1      443388    Malignant tumor of lung condition_occurrence
+#> 7     4032404               Bronchoscopy procedure_occurrence
+#> 11    4167262      Needle biopsy of lung procedure_occurrence
+#> 16       9202           Outpatient Visit         visit_detail
+#> 4     4182985 Diffusion capacity of lung          measurement
+#>    TARGET_SUBJECT_PREVALENCE
+#> 1                      0.966
+#> 7                      0.924
+#> 11                     0.910
+#> 16                     0.910
+#> 4                      0.742
+```
+
+In the app, the same information is combined with timing, demographics,
+and clustering summaries in one interactive view.
+
 ![Dashboard composite
 plot](../reference/figures/a03_dashboard_composite.png)
 

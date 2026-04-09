@@ -53,6 +53,7 @@
 <li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json">
 </form></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/HealthInformaticsUT/CohortContrast/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-lightswitch" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true" aria-label="Light switch"><span class="fa fa-sun"></span></button>
   <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdown-lightswitch">
@@ -77,7 +78,7 @@
       <h1>Execution</h1>
             
       
-
+      <small class="dont-index">Source: <a href="https://github.com/HealthInformaticsUT/CohortContrast/blob/HEAD/vignettes/a01_execution.Rmd" class="external-link"><code>vignettes/a01_execution.Rmd</code></a></small>
       <div class="d-none name"><code>a01_execution.Rmd</code></div>
     </div>
 
@@ -89,7 +90,24 @@
 <p>Now as we have initiated <a href="https://healthinformaticsut.github.io/CohortContrast/articles/a00_introduction.html">database
 connection</a> and created the <code>targetTable</code> as well as the
 <code>controlTable</code> we are ready to execute the study.</p>
+<p>The chunk below shows what a saved study looks like after execution
+by loading the bundled <code>lc500</code> example results:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"nanoparquet"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">studyDir</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"example"</span>, <span class="st">"st"</span>, package <span class="op">=</span> <span class="st">"CohortContrast"</span><span class="op">)</span></span>
+<span>  <span class="va">study</span> <span class="op">&lt;-</span> <span class="fu">CohortContrast</span><span class="fu">::</span><span class="fu"><a href="../reference/loadCohortContrastStudy.html">loadCohortContrastStudy</a></span><span class="op">(</span><span class="st">"lc500"</span>, pathToResults <span class="op">=</span> <span class="va">studyDir</span><span class="op">)</span></span>
+<span></span>
+<span>  <span class="co"># Inspect the main exported components created by a completed run.</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">study</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span><span class="co">#&gt; [1] "data_patients"             "data_initial"             </span></span>
+<span><span class="co">#&gt; [3] "data_person"               "data_features"            </span></span>
+<span><span class="co">#&gt; [5] "conceptsData"              "complementaryMappingTable"</span></span>
+<span><span class="co">#&gt; [7] "selectedFeatureData"       "trajectoryDataList"       </span></span>
+<span><span class="co">#&gt; [9] "config"</span></span></code></pre></div>
+<p>This is the same type of output object you can reload from your own
+saved study directory after running <code><a href="../reference/CohortContrast.html">CohortContrast()</a></code>.</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span></span>
 <span><span class="co">################################################################################</span></span>
 <span><span class="co">#</span></span>
@@ -198,7 +216,7 @@ optional correlation-based post-processing</p>
 <div class="section level2">
 <h2 id="reloading-a-saved-study">Reloading a saved study<a class="anchor" aria-label="anchor" href="#reloading-a-saved-study"></a>
 </h2>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">reloaded</span> <span class="op">&lt;-</span> <span class="fu">CohortContrast</span><span class="fu">::</span><span class="fu"><a href="../reference/loadCohortContrastStudy.html">loadCohortContrastStudy</a></span><span class="op">(</span></span>
 <span>  studyName <span class="op">=</span> <span class="st">"LungCancer_1Y"</span>,</span>
 <span>  pathToResults <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/getwd.html" class="external-link">getwd</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"studies"</span><span class="op">)</span></span>

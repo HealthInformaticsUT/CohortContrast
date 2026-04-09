@@ -53,6 +53,7 @@
 <li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json">
 </form></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/HealthInformaticsUT/CohortContrast/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-lightswitch" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true" aria-label="Light switch"><span class="fa fa-sun"></span></button>
   <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdown-lightswitch">
@@ -77,7 +78,7 @@
       <h1>Patient vs Summary Mode</h1>
             
       
-
+      <small class="dont-index">Source: <a href="https://github.com/HealthInformaticsUT/CohortContrast/blob/HEAD/vignettes/a07_patient_vs_summary_mode.Rmd" class="external-link"><code>vignettes/a07_patient_vs_summary_mode.Rmd</code></a></small>
       <div class="d-none name"><code>a07_patient_vs_summary_mode.Rmd</code></div>
     </div>
 
@@ -113,7 +114,25 @@ shows this in one word: <code>Patient</code> or
 <strong>Summary mode</strong>: produced by
 <code>precomputeSummary(studyPath = ..., outputPath = ...)</code>.</li>
 </ul>
+<p>The bundled example studies include one patient-mode study and one
+summary-mode study:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">patientStudyPath</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"example"</span>, <span class="st">"st"</span>, <span class="st">"lc500"</span>, package <span class="op">=</span> <span class="st">"CohortContrast"</span><span class="op">)</span></span>
+<span><span class="va">summaryStudyPath</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"example"</span>, <span class="st">"st"</span>, <span class="st">"lc500s"</span>, package <span class="op">=</span> <span class="st">"CohortContrast"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  study <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"lc500"</span>, <span class="st">"lc500s"</span><span class="op">)</span>,</span>
+<span>  mode <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
+<span>    <span class="fu">CohortContrast</span><span class="fu">::</span><span class="fu"><a href="../reference/checkDataMode.html">checkDataMode</a></span><span class="op">(</span><span class="va">patientStudyPath</span><span class="op">)</span><span class="op">$</span><span class="va">mode</span>,</span>
+<span>    <span class="fu">CohortContrast</span><span class="fu">::</span><span class="fu"><a href="../reference/checkDataMode.html">checkDataMode</a></span><span class="op">(</span><span class="va">summaryStudyPath</span><span class="op">)</span><span class="op">$</span><span class="va">mode</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co">#&gt;    study    mode</span></span>
+<span><span class="co">#&gt; 1  lc500 patient</span></span>
+<span><span class="co">#&gt; 2 lc500s summary</span></span></code></pre></div>
+<p>This mirrors the distinction shown in the Viewer study-selection
+table.</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">summary_result</span> <span class="op">&lt;-</span> <span class="fu">CohortContrast</span><span class="fu">::</span><span class="fu"><a href="../reference/precomputeSummary.html">precomputeSummary</a></span><span class="op">(</span></span>
 <span>  studyPath <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/getwd.html" class="external-link">getwd</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"studies"</span>, <span class="st">"LungCancer_1Y"</span><span class="op">)</span>,</span>
 <span>  outputPath <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/getwd.html" class="external-link">getwd</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"studies"</span>, <span class="st">"LungCancer_1Y_summary"</span><span class="op">)</span>,</span>

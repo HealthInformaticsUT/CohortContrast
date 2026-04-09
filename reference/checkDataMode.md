@@ -34,8 +34,8 @@ A list with:
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-info <- checkDataMode("results_parquet/Breast_cancer")
-print(info$mode)  # "patient" or "summary"
-} # }
+studyPath <- system.file("example", "st", "lc500s", package = "CohortContrast")
+info <- checkDataMode(studyPath)
+info$mode
+#> [1] "summary"
 ```
