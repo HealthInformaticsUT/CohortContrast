@@ -200,7 +200,7 @@ getPythonInfo <- function() {
 #' @return Invisibly returns TRUE if installation was successful.
 #'
 #' @examples
-#' \donttest{
+#' \dontrun{
 #' if (interactive() &&
 #'     requireNamespace("reticulate", quietly = TRUE) &&
 #'     (nzchar(Sys.which("python3")) || nzchar(Sys.which("python")))) {
@@ -345,7 +345,7 @@ checkPythonDeps <- function() {
 #' }
 #'
 #' @examples
-#' \donttest{
+#' \dontrun{
 #' packagesDir <- Sys.getenv("COHORT_CONTRAST_WHEELS")
 #' if (interactive() &&
 #'     requireNamespace("reticulate", quietly = TRUE) &&

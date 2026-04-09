@@ -41,7 +41,7 @@ For offline installation:
 }
 }
 \examples{
-\donttest{
+\dontrun{
 packagesDir <- Sys.getenv("COHORT_CONTRAST_WHEELS")
 if (interactive() &&
     requireNamespace("reticulate", quietly = TRUE) &&

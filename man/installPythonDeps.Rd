@@ -21,7 +21,7 @@ Invisibly returns TRUE if installation was successful.
 Installs the required Python packages for the CohortContrast Viewer.
 }
 \examples{
-\donttest{
+\dontrun{
 if (interactive() &&
     requireNamespace("reticulate", quietly = TRUE) &&
     (nzchar(Sys.which("python3")) || nzchar(Sys.which("python")))) {

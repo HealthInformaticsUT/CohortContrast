@@ -97,8 +97,8 @@ nGramClusterSummarization <- function(result, top_n = 5) {
     dplyr::group_by(ngram_cluster) %>%
     dplyr::slice_max(freq, n = top_n) %>%
     dplyr::summarise(
-      ngram_cluster = as.integer(ngram_cluster),
-      top_concepts = paste(unique(ngram_names), collapse = " + ")
+      top_concepts = paste(unique(ngram_names), collapse = " + "),
+      .groups = "drop"
     )
 
   result <- dplyr::left_join(cluster_summary, top_concepts, by = "ngram_cluster") %>%
