@@ -61,12 +61,12 @@ if (requireNamespace("nanoparquet", quietly = TRUE)) {
 #> --------------------------------- 
 #> Generating mapping table list ... 
 #> --------------------------------- 
-#> Timestamp:  2026-04-09 15:17:31 
+#> Timestamp:  2026-04-09 15:21:15 
 #> 
 #> ---------------------------------------------- 
 #> Generating mapping for abstraction level 1 ... 
 #> ---------------------------------------------- 
-#> Timestamp:  2026-04-09 15:17:31 
+#> Timestamp:  2026-04-09 15:21:15 
 #> 
 #>   CONCEPT_ID                                           CONCEPT_NAME
 #> 1    4176729 Treatment planning for external beam radiation therapy
