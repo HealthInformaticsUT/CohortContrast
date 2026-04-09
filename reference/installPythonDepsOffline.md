@@ -53,7 +53,7 @@ For offline installation:
 ## Examples
 
 ``` r
-# \donttest{
+if (FALSE) { # \dontrun{
 packagesDir <- Sys.getenv("COHORT_CONTRAST_WHEELS")
 if (interactive() &&
     requireNamespace("reticulate", quietly = TRUE) &&
@@ -62,5 +62,5 @@ if (interactive() &&
   configurePython(createVenv = FALSE)
   installPythonDepsOffline(packagesDir = packagesDir)
 }
-# }
+} # }
 ```

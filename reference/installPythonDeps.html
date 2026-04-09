@@ -87,33 +87,14 @@ Useful when not using a virtual environment. Default is NULL (auto-detect).</p><
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
 <span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/interactive.html" class="external-link">interactive</a></span><span class="op">(</span><span class="op">)</span> <span class="op">&amp;&amp;</span></span></span>
 <span class="r-in"><span>    <span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"reticulate"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">&amp;&amp;</span></span></span>
 <span class="r-in"><span>    <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nchar.html" class="external-link">nzchar</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.which.html" class="external-link">Sys.which</a></span><span class="op">(</span><span class="st">"python3"</span><span class="op">)</span><span class="op">)</span> <span class="op">||</span> <span class="fu"><a href="https://rdrr.io/r/base/nchar.html" class="external-link">nzchar</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.which.html" class="external-link">Sys.which</a></span><span class="op">(</span><span class="st">"python"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span></span>
 <span class="r-in"><span>  <span class="fu"><a href="configurePython.html">configurePython</a></span><span class="op">(</span>createVenv <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
 <span class="r-in"><span>  <span class="fu">installPythonDeps</span><span class="op">(</span>user <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">}</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Configuring Python environment for CohortContrast Viewer...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Using system Python: /opt/homebrew/bin/python3</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Python configuration complete.</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Python version: 3.13</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Python path: /opt/homebrew/bin/python3</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Installing Python dependencies from: /Users/markushaug/UT/R-packages/Develop/CohortContrast/inst/python/requirements.txt</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Using Python: /opt/homebrew/Cellar/python@3.13/3.13.2/Frameworks/Python.framework/Versions/3.13/bin/python3.13</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Creating virtual environment '~/.virtualenvs/r-reticulate' ... </span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> + '/opt/homebrew/Cellar/python@3.13/3.13.2/Frameworks/Python.framework/Versions/3.13/bin/python3.13' -m venv /Users/markushaug/.virtualenvs/r-reticulate</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Done!</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Installing packages: pip, wheel, setuptools</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> + /Users/markushaug/.virtualenvs/r-reticulate/bin/python -m pip install --upgrade pip wheel setuptools</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Virtual environment '~/.virtualenvs/r-reticulate' successfully created.</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Using virtual environment '~/.virtualenvs/r-reticulate' ...</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> + /Users/markushaug/.virtualenvs/r-reticulate/bin/python -m pip install --upgrade --no-user -r /Users/markushaug/UT/R-packages/Develop/CohortContrast/inst/python/requirements.txt --user</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Trying alternative installation method...</span>
-<span class="r-err co"><span class="r-pr">#&gt;</span> <span class="error">Error in value[[3L]](cond):</span> Failed to install Python dependencies.</span>
-<span class="r-err co"><span class="r-pr">#&gt;</span> Try running manually: /opt/homebrew/bin/python3 -m pip install -r '/Users/markushaug/UT/R-packages/Develop/CohortContrast/inst/python/requirements.txt' --user</span>
-<span class="r-err co"><span class="r-pr">#&gt;</span> Original error: Error installing package(s): </span>
-<span class="r-in"><span><span class="co"># }</span></span></span>
+<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>
