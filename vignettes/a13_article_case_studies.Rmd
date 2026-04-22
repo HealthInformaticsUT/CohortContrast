@@ -250,7 +250,6 @@ runArticleCase <- function(cdm, jsonDir, studyName, summaryRoot, scratchRoot) {
     controlTable = controlTable,
     pathToResults = scratchRoot,
     prevalenceCutOff = 1,
-    presenceFilter = 0.01,
     getSourceData = FALSE,
     runChi2YTests = TRUE,
     runLogitTests = TRUE,
