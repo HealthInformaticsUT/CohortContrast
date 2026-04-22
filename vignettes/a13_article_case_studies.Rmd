@@ -131,8 +131,8 @@ buildTargetTable <- function(cdm, jsonDir) {
   ) %>%
     # Shift the cohort start slightly earlier and define a 1-year follow-up.
     dplyr::mutate(
-      cohort_start_date = cohort_start_date - 14,
-      cohort_end_date = cohort_start_date + 365
+      cohort_start_date = cohort_start_date - 14L,
+      cohort_end_date = cohort_start_date + 365L
     )
 
   # Resolve any overlaps before continuing with the analysis.
@@ -146,12 +146,12 @@ buildTargetTable <- function(cdm, jsonDir) {
 ## Build the visit-based control cohort
 
 ```{r, eval = FALSE}
-buildVisitBasedControl <- function(cdm, targetTable, lookbackDays = 1095, followupDays = 365) {
+buildVisitBasedControl <- function(cdm, targetTable, lookbackDays = 1095L, followupDays = 365L) {
   # Shift the target windows backwards to define the control-search anchor.
   controlSeed <- targetTable %>%
     dplyr::mutate(
-      cohort_start_date = cohort_start_date - lookbackDays,
-      cohort_end_date = cohort_start_date + followupDays
+      cohort_start_date = cohort_start_date - as.integer(lookbackDays),
+      cohort_end_date = cohort_start_date + as.integer(followupDays)
     )
 
   # Insert the shifted target windows as a temporary table used to retrieve the
@@ -173,14 +173,22 @@ buildVisitBasedControl <- function(cdm, targetTable, lookbackDays = 1095, follow
     # date, operationalized here as the latest eligible visit on or before that
     # anchor date.
     dplyr::slice_max(order_by = visit_start_date, n = 1, with_ties = FALSE) %>%
-    dplyr::transmute(
-      cohort_definition_id = "control",
-      subject_id = person_id,
-      cohort_start_date = visit_start_date,
-      cohort_end_date = visit_start_date + followupDays
-    ) %>%
     dplyr::ungroup() %>%
-    dplyr::collect()
+    dplyr::transmute(
+      subject_id = person_id,
+      cohort_start_date = visit_start_date
+    ) %>%
+    dplyr::collect() %>%
+    dplyr::mutate(
+      cohort_definition_id = "control",
+      cohort_end_date = .data$cohort_start_date + as.integer(followupDays)
+    ) %>%
+    dplyr::select(
+      cohort_definition_id,
+      subject_id,
+      cohort_start_date,
+      cohort_end_date
+    )
 
   CohortContrast::resolveCohortTableOverlaps(
     cohortTable = controlTable,
