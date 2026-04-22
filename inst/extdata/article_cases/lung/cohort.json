@@ -1,0 +1,96 @@
+{
+  "ConceptSets": [
+    {
+      "id": 0,
+      "name": "Malignant neoplasm of lung",
+      "expression": {
+        "items": [
+          {
+            "concept": {
+              "CONCEPT_CLASS_ID": "Disorder",
+              "CONCEPT_CODE": "363358000",
+              "CONCEPT_ID": 443388,
+              "CONCEPT_NAME": "Malignant tumor of lung",
+              "DOMAIN_ID": "Condition",
+              "INVALID_REASON": "V",
+              "INVALID_REASON_CAPTION": "Valid",
+              "STANDARD_CONCEPT": "S",
+              "STANDARD_CONCEPT_CAPTION": "Standard",
+              "VOCABULARY_ID": "SNOMED"
+            },
+            "includeDescendants": true
+          }
+        ]
+      }
+    }
+  ],
+  "PrimaryCriteria": {
+    "CriteriaList": [
+      {
+        "ConditionOccurrence": {
+          "CodesetId": 0
+        }
+      }
+    ],
+    "ObservationWindow": {
+      "PriorDays": 1095,
+      "PostDays": 1
+    },
+    "PrimaryCriteriaLimit": {
+      "Type": "First"
+    }
+  },
+  "QualifiedLimit": {
+    "Type": "First"
+  },
+  "ExpressionLimit": {
+    "Type": "First"
+  },
+  "InclusionRules": [
+    {
+      "name": "No prior event",
+      "expression": {
+        "Type": "ALL",
+        "CriteriaList": [
+          {
+            "Criteria": {
+              "ConditionOccurrence": {
+                "CodesetId": 0
+              }
+            },
+            "StartWindow": {
+              "Start": {
+                "Days": 1095,
+                "Coeff": -1
+              },
+              "End": {
+                "Days": 1,
+                "Coeff": -1
+              },
+              "UseEventEnd": false
+            },
+            "Occurrence": {
+              "Type": 0,
+              "Count": 0
+            }
+          }
+        ],
+        "DemographicCriteriaList": [],
+        "Groups": []
+      }
+    }
+  ],
+  "EndStrategy": {
+    "DateOffset": {
+      "DateField": "StartDate",
+      "Offset": 365
+    }
+  },
+  "CensoringCriteria": [],
+  "CollapseSettings": {
+    "CollapseType": "ERA",
+    "EraPad": 0
+  },
+  "CensorWindow": {},
+  "cdmVersionRange": ">=5.0.0"
+}

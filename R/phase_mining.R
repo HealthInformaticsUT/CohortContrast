@@ -8,6 +8,7 @@
 #'   counts, over-representation statistics, person counts, timing summaries,
 #'   and p-values used to flag significant patterns.
 #' @examples
+#' \donttest{
 #' if (requireNamespace("nanoparquet", quietly = TRUE) &&
 #'     requireNamespace("Matrix", quietly = TRUE) &&
 #'     requireNamespace("vegan", quietly = TRUE) &&
@@ -16,6 +17,7 @@
 #'   study <- loadCohortContrastStudy("lc500", pathToResults = studyDir)
 #'   ngrams <- nGramDiscovery(study)
 #'   head(ngrams)
+#' }
 #' }
 #' @export
 nGramDiscovery <- function(data, collapse_size = 0) {
@@ -68,6 +70,7 @@ nGramDiscovery <- function(data, collapse_size = 0) {
 #'   total unique patients represented in the cluster, average timing, and a
 #'   concatenated label of the most frequent concepts in that cluster.
 #' @examples
+#' \donttest{
 #' if (requireNamespace("nanoparquet", quietly = TRUE) &&
 #'     requireNamespace("Matrix", quietly = TRUE) &&
 #'     requireNamespace("vegan", quietly = TRUE) &&
@@ -77,6 +80,7 @@ nGramDiscovery <- function(data, collapse_size = 0) {
 #'   ngrams <- nGramDiscovery(study)
 #'   clusterSummary <- suppressWarnings(nGramClusterSummarization(ngrams))
 #'   head(clusterSummary)
+#' }
 #' }
 #' @export
 nGramClusterSummarization <- function(result, top_n = 5) {

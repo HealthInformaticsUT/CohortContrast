@@ -22,6 +22,7 @@ A data frame of enriched n-grams, or NULL if no significant n-grams
 Function for discovering ngrams from the extracted data from CohortContrast function
 }
 \examples{
+\donttest{
 if (requireNamespace("nanoparquet", quietly = TRUE) &&
     requireNamespace("Matrix", quietly = TRUE) &&
     requireNamespace("vegan", quietly = TRUE) &&
@@ -30,5 +31,6 @@ if (requireNamespace("nanoparquet", quietly = TRUE) &&
   study <- loadCohortContrastStudy("lc500", pathToResults = studyDir)
   ngrams <- nGramDiscovery(study)
   head(ngrams)
+}
 }
 }

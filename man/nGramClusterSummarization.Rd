@@ -21,6 +21,7 @@ A data frame with one row per n-gram cluster. The table reports the
 Function for summarizing ngrams from nGramDiscovery output
 }
 \examples{
+\donttest{
 if (requireNamespace("nanoparquet", quietly = TRUE) &&
     requireNamespace("Matrix", quietly = TRUE) &&
     requireNamespace("vegan", quietly = TRUE) &&
@@ -30,5 +31,6 @@ if (requireNamespace("nanoparquet", quietly = TRUE) &&
   ngrams <- nGramDiscovery(study)
   clusterSummary <- suppressWarnings(nGramClusterSummarization(ngrams))
   head(clusterSummary)
+}
 }
 }

@@ -1,6 +1,7 @@
 Package: CohortContrast
 Type: Package
-Title: Enrichment Analysis of Clinically Relevant Concepts in 'OMOP CDM' Data
+Title: Enrichment Analysis of Clinically Relevant Concepts in Common Data
+    Model Cohort Data
 Version: 1.0.0
 Maintainer: Markus Haug <markus.haug@ut.ee>
 Authors@R: c(
@@ -10,7 +11,7 @@ Authors@R: c(
     role = c("aut"), comment = c(ORCID = "0000-0003-2886-6298"))
     )
 Description: Identifies clinically relevant concepts in Observational Medical
-    Outcomes Partnership Common Data Model data using an
+    Outcomes Partnership Common Data Model cohorts using an
     enrichment-based workflow. Defines target and control cohorts and extracts
     medical interventions that are over-represented in the target cohort during
     the observation period. Users can tune filtering and selection thresholds.
@@ -45,6 +46,7 @@ Imports:
 Suggests: 
     testthat (>= 3.0.0),
     PatientProfiles (>= 1.1.0),
+    icd.data,
     duckdb,
     DBI (>= 1.2.0),
     RPostgres,
