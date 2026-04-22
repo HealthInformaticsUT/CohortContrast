@@ -171,72 +171,72 @@ Default is 50000.</p></dd>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> All required Python packages are installed.</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> Pre-computing summary data for: /Users/markushaug/UT/R-packages/Develop/CohortContrast/inst/example/st/lc500</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> This may take a few minutes for large datasets...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:39:59 [INFO] ============================================================</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:39:59 [INFO] Pre-computing summary for: /Users/markushaug/UT/R-packages/Develop/CohortContrast/inst/example/st/lc500</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:39:59 [INFO] Output directory: /var/folders/04/_j3s9x5j6mvf0cbxxbbgy5_00000gn/T/RtmpeYfpSH/lc500_summary</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:39:59 [INFO] Concept limit: 20</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:39:59 [INFO] Min cell count: 0</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:39:59 [INFO] MiniBatchKMeans cutoff patients: 50000</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:39:59 [INFO] ============================================================</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:39:59 [INFO] Starting: Loading parquet files</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO]   data_patients: 4,656 rows</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO]   data_features: 16 rows</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO]   data_initial: 1,000 rows</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO]   data_person: 1,000 rows</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO]   complementaryMappingTable: 0 rows</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Completed: Loading parquet files (0.08s)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Starting: Pre-processing data</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Filtering target cohort...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Target cohort: 500 patients, 4,183 rows</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Exploding TIME_TO_EVENT arrays...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Filtered to 16 concepts from data_features (8,139 -&gt; 8,139 events)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Exploded data: 8,139 individual events</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Computing patient ages...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Computed ages for 500 patients</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Building concept lookups...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] From data_initial - Target: 500, Control: 500 patients</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Completed: Pre-processing data (0.01s)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] ✓ Copied complementaryMappingTable.parquet</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Starting: Computing concept summaries (vectorized)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Computing summaries for 16 concepts...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Computing histograms and KDE distributions...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Computing demographics per concept...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Generated 16 concept summaries</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Completed: Computing concept summaries (vectorized) (0.03s)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] ✓ Generated concept_summaries.parquet: 16 rows</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Starting: Computing ordinal summaries (vectorized)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Assigning ordinals to events...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Found 6 max ordinal across all concepts</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Computing stats for 17 ordinal groups</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Computing demographics per ordinal group...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Calculating target and control ordinal occurrence counts...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Processing control cohort ordinals (counting all ordinals, no 50% threshold)...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Found 9 control ordinal groups (all ordinals counted)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Matched 8 target ordinal groups with control data</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Generated 17 ordinal summaries</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Completed: Computing ordinal summaries (vectorized) (0.04s)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] ✓ Generated ordinal_summaries.parquet: 17 rows</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Starting: Computing study demographics</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Completed: Computing study demographics (0.00s)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Starting: Computing clustering for k=[2, 3]</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Computing clustering for k=2...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Computing clustering for k=3...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] ✓ k=2: silhouette=0.298, patients=500</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] ✓ k=3: silhouette=0.418, patients=500</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Completed: Computing clustering for k=[2, 3] (0.16s)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Starting: Computing demographic distributions</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Completed: Computing demographic distributions (0.00s)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Counted 16 unique main concepts (significant concepts)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Starting: Saving metadata</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] ✓ Generated metadata.json</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Completed: Saving metadata (0.00s)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] ✓ Copied desc.txt</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] ============================================================</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Summary generation complete!</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Output: /var/folders/04/_j3s9x5j6mvf0cbxxbbgy5_00000gn/T/RtmpeYfpSH/lc500_summary</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Files generated: 9</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] Total time: 0.33s</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 10:40:00 [INFO] ============================================================</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] ============================================================</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Pre-computing summary for: /Users/markushaug/UT/R-packages/Develop/CohortContrast/inst/example/st/lc500</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Output directory: /var/folders/04/_j3s9x5j6mvf0cbxxbbgy5_00000gn/T/RtmpeYfpSH/lc500_summary</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Concept limit: 20</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Min cell count: 0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] MiniBatchKMeans cutoff patients: 50000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] ============================================================</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Starting: Loading parquet files</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO]   data_patients: 4,656 rows</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO]   data_features: 16 rows</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO]   data_initial: 1,000 rows</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO]   data_person: 1,000 rows</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO]   complementaryMappingTable: 0 rows</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Completed: Loading parquet files (0.12s)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Starting: Pre-processing data</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Filtering target cohort...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Target cohort: 500 patients, 4,183 rows</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Exploding TIME_TO_EVENT arrays...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Filtered to 16 concepts from data_features (8,139 -&gt; 8,139 events)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Exploded data: 8,139 individual events</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Computing patient ages...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Computed ages for 500 patients</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Building concept lookups...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] From data_initial - Target: 500, Control: 500 patients</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Completed: Pre-processing data (0.02s)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] ✓ Copied complementaryMappingTable.parquet</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Starting: Computing concept summaries (vectorized)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Computing summaries for 16 concepts...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Computing histograms and KDE distributions...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Computing demographics per concept...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Generated 16 concept summaries</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Completed: Computing concept summaries (vectorized) (0.04s)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] ✓ Generated concept_summaries.parquet: 16 rows</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Starting: Computing ordinal summaries (vectorized)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Assigning ordinals to events...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Found 6 max ordinal across all concepts</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Computing stats for 17 ordinal groups</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Computing demographics per ordinal group...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Calculating target and control ordinal occurrence counts...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Processing control cohort ordinals (counting all ordinals, no 50% threshold)...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Found 9 control ordinal groups (all ordinals counted)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Matched 8 target ordinal groups with control data</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Generated 17 ordinal summaries</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Completed: Computing ordinal summaries (vectorized) (0.05s)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] ✓ Generated ordinal_summaries.parquet: 17 rows</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Starting: Computing study demographics</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Completed: Computing study demographics (0.00s)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Starting: Computing clustering for k=[2, 3]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Computing clustering for k=2...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Computing clustering for k=3...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] ✓ k=2: silhouette=0.298, patients=500</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] ✓ k=3: silhouette=0.418, patients=500</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Completed: Computing clustering for k=[2, 3] (0.22s)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Starting: Computing demographic distributions</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Completed: Computing demographic distributions (0.00s)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Counted 16 unique main concepts (significant concepts)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Starting: Saving metadata</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] ✓ Generated metadata.json</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Completed: Saving metadata (0.00s)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] ✓ Copied desc.txt</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] ============================================================</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Summary generation complete!</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Output: /var/folders/04/_j3s9x5j6mvf0cbxxbbgy5_00000gn/T/RtmpeYfpSH/lc500_summary</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Files generated: 9</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] Total time: 0.46s</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 17:41:49 [INFO] ============================================================</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Pre-computing summary for: /Users/markushaug/UT/R-packages/Develop/CohortContrast/inst/example/st/lc500</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Output directory: /var/folders/04/_j3s9x5j6mvf0cbxxbbgy5_00000gn/T/RtmpeYfpSH/lc500_summary </span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> </span>

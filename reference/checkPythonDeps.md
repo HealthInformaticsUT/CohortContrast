@@ -23,7 +23,6 @@ if (requireNamespace("reticulate", quietly = TRUE) &&
 }
 #> Configuring Python environment for CohortContrast Viewer...
 #> Using system Python: /Users/markushaug/.virtualenvs/r-cohortcontrast-viewer/bin/python3
-#> Warning: Previous request to `use_python("/Users/markushaug/.virtualenvs/r-cohortcontrast-viewer/bin/python", required = TRUE)` will be ignored. It is superseded by request to `use_python("/Users/markushaug/.virtualenvs/r-cohortcontrast-viewer/bin/python3")
 #> Python configuration complete.
 #> Python version: 3.13
 #> Python path: /Users/markushaug/.virtualenvs/r-cohortcontrast-viewer/bin/python

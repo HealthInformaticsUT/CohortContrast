@@ -107,72 +107,72 @@ if (requireNamespace("reticulate", quietly = TRUE) &&
 #> All required Python packages are installed.
 #> Pre-computing summary data for: /Users/markushaug/UT/R-packages/Develop/CohortContrast/inst/example/st/lc500
 #> This may take a few minutes for large datasets...
-#> 10:39:59 [INFO] ============================================================
-#> 10:39:59 [INFO] Pre-computing summary for: /Users/markushaug/UT/R-packages/Develop/CohortContrast/inst/example/st/lc500
-#> 10:39:59 [INFO] Output directory: /var/folders/04/_j3s9x5j6mvf0cbxxbbgy5_00000gn/T/RtmpeYfpSH/lc500_summary
-#> 10:39:59 [INFO] Concept limit: 20
-#> 10:39:59 [INFO] Min cell count: 0
-#> 10:39:59 [INFO] MiniBatchKMeans cutoff patients: 50000
-#> 10:39:59 [INFO] ============================================================
-#> 10:39:59 [INFO] Starting: Loading parquet files
-#> 10:40:00 [INFO]   data_patients: 4,656 rows
-#> 10:40:00 [INFO]   data_features: 16 rows
-#> 10:40:00 [INFO]   data_initial: 1,000 rows
-#> 10:40:00 [INFO]   data_person: 1,000 rows
-#> 10:40:00 [INFO]   complementaryMappingTable: 0 rows
-#> 10:40:00 [INFO] Completed: Loading parquet files (0.08s)
-#> 10:40:00 [INFO] Starting: Pre-processing data
-#> 10:40:00 [INFO] Filtering target cohort...
-#> 10:40:00 [INFO] Target cohort: 500 patients, 4,183 rows
-#> 10:40:00 [INFO] Exploding TIME_TO_EVENT arrays...
-#> 10:40:00 [INFO] Filtered to 16 concepts from data_features (8,139 -> 8,139 events)
-#> 10:40:00 [INFO] Exploded data: 8,139 individual events
-#> 10:40:00 [INFO] Computing patient ages...
-#> 10:40:00 [INFO] Computed ages for 500 patients
-#> 10:40:00 [INFO] Building concept lookups...
-#> 10:40:00 [INFO] From data_initial - Target: 500, Control: 500 patients
-#> 10:40:00 [INFO] Completed: Pre-processing data (0.01s)
-#> 10:40:00 [INFO] ✓ Copied complementaryMappingTable.parquet
-#> 10:40:00 [INFO] Starting: Computing concept summaries (vectorized)
-#> 10:40:00 [INFO] Computing summaries for 16 concepts...
-#> 10:40:00 [INFO] Computing histograms and KDE distributions...
-#> 10:40:00 [INFO] Computing demographics per concept...
-#> 10:40:00 [INFO] Generated 16 concept summaries
-#> 10:40:00 [INFO] Completed: Computing concept summaries (vectorized) (0.03s)
-#> 10:40:00 [INFO] ✓ Generated concept_summaries.parquet: 16 rows
-#> 10:40:00 [INFO] Starting: Computing ordinal summaries (vectorized)
-#> 10:40:00 [INFO] Assigning ordinals to events...
-#> 10:40:00 [INFO] Found 6 max ordinal across all concepts
-#> 10:40:00 [INFO] Computing stats for 17 ordinal groups
-#> 10:40:00 [INFO] Computing demographics per ordinal group...
-#> 10:40:00 [INFO] Calculating target and control ordinal occurrence counts...
-#> 10:40:00 [INFO] Processing control cohort ordinals (counting all ordinals, no 50% threshold)...
-#> 10:40:00 [INFO] Found 9 control ordinal groups (all ordinals counted)
-#> 10:40:00 [INFO] Matched 8 target ordinal groups with control data
-#> 10:40:00 [INFO] Generated 17 ordinal summaries
-#> 10:40:00 [INFO] Completed: Computing ordinal summaries (vectorized) (0.04s)
-#> 10:40:00 [INFO] ✓ Generated ordinal_summaries.parquet: 17 rows
-#> 10:40:00 [INFO] Starting: Computing study demographics
-#> 10:40:00 [INFO] Completed: Computing study demographics (0.00s)
-#> 10:40:00 [INFO] Starting: Computing clustering for k=[2, 3]
-#> 10:40:00 [INFO] Computing clustering for k=2...
-#> 10:40:00 [INFO] Computing clustering for k=3...
-#> 10:40:00 [INFO] ✓ k=2: silhouette=0.298, patients=500
-#> 10:40:00 [INFO] ✓ k=3: silhouette=0.418, patients=500
-#> 10:40:00 [INFO] Completed: Computing clustering for k=[2, 3] (0.16s)
-#> 10:40:00 [INFO] Starting: Computing demographic distributions
-#> 10:40:00 [INFO] Completed: Computing demographic distributions (0.00s)
-#> 10:40:00 [INFO] Counted 16 unique main concepts (significant concepts)
-#> 10:40:00 [INFO] Starting: Saving metadata
-#> 10:40:00 [INFO] ✓ Generated metadata.json
-#> 10:40:00 [INFO] Completed: Saving metadata (0.00s)
-#> 10:40:00 [INFO] ✓ Copied desc.txt
-#> 10:40:00 [INFO] ============================================================
-#> 10:40:00 [INFO] Summary generation complete!
-#> 10:40:00 [INFO] Output: /var/folders/04/_j3s9x5j6mvf0cbxxbbgy5_00000gn/T/RtmpeYfpSH/lc500_summary
-#> 10:40:00 [INFO] Files generated: 9
-#> 10:40:00 [INFO] Total time: 0.33s
-#> 10:40:00 [INFO] ============================================================
+#> 17:41:49 [INFO] ============================================================
+#> 17:41:49 [INFO] Pre-computing summary for: /Users/markushaug/UT/R-packages/Develop/CohortContrast/inst/example/st/lc500
+#> 17:41:49 [INFO] Output directory: /var/folders/04/_j3s9x5j6mvf0cbxxbbgy5_00000gn/T/RtmpeYfpSH/lc500_summary
+#> 17:41:49 [INFO] Concept limit: 20
+#> 17:41:49 [INFO] Min cell count: 0
+#> 17:41:49 [INFO] MiniBatchKMeans cutoff patients: 50000
+#> 17:41:49 [INFO] ============================================================
+#> 17:41:49 [INFO] Starting: Loading parquet files
+#> 17:41:49 [INFO]   data_patients: 4,656 rows
+#> 17:41:49 [INFO]   data_features: 16 rows
+#> 17:41:49 [INFO]   data_initial: 1,000 rows
+#> 17:41:49 [INFO]   data_person: 1,000 rows
+#> 17:41:49 [INFO]   complementaryMappingTable: 0 rows
+#> 17:41:49 [INFO] Completed: Loading parquet files (0.12s)
+#> 17:41:49 [INFO] Starting: Pre-processing data
+#> 17:41:49 [INFO] Filtering target cohort...
+#> 17:41:49 [INFO] Target cohort: 500 patients, 4,183 rows
+#> 17:41:49 [INFO] Exploding TIME_TO_EVENT arrays...
+#> 17:41:49 [INFO] Filtered to 16 concepts from data_features (8,139 -> 8,139 events)
+#> 17:41:49 [INFO] Exploded data: 8,139 individual events
+#> 17:41:49 [INFO] Computing patient ages...
+#> 17:41:49 [INFO] Computed ages for 500 patients
+#> 17:41:49 [INFO] Building concept lookups...
+#> 17:41:49 [INFO] From data_initial - Target: 500, Control: 500 patients
+#> 17:41:49 [INFO] Completed: Pre-processing data (0.02s)
+#> 17:41:49 [INFO] ✓ Copied complementaryMappingTable.parquet
+#> 17:41:49 [INFO] Starting: Computing concept summaries (vectorized)
+#> 17:41:49 [INFO] Computing summaries for 16 concepts...
+#> 17:41:49 [INFO] Computing histograms and KDE distributions...
+#> 17:41:49 [INFO] Computing demographics per concept...
+#> 17:41:49 [INFO] Generated 16 concept summaries
+#> 17:41:49 [INFO] Completed: Computing concept summaries (vectorized) (0.04s)
+#> 17:41:49 [INFO] ✓ Generated concept_summaries.parquet: 16 rows
+#> 17:41:49 [INFO] Starting: Computing ordinal summaries (vectorized)
+#> 17:41:49 [INFO] Assigning ordinals to events...
+#> 17:41:49 [INFO] Found 6 max ordinal across all concepts
+#> 17:41:49 [INFO] Computing stats for 17 ordinal groups
+#> 17:41:49 [INFO] Computing demographics per ordinal group...
+#> 17:41:49 [INFO] Calculating target and control ordinal occurrence counts...
+#> 17:41:49 [INFO] Processing control cohort ordinals (counting all ordinals, no 50% threshold)...
+#> 17:41:49 [INFO] Found 9 control ordinal groups (all ordinals counted)
+#> 17:41:49 [INFO] Matched 8 target ordinal groups with control data
+#> 17:41:49 [INFO] Generated 17 ordinal summaries
+#> 17:41:49 [INFO] Completed: Computing ordinal summaries (vectorized) (0.05s)
+#> 17:41:49 [INFO] ✓ Generated ordinal_summaries.parquet: 17 rows
+#> 17:41:49 [INFO] Starting: Computing study demographics
+#> 17:41:49 [INFO] Completed: Computing study demographics (0.00s)
+#> 17:41:49 [INFO] Starting: Computing clustering for k=[2, 3]
+#> 17:41:49 [INFO] Computing clustering for k=2...
+#> 17:41:49 [INFO] Computing clustering for k=3...
+#> 17:41:49 [INFO] ✓ k=2: silhouette=0.298, patients=500
+#> 17:41:49 [INFO] ✓ k=3: silhouette=0.418, patients=500
+#> 17:41:49 [INFO] Completed: Computing clustering for k=[2, 3] (0.22s)
+#> 17:41:49 [INFO] Starting: Computing demographic distributions
+#> 17:41:49 [INFO] Completed: Computing demographic distributions (0.00s)
+#> 17:41:49 [INFO] Counted 16 unique main concepts (significant concepts)
+#> 17:41:49 [INFO] Starting: Saving metadata
+#> 17:41:49 [INFO] ✓ Generated metadata.json
+#> 17:41:49 [INFO] Completed: Saving metadata (0.00s)
+#> 17:41:49 [INFO] ✓ Copied desc.txt
+#> 17:41:49 [INFO] ============================================================
+#> 17:41:49 [INFO] Summary generation complete!
+#> 17:41:49 [INFO] Output: /var/folders/04/_j3s9x5j6mvf0cbxxbbgy5_00000gn/T/RtmpeYfpSH/lc500_summary
+#> 17:41:49 [INFO] Files generated: 9
+#> 17:41:49 [INFO] Total time: 0.46s
+#> 17:41:49 [INFO] ============================================================
 #> Pre-computing summary for: /Users/markushaug/UT/R-packages/Develop/CohortContrast/inst/example/st/lc500
 #> Output directory: /var/folders/04/_j3s9x5j6mvf0cbxxbbgy5_00000gn/T/RtmpeYfpSH/lc500_summary 
 #> 
