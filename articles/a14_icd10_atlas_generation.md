@@ -5,6 +5,9 @@
 This vignette documents the code used to generate an ICD10 three-digit
 `CohortContrast` atlas across multiple observation windows.
 
+The resulting atlas based on EstHealth30 data can be explored at
+<http://omop-apps.cloud.ut.ee/CohortContrastAtlas/>.
+
 The workflow runs the same analysis for all eligible three-digit ICD10
 codes and produces summary-mode study folders for three observation
 periods:
