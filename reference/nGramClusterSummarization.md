@@ -28,6 +28,7 @@ concatenated label of the most frequent concepts in that cluster.
 ## Examples
 
 ``` r
+# \donttest{
 if (requireNamespace("nanoparquet", quietly = TRUE) &&
     requireNamespace("Matrix", quietly = TRUE) &&
     requireNamespace("vegan", quietly = TRUE) &&
@@ -53,4 +54,5 @@ if (requireNamespace("nanoparquet", quietly = TRUE) &&
 #> 2             4        2        232.                   355    31.7  Outpatient …
 #> 3             2        2        126.                   149    32.3  Chemotherap…
 #> 4             1        3        118                    155   216.   Death + Pal…
+# }
 ```

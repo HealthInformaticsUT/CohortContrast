@@ -143,3 +143,7 @@ For feature requests create issues on Github or contact Markus Haug
   lc500](https://healthinformaticsut.github.io/CohortContrast/articles/a11_interpreting_results_lc500.md):
 - [Interpreting Summary Results with
   lc500s](https://healthinformaticsut.github.io/CohortContrast/articles/a12_interpreting_summary_results_lc500s.md):
+- [Article Case Study
+  Generation](https://healthinformaticsut.github.io/CohortContrast/articles/a13_article_case_studies.md):
+- [ICD10 Atlas
+  Generation](https://healthinformaticsut.github.io/CohortContrast/articles/a14_icd10_atlas_generation.md):

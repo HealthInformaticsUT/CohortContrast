@@ -1,0 +1,406 @@
+# ICD10 Atlas Generation
+
+## Goal
+
+This vignette documents the code used to generate an ICD10 three-digit
+`CohortContrast` atlas across multiple observation windows.
+
+The workflow runs the same analysis for all eligible three-digit ICD10
+codes and produces summary-mode study folders for three observation
+periods:
+
+- diagnosis day `0` to `365`
+- diagnosis day `0` to `30`
+- diagnosis day `-90` to `0`
+
+This pipeline keeps only the final summary folders.
+
+## Required environment variables
+
+``` r
+
+# Database connection settings expected by the helper below.
+Sys.getenv("DB_NAME")
+Sys.getenv("DB_HOST")
+Sys.getenv("DB_PORT")
+Sys.getenv("DB_USERNAME")
+Sys.getenv("DB_PASSWORD")
+
+# OMOP schema settings.
+Sys.getenv("OHDSI_CDM")
+Sys.getenv("OHDSI_RESULTS")
+Sys.getenv("OHDSI_WRITE")
+```
+
+## Connect to the OMOP database
+
+``` r
+
+library(CohortContrast)
+library(CDMConnector)
+library(DBI)
+library(RPostgres)
+library(dplyr)
+library(purrr)
+library(tibble)
+library(icd.data)
+
+connectAtlasCdm <- function() {
+  # Open the database connection from environment variables instead of
+  # hard-coded credentials.
+  db <- DBI::dbConnect(
+    RPostgres::Postgres(),
+    dbname = Sys.getenv("DB_NAME"),
+    host = Sys.getenv("DB_HOST"),
+    user = Sys.getenv("DB_USERNAME"),
+    password = Sys.getenv("DB_PASSWORD"),
+    port = as.integer(Sys.getenv("DB_PORT"))
+  )
+
+  # Create the CDMConnector object used by CohortContrast.
+  cdm <- CDMConnector::cdmFromCon(
+    con = db,
+    cdmSchema = Sys.getenv("OHDSI_CDM"),
+    achillesSchema = Sys.getenv("OHDSI_RESULTS"),
+    writeSchema = c(
+      schema = Sys.getenv("OHDSI_WRITE"),
+      prefix = "cc_"
+    )
+  )
+
+  list(db = db, cdm = cdm)
+}
+```
+
+## Define the observation windows
+
+``` r
+
+# Each row defines one observation window relative to the first qualifying
+# diagnosis date and one matching control-window lag.
+windows <- tibble::tribble(
+  ~window_name,   ~target_start_offset, ~target_end_offset, ~control_lag_days, ~minimum_observation_days,
+  "after_1year",                   0L,                365L,             1095L,                     1095L,
+  "after_30days",                  0L,                 30L,              1095L,                      1095L,
+  "prior_90days",                -90L,                  0L,              1095L,                      1095L
+)
+```
+
+## Identify eligible ICD10 three-digit codes
+
+``` r
+
+getEligibleIcd10Codes <- function(cdm, minPatients = 100L) {
+  # Keep only three-digit ICD10 codes from the icd.data lookup table.
+  icd10Lookup <- icd.data::icd10cm2016 %>%
+    dplyr::filter(nchar(.data$code) < 4) %>%
+    dplyr::distinct(.data$code, .data$long_desc)
+
+  # Count patients per three-digit source code in the OMOP condition table.
+  counts <- cdm$condition_occurrence %>%
+    dplyr::mutate(icd10code = substr(.data$condition_source_value, 1, 3)) %>%
+    dplyr::group_by(.data$icd10code) %>%
+    dplyr::summarise(n = dplyr::n_distinct(.data$person_id), .groups = "drop") %>%
+    dplyr::collect() %>%
+    dplyr::filter(.data$n >= minPatients)
+
+  dplyr::inner_join(
+    counts,
+    icd10Lookup,
+    by = c("icd10code" = "code")
+  )
+}
+```
+
+## Helper for clean study names
+
+``` r
+
+makeSafeStudyName <- function(code, label, windowName) {
+  raw <- paste(code, label, windowName, sep = "_")
+  raw <- tolower(raw)
+  raw <- gsub("[^a-z0-9]+", "_", raw)
+  raw <- gsub("^_+|_+$", "", raw)
+  raw
+}
+```
+
+## Build the target cohort
+
+``` r
+
+buildIcd10TargetTable <- function(cdm, icd10code, targetStartOffset, targetEndOffset,
+                                  minimumObservationDays) {
+  # Restrict to the selected ICD10 three-digit source code.
+  conditionData <- cdm$condition_occurrence %>%
+    dplyr::filter(substr(.data$condition_source_value, 1, 3) == icd10code) %>%
+    dplyr::collect()
+
+  # Keep the first qualifying diagnosis event per person as the baseline anchor.
+  firstDiagnosis <- conditionData %>%
+    dplyr::group_by(.data$person_id) %>%
+    dplyr::slice_min(order_by = .data$condition_start_date, n = 1, with_ties = FALSE) %>%
+    dplyr::ungroup() %>%
+    dplyr::transmute(
+      person_id = .data$person_id,
+      anchor_date = .data$condition_start_date
+    )
+
+  # Ensure adequate observation time before the anchor date.
+  observationPeriod <- cdm$observation_period %>%
+    dplyr::collect() %>%
+    dplyr::select(
+      person_id,
+      observation_period_start_date,
+      observation_period_end_date
+    )
+
+  eligible <- firstDiagnosis %>%
+    dplyr::left_join(observationPeriod, by = "person_id") %>%
+    dplyr::filter(
+      as.numeric(.data$anchor_date - .data$observation_period_start_date) > minimumObservationDays
+    )
+
+  targetTable <- eligible %>%
+    dplyr::transmute(
+      cohort_definition_id = "target",
+      subject_id = .data$person_id,
+      cohort_start_date = .data$anchor_date + targetStartOffset,
+      cohort_end_date = .data$anchor_date + targetEndOffset
+    ) %>%
+    dplyr::filter(.data$cohort_start_date < .data$cohort_end_date)
+
+  CohortContrast::resolveCohortTableOverlaps(
+    cohortTable = targetTable,
+    cdm = cdm
+  )
+}
+```
+
+## Build the visit-based control cohort
+
+``` r
+
+buildIcd10VisitControl <- function(cdm, targetTable, controlLagDays) {
+  # Shift the target windows backwards to define the control-search anchor.
+  controlSeed <- targetTable %>%
+    dplyr::mutate(
+      cohort_start_date = cohort_start_date - controlLagDays,
+      cohort_end_date = cohort_end_date - controlLagDays
+    )
+
+  cdm <- CDMConnector::insertTable(
+    cdm = cdm,
+    name = "icd10_control_seed",
+    table = controlSeed,
+    overwrite = TRUE,
+    temporary = TRUE
+  )
+
+  controlTable <- cdm$visit_occurrence %>%
+    dplyr::inner_join(cdm$icd10_control_seed, by = c("person_id" = "subject_id")) %>%
+    dplyr::filter(visit_start_date <= cohort_start_date) %>%
+    dplyr::group_by(person_id) %>%
+    # To reduce bias from differential encounter density, align each patient's
+    # control window to begin at the start of the clinical visit closest to the
+    # baseline anchor date, operationalized here as the latest eligible visit
+    # on or before the shifted anchor date.
+    dplyr::slice_max(order_by = visit_start_date, n = 1, with_ties = FALSE) %>%
+    dplyr::transmute(
+      cohort_definition_id = "control",
+      subject_id = .data$person_id,
+      cohort_start_date = .data$visit_start_date,
+      cohort_end_date = .data$visit_start_date +
+        as.numeric(first(controlSeed$cohort_end_date - controlSeed$cohort_start_date))
+    ) %>%
+    dplyr::ungroup() %>%
+    dplyr::collect() %>%
+    dplyr::filter(.data$cohort_start_date < .data$cohort_end_date)
+
+  CohortContrast::resolveCohortTableOverlaps(
+    cohortTable = controlTable,
+    cdm = cdm
+  )
+}
+```
+
+## Keep only the final selected concepts
+
+``` r
+
+trimFinalStudy <- function(data) {
+  # selectedFeatureData stores the concepts retained after statistical
+  # filtering and optional post-processing.
+  finalIds <- unique(data$selectedFeatureData$selectedFeatureIds)
+
+  data$data_features <- data$data_features %>%
+    dplyr::filter(.data$CONCEPT_ID %in% finalIds)
+
+  data$data_patients <- data$data_patients %>%
+    dplyr::filter(.data$CONCEPT_ID %in% finalIds)
+
+  data$complementaryMappingTable <- data$complementaryMappingTable %>%
+    dplyr::filter(
+      .data$CONCEPT_ID %in% finalIds |
+        .data$NEW_CONCEPT_ID %in% finalIds
+    )
+
+  data$selectedFeatureData$selectedFeatures <- data$selectedFeatureData$selectedFeatures %>%
+    dplyr::filter(.data$CONCEPT_ID %in% finalIds)
+  data$selectedFeatureData$selectedFeatureIds <- finalIds
+  data$selectedFeatureData$selectedFeatureNames <- unique(
+    data$selectedFeatureData$selectedFeatures$CONCEPT_NAME
+  )
+  data$trajectoryDataList <- data$selectedFeatureData
+
+  data
+}
+```
+
+## Run one ICD10 code and one observation window
+
+``` r
+
+runIcd10AtlasCase <- function(cdm, icd10code, longDesc, windowConfig,
+                              summaryRoot, scratchRoot) {
+  studyName <- makeSafeStudyName(
+    code = icd10code,
+    label = longDesc,
+    windowName = windowConfig$window_name
+  )
+
+  # Build the target and control cohorts for the selected ICD10 code and
+  # observation window.
+  targetTable <- buildIcd10TargetTable(
+    cdm = cdm,
+    icd10code = icd10code,
+    targetStartOffset = windowConfig$target_start_offset,
+    targetEndOffset = windowConfig$target_end_offset,
+    minimumObservationDays = windowConfig$minimum_observation_days
+  )
+
+  controlTable <- buildIcd10VisitControl(
+    cdm = cdm,
+    targetTable = targetTable,
+    controlLagDays = windowConfig$control_lag_days
+  )
+
+  # Skip extremely small analyses.
+  if (nrow(targetTable) < 100 || nrow(controlTable) < 5) {
+    return(invisible(NULL))
+  }
+
+  # Run CohortContrast in memory first.
+  result <- CohortContrast::CohortContrast(
+    cdm = cdm,
+    targetTable = targetTable,
+    controlTable = controlTable,
+    pathToResults = scratchRoot,
+    domainsIncluded = c(
+      "Drug",
+      "Condition",
+      "Measurement",
+      "Observation",
+      "Procedure",
+      "Visit",
+      "Visit detail",
+      "Death"
+    ),
+    prevalenceCutOff = 1.25,
+    topK = FALSE,
+    presenceFilter = 0.01,
+    getSourceData = FALSE,
+    runChi2YTests = TRUE,
+    runLogitTests = TRUE,
+    createOutputFiles = FALSE,
+    complName = studyName,
+    runRemoveTemporalBias = TRUE,
+    removeTemporalBiasArgs = list(
+      removeIdentified = TRUE,
+      ratio = 1
+    ),
+    runAutomaticHierarchyCombineConcepts = TRUE,
+    automaticHierarchyCombineConceptsArgs = list(
+      abstractionLevel = -1,
+      minDepthAllowed = 0,
+      allowOnlyMinors = TRUE
+    ),
+    runAutomaticCorrelationCombineConcepts = TRUE,
+    automaticCorrelationCombineConceptsArgs = list(
+      abstractionLevel = -1,
+      minCorrelation = 0.7,
+      maxDaysInBetween = 1,
+      heritageDriftAllowed = FALSE
+    )
+  )
+
+  # Keep only the final selected concepts before exporting.
+  result <- trimFinalStudy(result)
+
+  # Save a temporary patient-mode study only so that precomputeSummary() can
+  # generate the final summary-mode folder.
+  CohortContrast:::saveResult(result, scratchRoot)
+
+  CohortContrast::precomputeSummary(
+    studyPath = file.path(scratchRoot, studyName),
+    outputPath = file.path(summaryRoot, studyName),
+    clusterKValues = c(2, 3, 4, 5)
+  )
+
+  # Remove the temporary patient-mode study folder and keep only the summary.
+  unlink(file.path(scratchRoot, studyName), recursive = TRUE, force = TRUE)
+
+  invisible(NULL)
+}
+```
+
+## Run the full atlas generation loop
+
+``` r
+
+# Directory that will keep only the summary-mode outputs.
+summaryRoot <- "icd10_summary_atlas"
+
+# Temporary directory used only while precomputeSummary() is running.
+scratchRoot <- file.path(tempdir(), "cohortcontrast_icd10_scratch")
+
+dir.create(summaryRoot, recursive = TRUE, showWarnings = FALSE)
+dir.create(scratchRoot, recursive = TRUE, showWarnings = FALSE)
+
+conn <- connectAtlasCdm()
+db <- conn$db
+cdm <- conn$cdm
+
+eligibleCodes <- getEligibleIcd10Codes(cdm = cdm, minPatients = 100L)
+
+for (i in seq_len(nrow(eligibleCodes))) {
+  icd10code <- eligibleCodes$icd10code[i]
+  longDesc <- eligibleCodes$long_desc[i]
+
+  for (j in seq_len(nrow(windows))) {
+    runIcd10AtlasCase(
+      cdm = cdm,
+      icd10code = icd10code,
+      longDesc = longDesc,
+      windowConfig = windows[j, ],
+      summaryRoot = summaryRoot,
+      scratchRoot = scratchRoot
+    )
+  }
+}
+
+DBI::dbDisconnect(db)
+```
+
+## Resulting output folders
+
+After the workflow completes, the output directory contains one
+summary-mode study folder per ICD10 code and per observation window.
+
+The final retained studies:
+
+- respect the three configured observation periods
+- use visit-aligned control windows to reduce encounter-density bias
+- include only the concepts that survived the statistical and
+  post-processing pipeline
+- keep only the summary outputs intended for atlas-style browsing

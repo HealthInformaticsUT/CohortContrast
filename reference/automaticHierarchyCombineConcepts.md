@@ -122,9 +122,9 @@ combined$data_features
 #>    CONCEPT_ID   CONCEPT_NAME ABSTRACTION_LEVEL TARGET_SUBJECT_COUNT
 #>         <num>         <char>             <num>                <int>
 #> 1:         10 Parent concept                -1                    2
-#>    CONTROL_SUBJECT_COUNT   TIME_TO_EVENT TARGET_SUBJECT_PREVALENCE
-#>                    <int>          <list>                     <num>
-#> 1:                     2 0,2,0,2,0,2,...                         1
+#>    CONTROL_SUBJECT_COUNT       TIME_TO_EVENT TARGET_SUBJECT_PREVALENCE
+#>                    <int>              <list>                     <num>
+#> 1:                     2 0,2,0,2,0,2,...[24]                         1
 #>    CONTROL_SUBJECT_PREVALENCE PREVALENCE_DIFFERENCE_RATIO  CHI2Y CHI2Y_P_VALUE
 #>                         <num>                       <num> <lgcl>         <num>
 #> 1:                          1                           1  FALSE             1

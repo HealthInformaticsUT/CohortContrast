@@ -30,6 +30,7 @@ and p-values used to flag significant patterns.
 ## Examples
 
 ``` r
+# \donttest{
 if (requireNamespace("nanoparquet", quietly = TRUE) &&
     requireNamespace("Matrix", quietly = TRUE) &&
     requireNamespace("vegan", quietly = TRUE) &&
@@ -60,4 +61,5 @@ if (requireNamespace("nanoparquet", quietly = TRUE) &&
 #> #   n_unique_persons <int>, unique_persons_ids <list>, ngram_time_diff <dbl>,
 #> #   ngram_time <dbl>, observed_count_p_value <dbl>, observed_test <lgl>,
 #> #   persons_count_p_value <dbl>, persons_test <lgl>
+# }
 ```
