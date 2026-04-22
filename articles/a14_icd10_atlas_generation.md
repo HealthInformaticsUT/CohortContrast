@@ -134,6 +134,10 @@ makeSafeStudyName <- function(code, label, windowName) {
 
 buildIcd10TargetTable <- function(cdm, icd10code, targetStartOffset, targetEndOffset,
                                   minimumObservationDays) {
+  targetStartOffset <- as.integer(targetStartOffset)
+  targetEndOffset <- as.integer(targetEndOffset)
+  minimumObservationDays <- as.integer(minimumObservationDays)
+
   # Restrict to the selected ICD10 three-digit source code.
   conditionData <- cdm$condition_occurrence %>%
     dplyr::filter(substr(.data$condition_source_value, 1, 3) == icd10code) %>%
@@ -185,6 +189,11 @@ buildIcd10TargetTable <- function(cdm, icd10code, targetStartOffset, targetEndOf
 ``` r
 
 buildIcd10VisitControl <- function(cdm, targetTable, controlLagDays) {
+  controlLagDays <- as.integer(controlLagDays)
+  followupDays <- as.integer(
+    unique(targetTable$cohort_end_date - targetTable$cohort_start_date)
+  )
+
   # Shift the target windows backwards to define the control-search anchor.
   controlSeed <- targetTable %>%
     dplyr::mutate(
@@ -209,15 +218,22 @@ buildIcd10VisitControl <- function(cdm, targetTable, controlLagDays) {
     # baseline anchor date, operationalized here as the latest eligible visit
     # on or before the shifted anchor date.
     dplyr::slice_max(order_by = visit_start_date, n = 1, with_ties = FALSE) %>%
-    dplyr::transmute(
-      cohort_definition_id = "control",
-      subject_id = .data$person_id,
-      cohort_start_date = .data$visit_start_date,
-      cohort_end_date = .data$visit_start_date +
-        as.numeric(first(controlSeed$cohort_end_date - controlSeed$cohort_start_date))
-    ) %>%
     dplyr::ungroup() %>%
+    dplyr::transmute(
+      subject_id = .data$person_id,
+      cohort_start_date = .data$visit_start_date
+    ) %>%
     dplyr::collect() %>%
+    dplyr::mutate(
+      cohort_definition_id = "control",
+      cohort_end_date = .data$cohort_start_date + followupDays
+    ) %>%
+    dplyr::select(
+      cohort_definition_id,
+      subject_id,
+      cohort_start_date,
+      cohort_end_date
+    ) %>%
     dplyr::filter(.data$cohort_start_date < .data$cohort_end_date)
 
   CohortContrast::resolveCohortTableOverlaps(

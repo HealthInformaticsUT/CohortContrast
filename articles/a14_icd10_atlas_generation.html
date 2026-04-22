@@ -217,6 +217,10 @@ observation periods:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">buildIcd10TargetTable</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">cdm</span>, <span class="va">icd10code</span>, <span class="va">targetStartOffset</span>, <span class="va">targetEndOffset</span>,</span>
 <span>                                  <span class="va">minimumObservationDays</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">targetStartOffset</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="va">targetStartOffset</span><span class="op">)</span></span>
+<span>  <span class="va">targetEndOffset</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="va">targetEndOffset</span><span class="op">)</span></span>
+<span>  <span class="va">minimumObservationDays</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="va">minimumObservationDays</span><span class="op">)</span></span>
+<span></span>
 <span>  <span class="co"># Restrict to the selected ICD10 three-digit source code.</span></span>
 <span>  <span class="va">conditionData</span> <span class="op">&lt;-</span> <span class="va">cdm</span><span class="op">$</span><span class="va">condition_occurrence</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>    <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/substr.html" class="external-link">substr</a></span><span class="op">(</span><span class="va">.data</span><span class="op">$</span><span class="va">condition_source_value</span>, <span class="fl">1</span>, <span class="fl">3</span><span class="op">)</span> <span class="op">==</span> <span class="va">icd10code</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
@@ -267,6 +271,11 @@ observation periods:</p>
 </h2>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">buildIcd10VisitControl</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">cdm</span>, <span class="va">targetTable</span>, <span class="va">controlLagDays</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">controlLagDays</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="va">controlLagDays</span><span class="op">)</span></span>
+<span>  <span class="va">followupDays</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span></span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">targetTable</span><span class="op">$</span><span class="va">cohort_end_date</span> <span class="op">-</span> <span class="va">targetTable</span><span class="op">$</span><span class="va">cohort_start_date</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span></span>
 <span>  <span class="co"># Shift the target windows backwards to define the control-search anchor.</span></span>
 <span>  <span class="va">controlSeed</span> <span class="op">&lt;-</span> <span class="va">targetTable</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>    <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span></span>
@@ -291,15 +300,22 @@ observation periods:</p>
 <span>    <span class="co"># baseline anchor date, operationalized here as the latest eligible visit</span></span>
 <span>    <span class="co"># on or before the shifted anchor date.</span></span>
 <span>    <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/slice.html" class="external-link">slice_max</a></span><span class="op">(</span>order_by <span class="op">=</span> <span class="va">visit_start_date</span>, n <span class="op">=</span> <span class="fl">1</span>, with_ties <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
-<span>    <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/transmute.html" class="external-link">transmute</a></span><span class="op">(</span></span>
-<span>      cohort_definition_id <span class="op">=</span> <span class="st">"control"</span>,</span>
-<span>      subject_id <span class="op">=</span> <span class="va">.data</span><span class="op">$</span><span class="va">person_id</span>,</span>
-<span>      cohort_start_date <span class="op">=</span> <span class="va">.data</span><span class="op">$</span><span class="va">visit_start_date</span>,</span>
-<span>      cohort_end_date <span class="op">=</span> <span class="va">.data</span><span class="op">$</span><span class="va">visit_start_date</span> <span class="op">+</span></span>
-<span>        <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/nth.html" class="external-link">first</a></span><span class="op">(</span><span class="va">controlSeed</span><span class="op">$</span><span class="va">cohort_end_date</span> <span class="op">-</span> <span class="va">controlSeed</span><span class="op">$</span><span class="va">cohort_start_date</span><span class="op">)</span><span class="op">)</span></span>
-<span>    <span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>    <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/group_by.html" class="external-link">ungroup</a></span><span class="op">(</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>    <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/transmute.html" class="external-link">transmute</a></span><span class="op">(</span></span>
+<span>      subject_id <span class="op">=</span> <span class="va">.data</span><span class="op">$</span><span class="va">person_id</span>,</span>
+<span>      cohort_start_date <span class="op">=</span> <span class="va">.data</span><span class="op">$</span><span class="va">visit_start_date</span></span>
+<span>    <span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>    <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/compute.html" class="external-link">collect</a></span><span class="op">(</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>    <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span></span>
+<span>      cohort_definition_id <span class="op">=</span> <span class="st">"control"</span>,</span>
+<span>      cohort_end_date <span class="op">=</span> <span class="va">.data</span><span class="op">$</span><span class="va">cohort_start_date</span> <span class="op">+</span> <span class="va">followupDays</span></span>
+<span>    <span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>    <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span></span>
+<span>      <span class="va">cohort_definition_id</span>,</span>
+<span>      <span class="va">subject_id</span>,</span>
+<span>      <span class="va">cohort_start_date</span>,</span>
+<span>      <span class="va">cohort_end_date</span></span>
+<span>    <span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>    <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">.data</span><span class="op">$</span><span class="va">cohort_start_date</span> <span class="op">&lt;</span> <span class="va">.data</span><span class="op">$</span><span class="va">cohort_end_date</span><span class="op">)</span></span>
 <span></span>
 <span>  <span class="fu">CohortContrast</span><span class="fu">::</span><span class="fu"><a href="../reference/resolveCohortTableOverlaps.html">resolveCohortTableOverlaps</a></span><span class="op">(</span></span>

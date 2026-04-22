@@ -22,22 +22,22 @@ if (requireNamespace("reticulate", quietly = TRUE) &&
   checkPythonDeps()
 }
 #> Configuring Python environment for CohortContrast Viewer...
-#> Using system Python: /opt/homebrew/bin/python3
+#> Using system Python: /Users/markushaug/.virtualenvs/r-cohortcontrast-viewer/bin/python3
+#> Warning: Previous request to `use_python("/Users/markushaug/.virtualenvs/r-cohortcontrast-viewer/bin/python", required = TRUE)` will be ignored. It is superseded by request to `use_python("/Users/markushaug/.virtualenvs/r-cohortcontrast-viewer/bin/python3")
 #> Python configuration complete.
 #> Python version: 3.13
-#> Python path: /opt/homebrew/bin/python3
-#> Missing packages: dash, dash_bootstrap_components, dash_ag_grid, pandas, numpy, plotly, scipy, sklearn, sklearn_extra, diskcache
-#> Run installPythonDeps() to install missing packages.
+#> Python path: /Users/markushaug/.virtualenvs/r-cohortcontrast-viewer/bin/python
+#> All required Python packages are installed.
 #>                                             package installed
-#> dash                                           dash     FALSE
-#> dash_bootstrap_components dash_bootstrap_components     FALSE
-#> dash_ag_grid                           dash_ag_grid     FALSE
-#> pandas                                       pandas     FALSE
-#> numpy                                         numpy     FALSE
-#> plotly                                       plotly     FALSE
-#> scipy                                         scipy     FALSE
-#> sklearn                                     sklearn     FALSE
-#> sklearn_extra                         sklearn_extra     FALSE
-#> diskcache                                 diskcache     FALSE
+#> dash                                           dash      TRUE
+#> dash_bootstrap_components dash_bootstrap_components      TRUE
+#> dash_ag_grid                           dash_ag_grid      TRUE
+#> pandas                                       pandas      TRUE
+#> numpy                                         numpy      TRUE
+#> plotly                                       plotly      TRUE
+#> scipy                                         scipy      TRUE
+#> sklearn                                     sklearn      TRUE
+#> sklearn_extra                         sklearn_extra      TRUE
+#> diskcache                                 diskcache      TRUE
 # }
 ```

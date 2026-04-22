@@ -51,15 +51,15 @@ if (requireNamespace("reticulate", quietly = TRUE) &&
   getPythonInfo()
 }
 #> Configuring Python environment for CohortContrast Viewer...
-#> Using system Python: /opt/homebrew/bin/python3
+#> Using system Python: /Users/markushaug/.virtualenvs/r-cohortcontrast-viewer/bin/python3
 #> Python configuration complete.
 #> Python version: 3.13
-#> Python path: /opt/homebrew/bin/python3
+#> Python path: /Users/markushaug/.virtualenvs/r-cohortcontrast-viewer/bin/python
 #> $python_version
 #> [1] ‘3.13’
 #> 
 #> $pythonPath
-#> [1] "/opt/homebrew/bin/python3"
+#> [1] "/Users/markushaug/.virtualenvs/r-cohortcontrast-viewer/bin/python"
 #> 
 #> $virtualenv
 #> NULL
@@ -68,13 +68,13 @@ if (requireNamespace("reticulate", quietly = TRUE) &&
 #> [1] TRUE
 #> 
 #> $numpy_available
-#> [1] FALSE
+#> [1] TRUE
 #> 
 #> $pandas_available
-#> [1] FALSE
+#> [1] TRUE
 #> 
 #> $dash_available
-#> [1] FALSE
+#> [1] TRUE
 #> 
 # }
 ```

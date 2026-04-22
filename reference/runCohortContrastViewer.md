@@ -85,11 +85,21 @@ if (interactive() &&
   }
 }
 #> Configuring Python environment for CohortContrast Viewer...
-#> Using system Python: /opt/homebrew/bin/python3
+#> Using system Python: /Users/markushaug/.virtualenvs/r-cohortcontrast-viewer/bin/python3
 #> Python configuration complete.
 #> Python version: 3.13
-#> Python path: /opt/homebrew/bin/python3
-#> Missing packages: dash, dash_bootstrap_components, dash_ag_grid, pandas, numpy, plotly, scipy, sklearn, sklearn_extra, diskcache
-#> Run installPythonDeps() to install missing packages.
+#> Python path: /Users/markushaug/.virtualenvs/r-cohortcontrast-viewer/bin/python
+#> All required Python packages are installed.
+#> Starting CohortContrast Viewer...
+#> App directory: /Users/markushaug/UT/R-packages/Develop/CohortContrast/inst/python
+#> Data directory: /Users/markushaug/UT/R-packages/Develop/CohortContrast/inst/example/st/lc500s
+#> Mode: simple
+#> Port: 8050
+#> CohortContrast Viewer is running!
+#> URL: http://127.0.0.1:8050
+#> 
+#> Use stopCohortContrastViewer() to stop the server.
+#> Stopping CohortContrast Viewer...
+#> CohortContrast Viewer stopped successfully.
 # }
 ```
