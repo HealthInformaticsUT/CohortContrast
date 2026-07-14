@@ -1,5 +1,7 @@
 # CohortContrast
 
+[![CRAN status](https://www.r-pkg.org/badges/version/CohortContrast)](https://CRAN.R-project.org/package=CohortContrast)
+
 The goal of CohortContrast is to facilitate the comparison between
 cohorts in specified domains across all OMOP CDM datasets. It enables
 users to analyze and visualize the contrast between target and control
@@ -7,7 +9,14 @@ cohorts effectively.
 
 ## Installation
 
-The development version of the package from GitHub:
+Install the released version from CRAN:
+
+``` r
+
+install.packages("CohortContrast")
+```
+
+The development version remains available from GitHub:
 
 ``` r
 
@@ -19,9 +28,11 @@ devtools::install_github("HealthInformaticsUT/CohortContrast")
 
 For complete setup and workflow code, use:
 
-1.  Project wiki (setup + workflow):
+1.  CRAN package page:
+    <https://CRAN.R-project.org/package=CohortContrast>
+2.  Project wiki (setup + workflow):
     <https://github.com/HealthInformaticsUT/CohortContrast/wiki>
-2.  Package site (function reference + vignettes):
+3.  Package site (function reference + vignettes):
     <https://healthinformaticsut.github.io/CohortContrast/>
 
 If you are running CohortContrast on an air-gapped server, see the wiki

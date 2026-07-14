@@ -35,6 +35,23 @@ data.frame(
 These built-in studies are useful for trying the Viewer and for
 reproducing the examples used throughout the package documentation.
 
+## Installation
+
+Install the released version from CRAN:
+
+``` r
+
+install.packages("CohortContrast")
+```
+
+The development version remains available from GitHub:
+
+``` r
+
+# install.packages("devtools")
+devtools::install_github("HealthInformaticsUT/CohortContrast")
+```
+
 ## Load packages
 
 ``` r
