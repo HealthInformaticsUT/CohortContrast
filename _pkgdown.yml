@@ -1,4 +1,15 @@
 url: https://healthinformaticsut.github.io/CohortContrast/
+navbar:
+  structure:
+    right: [cran, github]
+  components:
+    cran:
+      text: CRAN
+      href: https://CRAN.R-project.org/package=CohortContrast
+    github:
+      icon: fa-github
+      href: https://github.com/HealthInformaticsUT/CohortContrast
+      aria-label: GitHub
 template:
   assets:
     - man/figures
@@ -9,4 +20,3 @@ template:
     border-radius: 0.5rem
     btn-border-radius: 0.25rem
     danger: '#A6081A'
-
