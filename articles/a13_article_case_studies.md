@@ -39,6 +39,93 @@ When the package is installed, these paths can be resolved with
   retained study folders therefore contain only the final concepts that
   passed the statistical selection steps.
 
+## Package versions used for the wiki page
+
+The article case-study outputs were generated in an R package environment
+equivalent to the ICD10 atlas-generation workflow.
+
+| Package | Version |
+|---|---|
+| CohortContrast | 1.0.0 |
+| backports | 1.5.0 |
+| bit | 4.6.0 |
+| bit64 | 4.6.0-1 |
+| blob | 1.2.4 |
+| CDMConnector | 2.2.0 |
+| checkmate | 2.3.3 |
+| cli | 3.6.5 |
+| clipr | 0.8.0 |
+| clock | 0.7.3 |
+| cluster | 2.1.8.1 |
+| codetools | 0.2-20 |
+| CohortConstructor | 0.5.0 |
+| compiler | 4.5.1 |
+| cpp11 | 0.5.2 |
+| crayon | 1.5.3 |
+| data.table | 1.17.8 |
+| DBI | 1.2.3 |
+| dbplyr | 2.5.1 |
+| doParallel | 1.0.17 |
+| dplyr | 1.1.4 |
+| foreach | 1.5.2 |
+| generics | 0.1.4 |
+| glue | 1.8.0 |
+| graphics | 4.5.1 |
+| grDevices | 4.5.1 |
+| grid | 4.5.1 |
+| here | 1.0.2 |
+| hms | 1.1.3 |
+| igraph | 2.1.4 |
+| iterators | 1.0.14 |
+| jsonlite | 2.0.0 |
+| lattice | 0.22-7 |
+| lifecycle | 1.0.4 |
+| lubridate | 1.9.4 |
+| magrittr | 2.0.4 |
+| MASS | 7.3-65 |
+| Matrix | 1.7-3 |
+| methods | 4.5.1 |
+| mgcv | 1.9-3 |
+| nanoparquet | 0.4.3 |
+| nlme | 3.1-168 |
+| omopgenerics | 1.3.0 |
+| parallel | 4.5.1 |
+| PatientProfiles | 1.4.2 |
+| permute | 0.9-8 |
+| pillar | 1.11.0 |
+| pkgconfig | 2.0.3 |
+| plyr | 1.8.9 |
+| png | 0.1-8 |
+| prettyunits | 1.2.0 |
+| progress | 1.2.3 |
+| purrr | 1.1.0 |
+| R6 | 2.6.1 |
+| rappdirs | 0.3.3 |
+| Rcpp | 1.1.0 |
+| RcppTOML | 0.2.3 |
+| readr | 2.1.5 |
+| reshape2 | 1.4.4 |
+| reticulate | 1.44.1 |
+| rlang | 1.1.6 |
+| rprojroot | 2.1.1 |
+| snakecase | 0.11.1 |
+| splines | 4.5.1 |
+| stats | 4.5.1 |
+| stringi | 1.8.7 |
+| stringr | 1.5.2 |
+| tibble | 3.3.0 |
+| tidyr | 1.3.1 |
+| tidyselect | 1.2.1 |
+| timechange | 0.3.0 |
+| tools | 4.5.1 |
+| tzdb | 0.5.0 |
+| utf8 | 1.2.6 |
+| utils | 4.5.1 |
+| vctrs | 0.6.5 |
+| vegan | 2.7-1 |
+| vroom | 1.6.5 |
+| withr | 3.0.2 |
+
 ## Required environment variables
 
 ``` r
