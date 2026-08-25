@@ -454,10 +454,8 @@ runIcd10AtlasCase <- function(cdm, icd10code, longDesc, windowConfig,
     studyPath = file.path(scratchRoot, studyName),
     outputPath = file.path(summaryRoot, studyName),
     clusterKValues = c(2, 3, 4, 5),
-    # Use all retained concepts in clustering, rather than the default top 60.
     conceptLimit = Inf,
-    # Keep clustering on the KMedoids path for the atlas precompute.
-    minibatchKMeansCutoffPatients = .Machine$integer.max
+    minibatchKMeansCutoffPatients = Inf
   )
 
   # Remove the temporary patient-mode study folder and keep only the summary.
