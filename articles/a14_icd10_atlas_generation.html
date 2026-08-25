@@ -52,18 +52,8 @@
 </li>
       </ul>
 <ul class="navbar-nav">
-<li class="nav-item"><form class="form-inline" role="search">
- <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json">
-</form></li>
-<li class="nav-item"><a class="external-link nav-link" href="https://github.com/HealthInformaticsUT/CohortContrast/" aria-label="GitHub"><span class="fa fab fa-github fa-lg"></span></a></li>
-<li class="nav-item dropdown">
-  <button class="nav-link dropdown-toggle" type="button" id="dropdown-lightswitch" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true" aria-label="Light switch"><span class="fa fa-sun"></span></button>
-  <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdown-lightswitch">
-<li><button class="dropdown-item" data-bs-theme-value="light"><span class="fa fa-sun"></span> Light</button></li>
-    <li><button class="dropdown-item" data-bs-theme-value="dark"><span class="fa fa-moon"></span> Dark</button></li>
-    <li><button class="dropdown-item" data-bs-theme-value="auto"><span class="fa fa-adjust"></span> Auto</button></li>
-  </ul>
-</li>
+<li class="nav-item"><a class="external-link nav-link" href="https://CRAN.R-project.org/package=CohortContrast">CRAN</a></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/HealthInformaticsUT/CohortContrast" aria-label="GitHub"><span class="fa fa-github"></span></a></li>
       </ul>
 </div>
 
@@ -757,7 +747,7 @@ equivalent to the article case-study workflow.</p>
 <span>    automaticCorrelationCombineConceptsArgs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>      abstractionLevel <span class="op">=</span> <span class="op">-</span><span class="fl">1</span>,</span>
 <span>      minCorrelation <span class="op">=</span> <span class="fl">0.7</span>,</span>
-<span>      maxDaysInBetween <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>      maxDaysInBetween <span class="op">=</span> <span class="fl">0</span>,</span>
 <span>      heritageDriftAllowed <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span>    <span class="op">)</span></span>
 <span>  <span class="op">)</span></span>
@@ -772,7 +762,11 @@ equivalent to the article case-study workflow.</p>
 <span>  <span class="fu">CohortContrast</span><span class="fu">::</span><span class="fu"><a href="../reference/precomputeSummary.html">precomputeSummary</a></span><span class="op">(</span></span>
 <span>    studyPath <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">scratchRoot</span>, <span class="va">studyName</span><span class="op">)</span>,</span>
 <span>    outputPath <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">summaryRoot</span>, <span class="va">studyName</span><span class="op">)</span>,</span>
-<span>    clusterKValues <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">4</span>, <span class="fl">5</span><span class="op">)</span></span>
+<span>    clusterKValues <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">4</span>, <span class="fl">5</span><span class="op">)</span>,</span>
+<span>    <span class="co"># Use all retained concepts in clustering, rather than the default top 60.</span></span>
+<span>    conceptLimit <span class="op">=</span> <span class="cn">Inf</span>,</span>
+<span>    <span class="co"># Keep clustering on the KMedoids path for the atlas precompute.</span></span>
+<span>    minibatchKMeansCutoffPatients <span class="op">=</span> <span class="va">.Machine</span><span class="op">$</span><span class="va">integer.max</span></span>
 <span>  <span class="op">)</span></span>
 <span></span>
 <span>  <span class="co"># Remove the temporary patient-mode study folder and keep only the summary.</span></span>
@@ -830,6 +824,8 @@ summary-mode study folder per ICD10 code and per observation window.</p>
 bias</li>
 <li>include only the concepts that survived the statistical and
 post-processing pipeline</li>
+<li>precompute clustering with all retained concepts, using KMedoids for
+the configured <code>k = 2, 3, 4, 5</code> solutions</li>
 <li>keep only the summary outputs intended for atlas-style browsing</li>
 </ul>
 </div>

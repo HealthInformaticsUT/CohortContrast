@@ -434,7 +434,7 @@ runIcd10AtlasCase <- function(cdm, icd10code, longDesc, windowConfig,
     automaticCorrelationCombineConceptsArgs = list(
       abstractionLevel = -1,
       minCorrelation = 0.7,
-      maxDaysInBetween = 1,
+      maxDaysInBetween = 0,
       heritageDriftAllowed = FALSE
     )
   )
@@ -449,7 +449,11 @@ runIcd10AtlasCase <- function(cdm, icd10code, longDesc, windowConfig,
   CohortContrast::precomputeSummary(
     studyPath = file.path(scratchRoot, studyName),
     outputPath = file.path(summaryRoot, studyName),
-    clusterKValues = c(2, 3, 4, 5)
+    clusterKValues = c(2, 3, 4, 5),
+    # Use all retained concepts in clustering, rather than the default top 60.
+    conceptLimit = Inf,
+    # Keep clustering on the KMedoids path for the atlas precompute.
+    minibatchKMeansCutoffPatients = .Machine$integer.max
   )
 
   # Remove the temporary patient-mode study folder and keep only the summary.
@@ -508,4 +512,6 @@ The final retained studies:
 - use visit-aligned control windows to reduce encounter-density bias
 - include only the concepts that survived the statistical and
   post-processing pipeline
+- precompute clustering with all retained concepts, using KMedoids for
+  the configured `k = 2, 3, 4, 5` solutions
 - keep only the summary outputs intended for atlas-style browsing
