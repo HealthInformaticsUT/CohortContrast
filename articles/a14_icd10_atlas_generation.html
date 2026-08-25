@@ -763,10 +763,8 @@ equivalent to the article case-study workflow.</p>
 <span>    studyPath <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">scratchRoot</span>, <span class="va">studyName</span><span class="op">)</span>,</span>
 <span>    outputPath <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">summaryRoot</span>, <span class="va">studyName</span><span class="op">)</span>,</span>
 <span>    clusterKValues <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">4</span>, <span class="fl">5</span><span class="op">)</span>,</span>
-<span>    <span class="co"># Use all retained concepts in clustering, rather than the default top 60.</span></span>
 <span>    conceptLimit <span class="op">=</span> <span class="cn">Inf</span>,</span>
-<span>    <span class="co"># Keep clustering on the KMedoids path for the atlas precompute.</span></span>
-<span>    minibatchKMeansCutoffPatients <span class="op">=</span> <span class="va">.Machine</span><span class="op">$</span><span class="va">integer.max</span></span>
+<span>    minibatchKMeansCutoffPatients <span class="op">=</span> <span class="cn">Inf</span></span>
 <span>  <span class="op">)</span></span>
 <span></span>
 <span>  <span class="co"># Remove the temporary patient-mode study folder and keep only the summary.</span></span>
